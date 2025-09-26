@@ -379,22 +379,37 @@ class MunimPencilkitView: ExpoView {
     } else {
       DispatchQueue.main.sync(execute: work)
     }
-    if result.isEmpty, let data = self._lastDrawingData, let drawing = try? PKDrawing(data: data) {
-      return drawing.strokes.map { $0.toDictionary() }
+    
+    // Debug logging to track the issue
+    print("[PencilKit] getAllStrokes() - current: \(result.count), cached: \(_lastStrokeCount), hasCachedData: \(_lastDrawingData != nil)")
+    
+    // If current result is empty but we have cached strokes, use cached data
+    if result.isEmpty && _lastStrokeCount > 0, let data = self._lastDrawingData, let drawing = try? PKDrawing(data: data) {
+      let cachedResult = drawing.strokes.map { $0.toDictionary() }
+      print("[PencilKit] getAllStrokes() - using cached data: \(cachedResult.count) strokes")
+      return cachedResult
     }
+    
+    print("[PencilKit] getAllStrokes() - returning current result: \(result.count) strokes")
     return result
   }
   
   @available(iOS 13.0, *)
   func getStroke(at index: Int) -> [String: Any]? {
-    let strokes = canvasView.drawing.strokes
+    var strokes = canvasView.drawing.strokes
+    if strokes.isEmpty && _lastStrokeCount > 0, let data = self._lastDrawingData, let drawing = try? PKDrawing(data: data) {
+      strokes = drawing.strokes
+    }
     guard index >= 0 && index < strokes.count else { return nil }
     return strokes[index].toDictionary()
   }
   
   @available(iOS 13.0, *)
   func getStrokesInRegion(_ region: CGRect) -> [[String: Any]] {
-    let strokes = canvasView.drawing.strokes
+    var strokes = canvasView.drawing.strokes
+    if strokes.isEmpty && _lastStrokeCount > 0, let data = self._lastDrawingData, let drawing = try? PKDrawing(data: data) {
+      strokes = drawing.strokes
+    }
     return strokes.filter { stroke in
       stroke.renderBounds.intersects(region)
     }.map { $0.toDictionary() }
@@ -402,7 +417,10 @@ class MunimPencilkitView: ExpoView {
   
   @available(iOS 13.0, *)
   func analyzeDrawing() -> [String: Any] {
-    let strokes = canvasView.drawing.strokes
+    var strokes = canvasView.drawing.strokes
+    if strokes.isEmpty && _lastStrokeCount > 0, let data = self._lastDrawingData, let drawing = try? PKDrawing(data: data) {
+      strokes = drawing.strokes
+    }
     var analysis: [String: Any] = [:]
     
     analysis["strokeCount"] = strokes.count
