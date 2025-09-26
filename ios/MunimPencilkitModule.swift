@@ -163,26 +163,36 @@ public class MunimPencilkitModule: Module {
       }
       
       AsyncFunction("exportAsImage") { (view: MunimPencilkitView, scale: Double) -> String? in
-        guard let image = view.exportDrawingAsImage(scale: CGFloat(scale)),
-              let imageData = image.pngData() else {
-          return nil
+        // Try to export drawing image based on drawing bounds; if drawing is empty, fall back to canvas snapshot
+        if let image = view.exportDrawingAsImage(scale: CGFloat(scale)),
+           let imageData = image.pngData() {
+          return imageData.base64EncodedString()
         }
-        return imageData.base64EncodedString()
+        // PNG fallback: snapshot the canvasView contents
+        let renderer = UIGraphicsImageRenderer(bounds: view.canvasView.bounds)
+        let uiImage = renderer.image { ctx in
+          view.canvasView.layer.render(in: ctx.cgContext)
+        }
+        if let fallbackData = uiImage.pngData() {
+          return fallbackData.base64EncodedString()
+        }
+        return nil
       }
       
       AsyncFunction("exportAsPDF") { (view: MunimPencilkitView, scale: Double) -> Data? in
-        guard let image = view.exportDrawingAsImage(scale: CGFloat(scale)) else {
-          return nil
+        var image = view.exportDrawingAsImage(scale: CGFloat(scale))
+        if image == nil {
+          // PDF fallback uses canvas snapshot if drawing image is nil
+          let renderer = UIGraphicsImageRenderer(bounds: view.canvasView.bounds)
+          image = renderer.image { ctx in
+            view.canvasView.layer.render(in: ctx.cgContext)
+          }
         }
-        
+        guard let finalImage = image else { return nil }
         let pdfData = NSMutableData()
-        UIGraphicsBeginPDFContextToData(pdfData, CGRect.zero, nil)
+        UIGraphicsBeginPDFContextToData(pdfData, CGRect(origin: .zero, size: finalImage.size), nil)
         UIGraphicsBeginPDFPage()
-        
-        if let context = UIGraphicsGetCurrentContext() {
-          image.draw(in: CGRect(x: 0, y: 0, width: image.size.width, height: image.size.height))
-        }
-        
+        finalImage.draw(in: CGRect(origin: .zero, size: finalImage.size))
         UIGraphicsEndPDFContext()
         return pdfData as Data
       }

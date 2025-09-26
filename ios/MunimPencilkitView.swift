@@ -256,7 +256,12 @@ class MunimPencilkitView: ExpoView {
   
   func clearDrawing() {
     canvasView.drawing = PKDrawing()
-    onDrawingChanged(["hasContent": false])
+    onDrawingChanged(["hasContent": false, "strokeCount": 0, "bounds": [
+      "x": 0,
+      "y": 0,
+      "width": 0,
+      "height": 0
+    ]])
   }
   
   func undo() {
@@ -282,7 +287,9 @@ class MunimPencilkitView: ExpoView {
   }
   
   func exportDrawingAsImage(scale: CGFloat = 1.0) -> UIImage? {
-    let bounds = canvasView.drawing.bounds.isEmpty ? canvasView.bounds : canvasView.drawing.bounds
+    // Prefer drawing bounds; if empty, return nil to allow higher-level fallbacks
+    guard !canvasView.drawing.bounds.isEmpty else { return nil }
+    let bounds = canvasView.drawing.bounds
     return canvasView.drawing.image(from: bounds, scale: scale)
   }
   
@@ -451,13 +458,19 @@ class MunimPencilkitView: ExpoView {
   @available(iOS 14.0, *)
   func configureScribbleInteraction(enabled: Bool) {
     if #available(iOS 14.0, *) {
-      // Enable/disable scribble interactions
-      canvasView.isUserInteractionEnabled = enabled
+      // Always keep drawing interactions enabled; only add/remove Scribble interaction
+      if canvasView.isUserInteractionEnabled == false {
+        canvasView.isUserInteractionEnabled = true
+      }
       
       // Configure for text input if needed
       if enabled {
-        let interaction = UIScribbleInteraction(delegate: self)
-        canvasView.addInteraction(interaction)
+        // Avoid adding duplicate interactions
+        let hasScribble = canvasView.interactions.contains { $0 is UIScribbleInteraction }
+        if !hasScribble {
+          let interaction = UIScribbleInteraction(delegate: self)
+          canvasView.addInteraction(interaction)
+        }
       } else {
         // Remove existing scribble interactions
         canvasView.interactions.forEach { interaction in
