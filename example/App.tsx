@@ -32,11 +32,12 @@ export default function App() {
   const [currentWidth, setCurrentWidth] = useState(10);
   const [hasDrawingContent, setHasDrawingContent] = useState(false);
   const [strokeCount, setStrokeCount] = useState(0);
-  
+
   // Ink behavior controls
   const [enableInkSmoothing, setEnableInkSmoothing] = useState(true);
   const [enableStrokeRefinement, setEnableStrokeRefinement] = useState(true);
-  const [enableHandwritingRecognition, setEnableHandwritingRecognition] = useState(true);
+  const [enableHandwritingRecognition, setEnableHandwritingRecognition] =
+    useState(true);
   const [naturalDrawingMode, setNaturalDrawingMode] = useState(false);
 
   // Event handlers
@@ -217,32 +218,32 @@ export default function App() {
         <Group name="Ink Behavior Controls">
           <View style={styles.settingRow}>
             <Text style={styles.settingLabel}>Enable Ink Smoothing</Text>
-            <Switch 
-              value={enableInkSmoothing} 
+            <Switch
+              value={enableInkSmoothing}
               onValueChange={setEnableInkSmoothing}
               disabled={naturalDrawingMode}
             />
           </View>
           <View style={styles.settingRow}>
             <Text style={styles.settingLabel}>Enable Stroke Refinement</Text>
-            <Switch 
-              value={enableStrokeRefinement} 
+            <Switch
+              value={enableStrokeRefinement}
               onValueChange={setEnableStrokeRefinement}
               disabled={naturalDrawingMode}
             />
           </View>
           <View style={styles.settingRow}>
             <Text style={styles.settingLabel}>Handwriting Recognition</Text>
-            <Switch 
-              value={enableHandwritingRecognition} 
+            <Switch
+              value={enableHandwritingRecognition}
               onValueChange={setEnableHandwritingRecognition}
               disabled={naturalDrawingMode}
             />
           </View>
           <View style={styles.settingRow}>
             <Text style={styles.settingLabel}>Natural Drawing Mode</Text>
-            <Switch 
-              value={naturalDrawingMode} 
+            <Switch
+              value={naturalDrawingMode}
               onValueChange={(value) => {
                 setNaturalDrawingMode(value);
                 if (value) {
@@ -255,7 +256,8 @@ export default function App() {
             />
           </View>
           <Text style={styles.helpText}>
-            💡 Natural Drawing Mode disables all automatic processing for the most natural drawing experience
+            💡 Natural Drawing Mode disables all automatic processing for the
+            most natural drawing experience
           </Text>
         </Group>
 

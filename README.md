@@ -59,6 +59,7 @@
 - [📦 Installation](#-installation)
 - [⚡ Quick Start](#-quick-start)
 - [🔧 API Reference](#-api-reference)
+- [🎛️ Ink Behavior Controls](#️-ink-behavior-controls)
 - [📖 Usage Examples](#-usage-examples)
 - [🎨 Advanced Features](#-advanced-features)
 - [🔍 Troubleshooting](#-troubleshooting)
@@ -119,6 +120,14 @@
 - 💾 **Memory Efficient**: Smart memory management for large drawings
 - 📊 **Real-time Analytics**: Performance monitoring and optimization suggestions
 - 🎯 **Sub-pixel Precision**: Apple Pencil sub-pixel accuracy
+
+### 🎛️ **Ink Behavior Controls**
+
+- 🖋️ **Ink Smoothing**: Control automatic stroke smoothing for refined appearance
+- ✨ **Stroke Refinement**: Toggle stroke refinement processing for cleaner lines
+- 📝 **Handwriting Recognition**: Enable/disable Scribble handwriting-to-text features
+- 🎨 **Natural Drawing Mode**: Master toggle for unprocessed, authentic drawing experience
+- 🧠 **Smart Tool Selection**: Automatically switches tools and adjusts settings based on mode
 
 ### 🔧 **Developer Experience**
 
@@ -306,6 +315,12 @@ interface MunimPencilkitViewProps {
   toolColor?: string; // Hex color code
   toolWidth?: number; // Tool width in points
 
+  // Ink Behavior Controls
+  enableInkSmoothing?: boolean; // Control automatic stroke smoothing
+  enableStrokeRefinement?: boolean; // Control stroke refinement processing
+  enableHandwritingRecognition?: boolean; // Toggle Scribble handwriting features
+  naturalDrawingMode?: boolean; // Master toggle for natural, unprocessed drawing
+
   // Event Handlers
   onDrawingChanged?: (event) => void;
   onToolChanged?: (event) => void;
@@ -349,6 +364,12 @@ const nearbyStrokes = await canvasRef.current?.findStrokesNear(
 await canvasRef.current?.setTool("pen", "#FF0000", 12);
 const toolInfo = await canvasRef.current?.getToolPickerVisibility();
 
+// Ink Behavior Controls
+await canvasRef.current?.setEnableInkSmoothing(true);
+await canvasRef.current?.setEnableStrokeRefinement(false);
+await canvasRef.current?.setEnableHandwritingRecognition(true);
+await canvasRef.current?.setNaturalDrawingMode(false);
+
 // Scribble Support
 const isAvailable = await canvasRef.current?.isScribbleAvailable();
 await canvasRef.current?.configureScribbleInteraction(true);
@@ -356,6 +377,138 @@ await canvasRef.current?.configureScribbleInteraction(true);
 // Performance Monitoring
 const metrics = await canvasRef.current?.getPerformanceMetrics();
 ```
+
+## 🎛️ Ink Behavior Controls
+
+The library provides granular control over PencilKit's automatic processing features, allowing you to create the perfect drawing experience for your users.
+
+### Understanding the Controls
+
+#### `enableInkSmoothing` (Default: `true`)
+
+Controls PencilKit's automatic stroke smoothing algorithm. When enabled, strokes are automatically smoothed for a more refined appearance.
+
+```typescript
+<MunimPencilkitView
+  enableInkSmoothing={true}  // Smooth, refined strokes
+  enableInkSmoothing={false} // Raw, unprocessed strokes
+/>
+```
+
+#### `enableStrokeRefinement` (Default: `true`)
+
+Toggles stroke refinement processing that cleans up and optimizes stroke paths for better rendering.
+
+```typescript
+<MunimPencilkitView
+  enableStrokeRefinement={true}  // Clean, optimized strokes
+  enableStrokeRefinement={false} // Natural stroke paths
+/>
+```
+
+#### `enableHandwritingRecognition` (Default: `true`)
+
+Controls Scribble handwriting-to-text conversion features. When disabled, handwriting won't be processed for text recognition.
+
+```typescript
+<MunimPencilkitView
+  enableHandwritingRecognition={true}  // Enable Scribble features
+  enableHandwritingRecognition={false} // Disable text recognition
+/>
+```
+
+#### `naturalDrawingMode` (Default: `false`)
+
+**Master toggle** that disables all automatic processing for the most authentic drawing experience. When enabled:
+
+- Automatically disables ink smoothing, stroke refinement, and handwriting recognition
+- Switches to marker tool for natural drawing
+- Adjusts stroke widths for optimal natural rendering
+
+```typescript
+<MunimPencilkitView
+  naturalDrawingMode={true}  // Pure, unprocessed drawing
+  naturalDrawingMode={false} // Processed drawing with all features
+/>
+```
+
+### Smart Tool Selection
+
+The library intelligently manages tool selection based on your settings:
+
+- **Natural Drawing Mode**: Automatically switches to marker tool
+- **Stroke Refinement Disabled**: Adjusts stroke widths for better natural rendering
+- **Handwriting Recognition**: Optimizes tool settings for text input
+
+### Usage Patterns
+
+#### For Digital Artists
+
+```typescript
+<MunimPencilkitView
+  naturalDrawingMode={true}  // Pure artistic expression
+  toolType="marker"          // Automatically selected
+  toolWidth={15}             // Optimized for natural drawing
+/>
+```
+
+#### For Note-Taking Apps
+
+```typescript
+<MunimPencilkitView
+  enableInkSmoothing={true}           // Clean, readable text
+  enableStrokeRefinement={true}       // Optimized for writing
+  enableHandwritingRecognition={true} // Enable Scribble
+  naturalDrawingMode={false}
+/>
+```
+
+#### For Sketching Apps
+
+```typescript
+<MunimPencilkitView
+  enableInkSmoothing={false}          // Raw, expressive strokes
+  enableStrokeRefinement={false}      // Natural sketch appearance
+  enableHandwritingRecognition={false} // Focus on drawing
+  naturalDrawingMode={false}
+/>
+```
+
+### Imperative Control
+
+You can also control these features programmatically:
+
+```typescript
+const canvasRef = useRef<MunimPencilkitViewRef>(null);
+
+// Enable natural drawing mode
+await canvasRef.current?.setNaturalDrawingMode(true);
+
+// Disable specific features
+await canvasRef.current?.setEnableInkSmoothing(false);
+await canvasRef.current?.setEnableStrokeRefinement(false);
+
+// Re-enable handwriting recognition
+await canvasRef.current?.setEnableHandwritingRecognition(true);
+```
+
+### Troubleshooting Ink Behavior
+
+#### "My strokes are being modified as I draw"
+
+- **Solution**: Enable `naturalDrawingMode={true}` or disable `enableInkSmoothing` and `enableStrokeRefinement`
+
+#### "Handwriting recognition is interfering with my drawing"
+
+- **Solution**: Set `enableHandwritingRecognition={false}` or use `naturalDrawingMode={true}`
+
+#### "Strokes look too processed for my art app"
+
+- **Solution**: Use `naturalDrawingMode={true}` for authentic, unprocessed drawing
+
+#### "I want clean text but natural sketches"
+
+- **Solution**: Dynamically toggle settings based on tool selection or user preference
 
 ## 📖 Usage Examples
 
@@ -491,6 +644,96 @@ export default function NoteTakingApp() {
     </View>
   );
 }
+```
+
+### Ink Behavior Control Example
+
+```typescript
+import React, { useRef, useState } from 'react';
+import { View, Switch, Text, StyleSheet } from 'react-native';
+import { MunimPencilkitView, MunimPencilkitViewRef } from 'munim-pencilkit';
+
+export default function InkControlApp() {
+  const canvasRef = useRef<MunimPencilkitViewRef>(null);
+  const [naturalMode, setNaturalMode] = useState(false);
+  const [inkSmoothing, setInkSmoothing] = useState(true);
+  const [strokeRefinement, setStrokeRefinement] = useState(true);
+  const [handwritingRecognition, setHandwritingRecognition] = useState(true);
+
+  const toggleNaturalMode = (value: boolean) => {
+    setNaturalMode(value);
+    if (value) {
+      // Natural mode disables all processing
+      setInkSmoothing(false);
+      setStrokeRefinement(false);
+      setHandwritingRecognition(false);
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      <MunimPencilkitView
+        ref={canvasRef}
+        style={styles.canvas}
+        naturalDrawingMode={naturalMode}
+        enableInkSmoothing={inkSmoothing}
+        enableStrokeRefinement={strokeRefinement}
+        enableHandwritingRecognition={handwritingRecognition}
+        toolType={naturalMode ? "marker" : "pen"}
+        toolWidth={naturalMode ? 15 : 10}
+      />
+
+      <View style={styles.controls}>
+        <Text style={styles.title}>Ink Behavior Controls</Text>
+
+        <View style={styles.controlRow}>
+          <Text>Natural Drawing Mode</Text>
+          <Switch value={naturalMode} onValueChange={toggleNaturalMode} />
+        </View>
+
+        <View style={styles.controlRow}>
+          <Text>Ink Smoothing</Text>
+          <Switch
+            value={inkSmoothing}
+            onValueChange={setInkSmoothing}
+            disabled={naturalMode}
+          />
+        </View>
+
+        <View style={styles.controlRow}>
+          <Text>Stroke Refinement</Text>
+          <Switch
+            value={strokeRefinement}
+            onValueChange={setStrokeRefinement}
+            disabled={naturalMode}
+          />
+        </View>
+
+        <View style={styles.controlRow}>
+          <Text>Handwriting Recognition</Text>
+          <Switch
+            value={handwritingRecognition}
+            onValueChange={setHandwritingRecognition}
+            disabled={naturalMode}
+          />
+        </View>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  canvas: { flex: 1, backgroundColor: 'white' },
+  controls: { padding: 20, backgroundColor: '#f5f5f5' },
+  title: { fontSize: 18, fontWeight: 'bold', marginBottom: 15 },
+  controlRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10
+  },
+});
 ```
 
 ### Professional Drawing with Advanced Features
@@ -655,6 +898,8 @@ For a complete guide to all advanced features, see our [Advanced Features Docume
 2. **Apple Pencil Not Working**: Check that the device supports Apple Pencil and it's paired
 3. **Export Failing**: Verify the canvas has content before attempting to export
 4. **Performance Issues**: Use the performance metrics API to identify bottlenecks
+5. **Strokes Being Modified**: Enable `naturalDrawingMode={true}` or disable ink smoothing/refinement
+6. **Handwriting Recognition Interference**: Disable `enableHandwritingRecognition` for pure drawing apps
 
 ### iOS-Specific Issues
 
