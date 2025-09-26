@@ -286,8 +286,11 @@ class MunimPencilkitView: ExpoView {
         result = self.canvasView.drawing.dataRepresentation()
       }
     }
-    // Fallback to last serialized data if current is empty
+    // Fallback to last serialized data if current is empty but we have cached strokes
     if let data = result, !data.isEmpty { return data }
+    if _lastStrokeCount > 0, let cachedData = _lastDrawingData, !cachedData.isEmpty {
+      return cachedData
+    }
     return _lastDrawingData
   }
 
@@ -301,7 +304,10 @@ class MunimPencilkitView: ExpoView {
         has = !self.canvasView.drawing.strokes.isEmpty
       }
     }
-    return has || _lastStrokeCount > 0
+    // Always prioritize cached state if it indicates content, as PencilKit may temporarily clear strokes during processing
+    let result = has || _lastStrokeCount > 0
+    print("[PencilKit] hasContent() - current: \(has), cached: \(_lastStrokeCount > 0), result: \(result)")
+    return result
   }
   
   func getStrokeCount() -> Int {
@@ -313,7 +319,10 @@ class MunimPencilkitView: ExpoView {
         count = self.canvasView.drawing.strokes.count
       }
     }
-    return max(count, _lastStrokeCount)
+    // Always return the maximum of current and cached count to handle race conditions
+    let result = max(count, _lastStrokeCount)
+    print("[PencilKit] getStrokeCount() - current: \(count), cached: \(_lastStrokeCount), result: \(result)")
+    return result
   }
   
   func getDrawingBoundsStruct() -> [String: CGFloat] {
@@ -325,7 +334,8 @@ class MunimPencilkitView: ExpoView {
         bounds = self.canvasView.drawing.bounds
       }
     }
-    if bounds.isEmpty { bounds = _lastBounds }
+    // Use cached bounds if current bounds are empty but we have cached strokes
+    if bounds.isEmpty && _lastStrokeCount > 0 { bounds = _lastBounds }
     return [
       "x": bounds.origin.x,
       "y": bounds.origin.y,
@@ -718,10 +728,15 @@ extension MunimPencilkitView: PKCanvasViewDelegate {
     let hasContent = !drawing.strokes.isEmpty
     let strokeCount = drawing.strokes.count
     let bounds = drawing.bounds
+    
+    // Debug logging to track state changes
+    print("[PencilKit] Drawing changed - current: hasContent=\(hasContent), strokeCount=\(strokeCount), cached: _lastStrokeCount=\(_lastStrokeCount)")
+    
     // Cache latest snapshot for immediate serialization after change
     self._lastStrokeCount = strokeCount
     self._lastBounds = bounds
     self._lastDrawingData = drawing.dataRepresentation()
+    
     onDrawingChanged([
       "hasContent": hasContent,
       "strokeCount": strokeCount,
