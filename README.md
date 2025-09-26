@@ -395,6 +395,7 @@ const data = await canvasRef.current?.getDrawingData(); // ArrayBuffer (non-null
 ```
 
 Notes:
+
 - If drawing bounds are empty, image/PDF export will fall back to a canvas snapshot (1.1.2+).
 - Ensure `drawingPolicy` and `allowsFingerDrawing` are set to allow your input method.
 
