@@ -16,7 +16,7 @@ public class MunimPencilkitModule: Module {
       return nil
     }
     
-    AsyncFunction("exportDrawingAsData") -> Data? {
+    AsyncFunction("exportDrawingAsData") { () -> Data? in
       // This will be handled by the view's method
       return nil
     }
