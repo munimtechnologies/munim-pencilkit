@@ -33,7 +33,10 @@
     "munim-pencilkit",
     "typescript"
   ],
-  "repository": "https://github.com/munimtechnologies/munim-pencilkit",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/munimtechnologies/munim-pencilkit.git"
+  },
   "bugs": {
     "url": "https://github.com/munimtechnologies/munim-pencilkit/issues"
   },
