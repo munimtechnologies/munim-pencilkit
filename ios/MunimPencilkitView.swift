@@ -25,8 +25,9 @@ extension PKStroke {
       "ty": transform.ty
     ]
     
-    // Add stroke identifier (PKStroke doesn't have UUID, use object identifier)
-    strokeDict["identifier"] = ObjectIdentifier(self).debugDescription
+    // Add stroke identifier based on stroke properties
+    let identifier = "\(renderBounds.origin.x)_\(renderBounds.origin.y)_\(path.creationDate.timeIntervalSince1970)"
+    strokeDict["identifier"] = identifier
     
     return strokeDict
   }
