@@ -27,7 +27,7 @@ extension PKStroke {
     
     // Add stroke UUID if available (iOS 14+)
     if #available(iOS 14.0, *) {
-      strokeDict["uuid"] = uuid.uuidString
+      strokeDict["uuid"] = self.uuid.uuidString
     }
     
     return strokeDict
@@ -45,7 +45,7 @@ extension PKStrokePath {
     // Get all points
     var points: [[String: Any]] = []
     for i in 0..<count {
-      let point = self.point(at: i)
+      let point = self[i]
       points.append(point.toDictionary())
     }
     pathDict["points"] = points
@@ -53,11 +53,19 @@ extension PKStrokePath {
     // Get interpolated points for smoother representation
     if count > 1 {
       var interpolatedPoints: [[String: Any]] = []
-      let step: Float = 1.0 / Float(max(count * 2, 10))
+      let step: Float = 1.0 / Float(Swift.max(count * 2, 10))
       var t: Float = 0.0
       while t <= 1.0 {
-        let interpolatedPoint = self.interpolatedPoint(at: CGFloat(t))
-        interpolatedPoints.append(interpolatedPoint.toDictionary())
+        let interpolatedPoint = self.interpolatedLocation(at: CGFloat(t))
+        interpolatedPoints.append([
+          "location": ["x": interpolatedPoint.x, "y": interpolatedPoint.y],
+          "timeOffset": 0.0,
+          "size": ["width": 1.0, "height": 1.0],
+          "opacity": 1.0,
+          "force": 1.0,
+          "azimuth": 0.0,
+          "altitude": 0.0
+        ])
         t += step
       }
       pathDict["interpolatedPoints"] = interpolatedPoints
@@ -286,7 +294,7 @@ class MunimPencilkitView: ExpoView {
       
       // Calculate average force
       for i in 0..<stroke.path.count {
-        let point = stroke.path.point(at: i)
+        let point = stroke.path[i]
         averageForce += Double(point.force)
         totalForcePoints += 1
       }
@@ -311,7 +319,7 @@ class MunimPencilkitView: ExpoView {
     
     for stroke in strokes {
       for i in 0..<stroke.path.count {
-        let strokePoint = stroke.path.point(at: i)
+        let strokePoint = stroke.path[i]
         let distance = sqrt(pow(strokePoint.location.x - point.x, 2) + pow(strokePoint.location.y - point.y, 2))
         if distance <= threshold {
           nearbyStrokes.append(stroke.toDictionary())
@@ -370,7 +378,7 @@ class MunimPencilkitView: ExpoView {
       toolPicker.setVisible(true, forFirstResponder: canvasView)
       if animated {
         UIView.animate(withDuration: 0.3) {
-          toolPicker.frameObscuredInView(self)
+          let _ = toolPicker.frameObscured
         }
       }
     case "hidden":
@@ -419,7 +427,8 @@ class MunimPencilkitView: ExpoView {
   @available(iOS 14.0, *)
   func isScribbleAvailable() -> Bool {
     if #available(iOS 14.0, *) {
-      return UIScribbleInteraction.isSupported
+      // Check if device supports scribble - iPads typically do
+      return UIDevice.current.userInterfaceIdiom == .pad
     }
     return false
   }
@@ -438,7 +447,7 @@ class MunimPencilkitView: ExpoView {
     if #available(iOS 14.0, *) {
       if let toolPicker = self.toolPicker {
         state["toolPickerVisible"] = toolPicker.isVisible
-        state["toolPickerFrameObscured"] = toolPicker.frameObscuredInView(self) != .zero
+        state["toolPickerFrameObscured"] = toolPicker.frameObscured != .zero
       }
     }
     
@@ -516,19 +525,19 @@ class MunimPencilkitView: ExpoView {
     
     switch toolType {
     case "pen":
-      let inkType: PKInkType = .pen
+      let inkType: PKInk.InkType = .pen
       let defaultColor = color ?? UIColor.black
       let defaultWidth = width ?? 10.0
       tool = PKInkingTool(inkType, color: defaultColor, width: defaultWidth)
       
     case "pencil":
-      let inkType: PKInkType = .pencil
+      let inkType: PKInk.InkType = .pencil
       let defaultColor = color ?? UIColor.black
       let defaultWidth = width ?? 10.0
       tool = PKInkingTool(inkType, color: defaultColor, width: defaultWidth)
       
     case "marker":
-      let inkType: PKInkType = .marker
+      let inkType: PKInk.InkType = .marker
       let defaultColor = color ?? UIColor.yellow
       let defaultWidth = width ?? 20.0
       tool = PKInkingTool(inkType, color: defaultColor, width: defaultWidth)
