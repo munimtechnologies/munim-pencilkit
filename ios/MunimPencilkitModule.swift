@@ -106,10 +106,20 @@ public class MunimPencilkitModule: Module {
       }
       
       // Tool configuration props
-      Prop("toolType") { (view: MunimPencilkitView, toolType: String, color: String?, width: Double?) in
-        let uiColor = color.flatMap { UIColor(hex: $0) }
-        let cgWidth = width.map { CGFloat($0) }
-        view.setTool(toolType, color: uiColor, width: cgWidth)
+      Prop("toolType") { (view: MunimPencilkitView, toolType: String) in
+        // Tool type will be applied when other properties are set
+        view._currentToolType = toolType
+        view.applyToolConfiguration()
+      }
+      
+      Prop("toolColor") { (view: MunimPencilkitView, color: String) in
+        view._currentToolColor = color
+        view.applyToolConfiguration()
+      }
+      
+      Prop("toolWidth") { (view: MunimPencilkitView, width: Double) in
+        view._currentToolWidth = CGFloat(width)
+        view.applyToolConfiguration()
       }
       
       // Drawing data props

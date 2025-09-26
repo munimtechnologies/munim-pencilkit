@@ -128,11 +128,17 @@ class MunimPencilkitView: ExpoView {
   private var _allowsFingerDrawing: Bool = true
   private var _isRulerActive: Bool = false
   private var _drawingPolicy: String = "default"
+  
+  // Tool configuration properties
+  var _currentToolType: String = "pen"
+  var _currentToolColor: String = "#000000"
+  var _currentToolWidth: CGFloat = 10.0
 
   required init(appContext: AppContext? = nil) {
     super.init(appContext: appContext)
     setupCanvasView()
     setupToolPicker()
+    applyToolConfiguration() // Apply default tool configuration
   }
   
   private func setupCanvasView() {
@@ -499,6 +505,11 @@ class MunimPencilkitView: ExpoView {
   }
   
   // MARK: - Tool management
+  
+  func applyToolConfiguration() {
+    let color = UIColor(hex: _currentToolColor)
+    setTool(_currentToolType, color: color, width: _currentToolWidth)
+  }
   
   func setTool(_ toolType: String, color: UIColor?, width: CGFloat?) {
     var tool: PKTool
