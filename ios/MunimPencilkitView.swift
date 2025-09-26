@@ -273,20 +273,51 @@ class MunimPencilkitView: ExpoView {
   }
   
   func getDrawingData() -> Data? {
-    return canvasView.drawing.dataRepresentation()
+    var result: Data?
+    if Thread.isMainThread {
+      result = canvasView.drawing.dataRepresentation()
+    } else {
+      DispatchQueue.main.sync {
+        result = self.canvasView.drawing.dataRepresentation()
+      }
+    }
+    return result
   }
 
   // MARK: - Simple State Accessors
   func hasContent() -> Bool {
-    return !canvasView.drawing.strokes.isEmpty
+    var has = false
+    if Thread.isMainThread {
+      has = !canvasView.drawing.strokes.isEmpty
+    } else {
+      DispatchQueue.main.sync {
+        has = !self.canvasView.drawing.strokes.isEmpty
+      }
+    }
+    return has
   }
   
   func getStrokeCount() -> Int {
-    return canvasView.drawing.strokes.count
+    var count = 0
+    if Thread.isMainThread {
+      count = canvasView.drawing.strokes.count
+    } else {
+      DispatchQueue.main.sync {
+        count = self.canvasView.drawing.strokes.count
+      }
+    }
+    return count
   }
   
   func getDrawingBoundsStruct() -> [String: CGFloat] {
-    let bounds = canvasView.drawing.bounds
+    var bounds = CGRect.zero
+    if Thread.isMainThread {
+      bounds = canvasView.drawing.bounds
+    } else {
+      DispatchQueue.main.sync {
+        bounds = self.canvasView.drawing.bounds
+      }
+    }
     return [
       "x": bounds.origin.x,
       "y": bounds.origin.y,
@@ -320,8 +351,17 @@ class MunimPencilkitView: ExpoView {
   
   @available(iOS 13.0, *)
   func getAllStrokes() -> [[String: Any]] {
-    let strokes = canvasView.drawing.strokes
-    return strokes.map { $0.toDictionary() }
+    var result: [[String: Any]] = []
+    let work = {
+      let strokes = self.canvasView.drawing.strokes
+      result = strokes.map { $0.toDictionary() }
+    }
+    if Thread.isMainThread {
+      work()
+    } else {
+      DispatchQueue.main.sync(execute: work)
+    }
+    return result
   }
   
   @available(iOS 13.0, *)
@@ -662,17 +702,19 @@ class MunimPencilkitView: ExpoView {
 
 extension MunimPencilkitView: PKCanvasViewDelegate {
   func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
-    let hasContent = !canvasView.drawing.strokes.isEmpty
-    let strokeCount = canvasView.drawing.strokes.count
-    
+    // Ensure event is dispatched on main thread with fresh values
+    let drawing = canvasView.drawing
+    let hasContent = !drawing.strokes.isEmpty
+    let strokeCount = drawing.strokes.count
+    let bounds = drawing.bounds
     onDrawingChanged([
       "hasContent": hasContent,
       "strokeCount": strokeCount,
       "bounds": [
-        "x": canvasView.drawing.bounds.origin.x,
-        "y": canvasView.drawing.bounds.origin.y,
-        "width": canvasView.drawing.bounds.size.width,
-        "height": canvasView.drawing.bounds.size.height
+        "x": bounds.origin.x,
+        "y": bounds.origin.y,
+        "width": bounds.size.width,
+        "height": bounds.size.height
       ]
     ])
   }
