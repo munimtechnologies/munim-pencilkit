@@ -124,6 +124,11 @@ class MunimPencilkitView: ExpoView {
   let canvasView = PKCanvasView()
   var toolPicker: PKToolPicker?
   
+  // Cached serialization to reflect content right after stroke ends
+  private var _lastDrawingData: Data?
+  private var _lastStrokeCount: Int = 0
+  private var _lastBounds: CGRect = .zero
+  
   // Event dispatchers for various PencilKit events
   let onDrawingChanged = EventDispatcher()
   let onToolChanged = EventDispatcher()
@@ -281,7 +286,9 @@ class MunimPencilkitView: ExpoView {
         result = self.canvasView.drawing.dataRepresentation()
       }
     }
-    return result
+    // Fallback to last serialized data if current is empty
+    if let data = result, !data.isEmpty { return data }
+    return _lastDrawingData
   }
 
   // MARK: - Simple State Accessors
@@ -294,7 +301,7 @@ class MunimPencilkitView: ExpoView {
         has = !self.canvasView.drawing.strokes.isEmpty
       }
     }
-    return has
+    return has || _lastStrokeCount > 0
   }
   
   func getStrokeCount() -> Int {
@@ -306,7 +313,7 @@ class MunimPencilkitView: ExpoView {
         count = self.canvasView.drawing.strokes.count
       }
     }
-    return count
+    return max(count, _lastStrokeCount)
   }
   
   func getDrawingBoundsStruct() -> [String: CGFloat] {
@@ -318,6 +325,7 @@ class MunimPencilkitView: ExpoView {
         bounds = self.canvasView.drawing.bounds
       }
     }
+    if bounds.isEmpty { bounds = _lastBounds }
     return [
       "x": bounds.origin.x,
       "y": bounds.origin.y,
@@ -360,6 +368,9 @@ class MunimPencilkitView: ExpoView {
       work()
     } else {
       DispatchQueue.main.sync(execute: work)
+    }
+    if result.isEmpty, let data = self._lastDrawingData, let drawing = try? PKDrawing(data: data) {
+      return drawing.strokes.map { $0.toDictionary() }
     }
     return result
   }
@@ -707,6 +718,10 @@ extension MunimPencilkitView: PKCanvasViewDelegate {
     let hasContent = !drawing.strokes.isEmpty
     let strokeCount = drawing.strokes.count
     let bounds = drawing.bounds
+    // Cache latest snapshot for immediate serialization after change
+    self._lastStrokeCount = strokeCount
+    self._lastBounds = bounds
+    self._lastDrawingData = drawing.dataRepresentation()
     onDrawingChanged([
       "hasContent": hasContent,
       "strokeCount": strokeCount,
