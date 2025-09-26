@@ -286,11 +286,23 @@ class MunimPencilkitView: ExpoView {
         result = self.canvasView.drawing.dataRepresentation()
       }
     }
-    // Fallback to last serialized data if current is empty but we have cached strokes
-    if let data = result, !data.isEmpty { return data }
+    
+    // Debug logging
+    print("[PencilKit] getDrawingData() - current: \(result?.count ?? 0) bytes, cached: \(_lastDrawingData?.count ?? 0) bytes, strokeCount: \(_lastStrokeCount)")
+    
+    // If current data is not empty, return it
+    if let data = result, !data.isEmpty {
+      print("[PencilKit] getDrawingData() - returning current data: \(data.count) bytes")
+      return data
+    }
+    
+    // If current data is empty but we have cached strokes, use cached data
     if _lastStrokeCount > 0, let cachedData = _lastDrawingData, !cachedData.isEmpty {
+      print("[PencilKit] getDrawingData() - using cached data: \(cachedData.count) bytes")
       return cachedData
     }
+    
+    print("[PencilKit] getDrawingData() - returning fallback data: \(_lastDrawingData?.count ?? 0) bytes")
     return _lastDrawingData
   }
 
@@ -369,11 +381,14 @@ class MunimPencilkitView: ExpoView {
   
   @available(iOS 13.0, *)
   func getAllStrokes() -> [[String: Any]] {
+    var currentStrokes: [PKStroke] = []
     var result: [[String: Any]] = []
+    
     let work = {
-      let strokes = self.canvasView.drawing.strokes
-      result = strokes.map { $0.toDictionary() }
+      currentStrokes = self.canvasView.drawing.strokes
+      result = currentStrokes.map { $0.toDictionary() }
     }
+    
     if Thread.isMainThread {
       work()
     } else {
@@ -381,13 +396,20 @@ class MunimPencilkitView: ExpoView {
     }
     
     // Debug logging to track the issue
-    print("[PencilKit] getAllStrokes() - current: \(result.count), cached: \(_lastStrokeCount), hasCachedData: \(_lastDrawingData != nil)")
+    print("[PencilKit] getAllStrokes() - current: \(currentStrokes.count), cached: \(_lastStrokeCount), hasCachedData: \(_lastDrawingData != nil)")
     
-    // If current result is empty but we have cached strokes, use cached data
-    if result.isEmpty && _lastStrokeCount > 0, let data = self._lastDrawingData, let drawing = try? PKDrawing(data: data) {
-      let cachedResult = drawing.strokes.map { $0.toDictionary() }
-      print("[PencilKit] getAllStrokes() - using cached data: \(cachedResult.count) strokes")
-      return cachedResult
+    // If current strokes are empty but we have cached strokes, use cached data
+    if currentStrokes.isEmpty && _lastStrokeCount > 0 {
+      if let data = self._lastDrawingData, !data.isEmpty {
+        do {
+          let drawing = try PKDrawing(data: data)
+          let cachedResult = drawing.strokes.map { $0.toDictionary() }
+          print("[PencilKit] getAllStrokes() - using cached data: \(cachedResult.count) strokes")
+          return cachedResult
+        } catch {
+          print("[PencilKit] getAllStrokes() - failed to parse cached data: \(error)")
+        }
+      }
     }
     
     print("[PencilKit] getAllStrokes() - returning current result: \(result.count) strokes")
@@ -397,9 +419,19 @@ class MunimPencilkitView: ExpoView {
   @available(iOS 13.0, *)
   func getStroke(at index: Int) -> [String: Any]? {
     var strokes = canvasView.drawing.strokes
-    if strokes.isEmpty && _lastStrokeCount > 0, let data = self._lastDrawingData, let drawing = try? PKDrawing(data: data) {
-      strokes = drawing.strokes
+    
+    // If current strokes are empty but we have cached strokes, use cached data
+    if strokes.isEmpty && _lastStrokeCount > 0 {
+      if let data = self._lastDrawingData, !data.isEmpty {
+        do {
+          let drawing = try PKDrawing(data: data)
+          strokes = drawing.strokes
+        } catch {
+          print("[PencilKit] getStroke() - failed to parse cached data: \(error)")
+        }
+      }
     }
+    
     guard index >= 0 && index < strokes.count else { return nil }
     return strokes[index].toDictionary()
   }
@@ -407,9 +439,19 @@ class MunimPencilkitView: ExpoView {
   @available(iOS 13.0, *)
   func getStrokesInRegion(_ region: CGRect) -> [[String: Any]] {
     var strokes = canvasView.drawing.strokes
-    if strokes.isEmpty && _lastStrokeCount > 0, let data = self._lastDrawingData, let drawing = try? PKDrawing(data: data) {
-      strokes = drawing.strokes
+    
+    // If current strokes are empty but we have cached strokes, use cached data
+    if strokes.isEmpty && _lastStrokeCount > 0 {
+      if let data = self._lastDrawingData, !data.isEmpty {
+        do {
+          let drawing = try PKDrawing(data: data)
+          strokes = drawing.strokes
+        } catch {
+          print("[PencilKit] getStrokesInRegion() - failed to parse cached data: \(error)")
+        }
+      }
     }
+    
     return strokes.filter { stroke in
       stroke.renderBounds.intersects(region)
     }.map { $0.toDictionary() }
@@ -418,8 +460,17 @@ class MunimPencilkitView: ExpoView {
   @available(iOS 13.0, *)
   func analyzeDrawing() -> [String: Any] {
     var strokes = canvasView.drawing.strokes
-    if strokes.isEmpty && _lastStrokeCount > 0, let data = self._lastDrawingData, let drawing = try? PKDrawing(data: data) {
-      strokes = drawing.strokes
+    
+    // If current strokes are empty but we have cached strokes, use cached data
+    if strokes.isEmpty && _lastStrokeCount > 0 {
+      if let data = self._lastDrawingData, !data.isEmpty {
+        do {
+          let drawing = try PKDrawing(data: data)
+          strokes = drawing.strokes
+        } catch {
+          print("[PencilKit] analyzeDrawing() - failed to parse cached data: \(error)")
+        }
+      }
     }
     var analysis: [String: Any] = [:]
     
