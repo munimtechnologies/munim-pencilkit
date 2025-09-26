@@ -900,6 +900,7 @@ For a complete guide to all advanced features, see our [Advanced Features Docume
 4. **Performance Issues**: Use the performance metrics API to identify bottlenecks
 5. **Strokes Being Modified**: Enable `naturalDrawingMode={true}` or disable ink smoothing/refinement
 6. **Handwriting Recognition Interference**: Disable `enableHandwritingRecognition` for pure drawing apps
+7. **Empty Strokes or Null Serialization/Export (iOS)**: Update to `munim-pencilkit@1.1.2+`. A prior issue could prevent strokes from registering when disabling handwriting recognition. Version 1.1.2 also adds PNG/PDF fallbacks to snapshot the canvas when drawing bounds are empty.
 
 ### iOS-Specific Issues
 
