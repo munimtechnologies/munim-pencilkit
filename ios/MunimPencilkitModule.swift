@@ -161,6 +161,19 @@ public class MunimPencilkitModule: Module {
       AsyncFunction("getDrawingData") { (view: MunimPencilkitView) -> Data? in
         return view.getDrawingData()
       }
+
+      // View State Accessors
+      AsyncFunction("hasContent") { (view: MunimPencilkitView) -> Bool in
+        return view.hasContent()
+      }
+      
+      AsyncFunction("getStrokeCount") { (view: MunimPencilkitView) -> Int in
+        return view.getStrokeCount()
+      }
+      
+      AsyncFunction("getDrawingBounds") { (view: MunimPencilkitView) -> [String: CGFloat] in
+        return view.getDrawingBoundsStruct()
+      }
       
       AsyncFunction("exportAsImage") { (view: MunimPencilkitView, scale: Double) -> String? in
         // Try to export drawing image based on drawing bounds; if drawing is empty, fall back to canvas snapshot

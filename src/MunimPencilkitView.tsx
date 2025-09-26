@@ -99,18 +99,22 @@ const MunimPencilkitView = React.forwardRef<
 
     // View State
     async hasContent(): Promise<boolean> {
-      // This would need to be implemented in the native side or derived from events
-      return false;
+      return (await nativeViewRef.current?.hasContent()) || false;
     },
 
     async getStrokeCount(): Promise<number> {
-      // This would need to be implemented in the native side or derived from events
-      return 0;
+      return (await nativeViewRef.current?.getStrokeCount()) || 0;
     },
 
     async getDrawingBounds(): Promise<PKDrawingBounds> {
-      // This would need to be implemented in the native side
-      return { x: 0, y: 0, width: 0, height: 0 };
+      return (
+        (await nativeViewRef.current?.getDrawingBounds()) || {
+          x: 0,
+          y: 0,
+          width: 0,
+          height: 0,
+        }
+      );
     },
 
     // Zoom and Pan - These would need native implementation

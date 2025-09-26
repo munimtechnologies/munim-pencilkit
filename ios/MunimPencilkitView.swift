@@ -275,6 +275,25 @@ class MunimPencilkitView: ExpoView {
   func getDrawingData() -> Data? {
     return canvasView.drawing.dataRepresentation()
   }
+
+  // MARK: - Simple State Accessors
+  func hasContent() -> Bool {
+    return !canvasView.drawing.strokes.isEmpty
+  }
+  
+  func getStrokeCount() -> Int {
+    return canvasView.drawing.strokes.count
+  }
+  
+  func getDrawingBoundsStruct() -> [String: CGFloat] {
+    let bounds = canvasView.drawing.bounds
+    return [
+      "x": bounds.origin.x,
+      "y": bounds.origin.y,
+      "width": bounds.size.width,
+      "height": bounds.size.height
+    ]
+  }
   
   func loadDrawingData(_ data: Data) {
     do {
