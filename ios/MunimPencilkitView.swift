@@ -25,10 +25,8 @@ extension PKStroke {
       "ty": transform.ty
     ]
     
-    // Add stroke UUID if available (iOS 14+)
-    if #available(iOS 14.0, *) {
-      strokeDict["uuid"] = self.uuid.uuidString
-    }
+    // Add stroke identifier (PKStroke doesn't have UUID, use object identifier)
+    strokeDict["identifier"] = ObjectIdentifier(self).debugDescription
     
     return strokeDict
   }
@@ -378,7 +376,7 @@ class MunimPencilkitView: ExpoView {
       toolPicker.setVisible(true, forFirstResponder: canvasView)
       if animated {
         UIView.animate(withDuration: 0.3) {
-          let _ = toolPicker.frameObscured
+          let _ = toolPicker.frameObscured(in: self)
         }
       }
     case "hidden":
@@ -447,7 +445,7 @@ class MunimPencilkitView: ExpoView {
     if #available(iOS 14.0, *) {
       if let toolPicker = self.toolPicker {
         state["toolPickerVisible"] = toolPicker.isVisible
-        state["toolPickerFrameObscured"] = toolPicker.frameObscured != .zero
+        state["toolPickerFrameObscured"] = !toolPicker.frameObscured(in: self).isEmpty
       }
     }
     
