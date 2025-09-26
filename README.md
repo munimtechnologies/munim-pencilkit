@@ -378,6 +378,26 @@ await canvasRef.current?.configureScribbleInteraction(true);
 const metrics = await canvasRef.current?.getPerformanceMetrics();
 ```
 
+### Content & Serialization Helpers (1.1.3+)
+
+The following helpers report real-time canvas content and bounds directly from the native view:
+
+```typescript
+// Content state
+const hasContent = await canvasRef.current?.hasContent();
+const strokeCount = await canvasRef.current?.getStrokeCount();
+
+// Drawing bounds (in view coordinates)
+const bounds = await canvasRef.current?.getDrawingBounds();
+
+// Serialization
+const data = await canvasRef.current?.getDrawingData(); // ArrayBuffer (non-null when content exists)
+```
+
+Notes:
+- If drawing bounds are empty, image/PDF export will fall back to a canvas snapshot (1.1.2+).
+- Ensure `drawingPolicy` and `allowsFingerDrawing` are set to allow your input method.
+
 ## 🎛️ Ink Behavior Controls
 
 The library provides granular control over PencilKit's automatic processing features, allowing you to create the perfect drawing experience for your users.
@@ -901,6 +921,7 @@ For a complete guide to all advanced features, see our [Advanced Features Docume
 5. **Strokes Being Modified**: Enable `naturalDrawingMode={true}` or disable ink smoothing/refinement
 6. **Handwriting Recognition Interference**: Disable `enableHandwritingRecognition` for pure drawing apps
 7. **Empty Strokes or Null Serialization/Export (iOS)**: Update to `munim-pencilkit@1.1.2+`. A prior issue could prevent strokes from registering when disabling handwriting recognition. Version 1.1.2 also adds PNG/PDF fallbacks to snapshot the canvas when drawing bounds are empty.
+8. **Need to check content programmatically**: Use `hasContent()`, `getStrokeCount()`, and `getDrawingBounds()` (available in `1.1.3+`).
 
 ### iOS-Specific Issues
 
