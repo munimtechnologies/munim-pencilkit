@@ -332,6 +332,274 @@ export default function App() {
             </View>
           ))}
         </Group>
+
+        {/* Advanced Features */}
+        <Group name="Advanced Stroke Analysis">
+          <View style={styles.buttonRow}>
+            <Button
+              title="Analyze Drawing"
+              onPress={async () => {
+                try {
+                  const analysis = await pencilKitRef.current?.analyzeDrawing();
+                  Alert.alert(
+                    "Drawing Analysis",
+                    `Strokes: ${analysis?.strokeCount || 0}\nPoints: ${analysis?.totalPoints || 0}\nAvg Force: ${(analysis?.averageForce || 0).toFixed(2)}`
+                  );
+                } catch (error) {
+                  console.log("Analysis error:", error);
+                }
+              }}
+              color="#9B59B6"
+              disabled={!hasDrawingContent}
+            />
+            <Button
+              title="Get All Strokes"
+              onPress={async () => {
+                try {
+                  const strokes = await pencilKitRef.current?.getAllStrokes();
+                  Alert.alert(
+                    "Stroke Data",
+                    `Found ${strokes?.length || 0} strokes\n${strokes?.[0] ? `First stroke has ${strokes[0].path?.points?.length || 0} points` : "No stroke data"}`
+                  );
+                } catch (error) {
+                  console.log("Stroke analysis error:", error);
+                }
+              }}
+              color="#3498DB"
+              disabled={!hasDrawingContent}
+            />
+          </View>
+        </Group>
+
+        {/* Content Version & Compatibility */}
+        <Group name="Content Version & Compatibility">
+          <Button
+            title="Check Version Support"
+            onPress={async () => {
+              try {
+                const versions =
+                  await pencilKitRef.current?.getSupportedContentVersions();
+                const current = await pencilKitRef.current?.getContentVersion();
+                Alert.alert(
+                  "Version Info",
+                  `Current: ${current}\nSupported: ${versions?.join(", ") || "Unknown"}`
+                );
+              } catch (error) {
+                console.log("Version check error:", error);
+              }
+            }}
+            color="#E74C3C"
+          />
+        </Group>
+
+        {/* Advanced Tool Picker */}
+        <Group name="Advanced Tool Picker Controls">
+          <View style={styles.buttonRow}>
+            <Button
+              title="Show Animated"
+              onPress={async () => {
+                await pencilKitRef.current?.setToolPickerVisibility(
+                  "visible",
+                  true
+                );
+              }}
+              color="#27AE60"
+            />
+            <Button
+              title="Hide Animated"
+              onPress={async () => {
+                await pencilKitRef.current?.setToolPickerVisibility(
+                  "hidden",
+                  true
+                );
+              }}
+              color="#E67E22"
+            />
+            <Button
+              title="Auto Mode"
+              onPress={async () => {
+                await pencilKitRef.current?.setToolPickerVisibility(
+                  "auto",
+                  true
+                );
+              }}
+              color="#8E44AD"
+            />
+          </View>
+        </Group>
+
+        {/* Scribble Support */}
+        <Group name="Scribble Support">
+          <View style={styles.buttonRow}>
+            <Button
+              title="Enable Scribble"
+              onPress={async () => {
+                try {
+                  const available =
+                    await pencilKitRef.current?.isScribbleAvailable();
+                  if (available) {
+                    await pencilKitRef.current?.configureScribbleInteraction(
+                      true
+                    );
+                    Alert.alert("Success", "Scribble interaction enabled!");
+                  } else {
+                    Alert.alert(
+                      "Not Available",
+                      "Scribble is not supported on this device"
+                    );
+                  }
+                } catch (error) {
+                  Alert.alert("Error", "Failed to configure Scribble");
+                }
+              }}
+              color="#1ABC9C"
+            />
+            <Button
+              title="Check Availability"
+              onPress={async () => {
+                try {
+                  const available =
+                    await pencilKitRef.current?.isScribbleAvailable();
+                  Alert.alert(
+                    "Scribble Support",
+                    available
+                      ? "✅ Scribble is available"
+                      : "❌ Scribble is not available"
+                  );
+                } catch (error) {
+                  Alert.alert("Error", "Failed to check Scribble availability");
+                }
+              }}
+              color="#F39C12"
+            />
+          </View>
+        </Group>
+
+        {/* Advanced Touch Events */}
+        <Group name="Advanced Touch & Gestures">
+          <View style={styles.buttonRow}>
+            <Button
+              title="Enable Advanced Touch"
+              onPress={async () => {
+                await pencilKitRef.current?.handleAdvancedTouchEvents(true);
+                Alert.alert(
+                  "Enabled",
+                  "Try double-tapping or long-pressing on the canvas!"
+                );
+              }}
+              color="#9B59B6"
+            />
+            <Button
+              title="Get Responder State"
+              onPress={async () => {
+                try {
+                  const state = await pencilKitRef.current?.getResponderState();
+                  Alert.alert(
+                    "Responder State",
+                    `First Responder: ${state?.isFirstResponder ? "Yes" : "No"}\nFinger Drawing: ${state?.allowsFingerDrawing ? "Yes" : "No"}\nRuler: ${state?.isRulerActive ? "Active" : "Inactive"}`
+                  );
+                } catch (error) {
+                  Alert.alert("Error", "Failed to get responder state");
+                }
+              }}
+              color="#E74C3C"
+            />
+          </View>
+        </Group>
+
+        {/* Performance & Analytics */}
+        <Group name="Performance & Analytics">
+          <View style={styles.buttonRow}>
+            <Button
+              title="Performance Metrics"
+              onPress={async () => {
+                try {
+                  const metrics =
+                    await pencilKitRef.current?.getPerformanceMetrics();
+                  Alert.alert(
+                    "Performance Report",
+                    `Complexity: ${metrics?.strokeComplexity || "Unknown"}\nMemory: ${((metrics?.memoryUsage || 0) / 1024).toFixed(1)}KB\n${metrics?.recommendedOptimizations?.length > 0 ? `Suggestions: ${metrics.recommendedOptimizations.join(", ")}` : "No optimizations needed"}`
+                  );
+                } catch (error) {
+                  Alert.alert("Error", "Failed to get performance metrics");
+                }
+              }}
+              color="#34495E"
+              disabled={!hasDrawingContent}
+            />
+            <Button
+              title="Find Nearby Strokes"
+              onPress={async () => {
+                try {
+                  // Find strokes near center of canvas
+                  const nearbyStrokes =
+                    await pencilKitRef.current?.findStrokesNear(
+                      { x: 150, y: 150 },
+                      50
+                    );
+                  Alert.alert(
+                    "Nearby Strokes",
+                    `Found ${nearbyStrokes?.length || 0} strokes within 50px of center`
+                  );
+                } catch (error) {
+                  Alert.alert("Error", "Failed to find nearby strokes");
+                }
+              }}
+              color="#16A085"
+              disabled={!hasDrawingContent}
+            />
+          </View>
+        </Group>
+
+        {/* Advanced Export Options */}
+        <Group name="Advanced Export & Analysis">
+          <Text style={styles.infoText}>
+            Advanced features for professional drawing applications
+          </Text>
+          <View style={styles.buttonRow}>
+            <Button
+              title="Full Statistics"
+              onPress={async () => {
+                try {
+                  const stats =
+                    await pencilKitRef.current?.getDrawingStatistics();
+                  const jsonStats = JSON.stringify(stats, null, 2);
+                  console.log("Drawing Statistics:", jsonStats);
+                  Alert.alert(
+                    "Statistics",
+                    "Check console for detailed drawing statistics"
+                  );
+                } catch (error) {
+                  Alert.alert("Error", "Failed to get drawing statistics");
+                }
+              }}
+              color="#2980B9"
+              disabled={!hasDrawingContent}
+            />
+            <Button
+              title="Region Analysis"
+              onPress={async () => {
+                try {
+                  const regionStrokes =
+                    await pencilKitRef.current?.getStrokesInRegion({
+                      x: 0,
+                      y: 0,
+                      width: 150,
+                      height: 150,
+                    });
+                  Alert.alert(
+                    "Region Analysis",
+                    `Found ${regionStrokes?.length || 0} strokes in top-left quadrant`
+                  );
+                } catch (error) {
+                  Alert.alert("Error", "Failed to analyze region");
+                }
+              }}
+              color="#8E44AD"
+              disabled={!hasDrawingContent}
+            />
+          </View>
+        </Group>
       </ScrollView>
     </SafeAreaView>
   );

@@ -121,6 +121,159 @@ const MunimPencilkitView = React.forwardRef<
     async resumeDrawing(): Promise<void> {
       // To be implemented
     },
+
+    // MARK: - Advanced Stroke Inspection
+    async getAllStrokes(): Promise<any[]> {
+      return nativeViewRef.current?.getAllStrokes() || [];
+    },
+
+    async getStroke(index: number): Promise<any> {
+      return nativeViewRef.current?.getStroke(index);
+    },
+
+    async getStrokesInRegion(region: any): Promise<any[]> {
+      return (
+        nativeViewRef.current?.getStrokesInRegion(
+          region.x,
+          region.y,
+          region.width,
+          region.height
+        ) || []
+      );
+    },
+
+    async analyzeDrawing(): Promise<any> {
+      return nativeViewRef.current?.analyzeDrawing() || {};
+    },
+
+    async findStrokesNear(
+      point: { x: number; y: number },
+      threshold = 20.0
+    ): Promise<any[]> {
+      return (
+        nativeViewRef.current?.findStrokesNear(point.x, point.y, threshold) ||
+        []
+      );
+    },
+
+    // MARK: - Content Version Management
+    async getContentVersion(): Promise<any> {
+      return nativeViewRef.current?.getContentVersion() || 1;
+    },
+
+    async setContentVersion(version: any): Promise<void> {
+      return nativeViewRef.current?.setContentVersion(version);
+    },
+
+    async getSupportedContentVersions(): Promise<any[]> {
+      return nativeViewRef.current?.getSupportedContentVersions() || [1];
+    },
+
+    // MARK: - Advanced Tool Picker
+    async setToolPickerVisibility(
+      visibility: any,
+      animated = true
+    ): Promise<void> {
+      return nativeViewRef.current?.setToolPickerVisibility(
+        visibility,
+        animated
+      );
+    },
+
+    async getToolPickerVisibility(): Promise<any> {
+      return nativeViewRef.current?.getToolPickerVisibility() || "hidden";
+    },
+
+    async getToolPickerInfo(): Promise<any> {
+      const visibility = await this.getToolPickerVisibility();
+      return {
+        visibility,
+        isVisible: visibility === "visible",
+        frameObscured: false,
+        animated: true,
+      };
+    },
+
+    // MARK: - Scribble Support
+    async configureScribbleInteraction(enabled: boolean): Promise<void> {
+      return nativeViewRef.current?.configureScribbleInteraction(enabled);
+    },
+
+    async isScribbleAvailable(): Promise<boolean> {
+      return nativeViewRef.current?.isScribbleAvailable() || false;
+    },
+
+    async getScribbleConfiguration(): Promise<any> {
+      const available = await this.isScribbleAvailable();
+      return {
+        enabled: false,
+        available,
+        shouldDelayFocus: false,
+      };
+    },
+
+    // MARK: - Advanced Responder State
+    async getResponderState(): Promise<any> {
+      return nativeViewRef.current?.getResponderState() || {};
+    },
+
+    async handleAdvancedTouchEvents(enabled: boolean): Promise<void> {
+      return nativeViewRef.current?.handleAdvancedTouchEvents(enabled);
+    },
+
+    // MARK: - Advanced Drawing Features
+    async createStrokeFromPoints(options: any): Promise<boolean> {
+      return (
+        nativeViewRef.current?.createStrokeFromPoints(
+          options.points,
+          options.inkType,
+          options.color,
+          options.width
+        ) || false
+      );
+    },
+
+    async replaceStroke(index: number, newStroke: any): Promise<boolean> {
+      return nativeViewRef.current?.replaceStroke(index, newStroke) || false;
+    },
+
+    async getDrawingStatistics(): Promise<any> {
+      return nativeViewRef.current?.getDrawingStatistics() || {};
+    },
+
+    async searchStrokes(options: any): Promise<any[]> {
+      if (options.region) {
+        return this.getStrokesInRegion(options.region);
+      } else if (options.point) {
+        return this.findStrokesNear(options.point, options.threshold);
+      } else {
+        return this.getAllStrokes();
+      }
+    },
+
+    // MARK: - Performance & Analytics
+    async optimizeDrawing(): Promise<void> {
+      // Could implement drawing optimization logic
+    },
+
+    async getPerformanceMetrics(): Promise<any> {
+      const stats = await this.getDrawingStatistics();
+      const strokeCount = stats.strokeCount || 0;
+
+      let complexity: "low" | "medium" | "high" = "low";
+      if (strokeCount > 100) complexity = "medium";
+      if (strokeCount > 500) complexity = "high";
+
+      return {
+        renderTime: 0, // Would need native implementation
+        strokeComplexity: complexity,
+        memoryUsage: strokeCount * 1024, // Rough estimate
+        recommendedOptimizations:
+          complexity === "high"
+            ? ["Consider using layers", "Optimize stroke density"]
+            : [],
+      };
+    },
   }));
 
   return <NativeView {...props} />;
