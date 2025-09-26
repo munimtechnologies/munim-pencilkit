@@ -1,0 +1,44 @@
+{
+  "name": "munim-pencilkit",
+  "version": "0.1.0",
+  "description": "Pencilkit for expo reactnative",
+  "main": "build/index.js",
+  "types": "build/index.d.ts",
+  "scripts": {
+    "build": "expo-module build",
+    "clean": "expo-module clean",
+    "lint": "expo-module lint",
+    "test": "expo-module test",
+    "prepare": "expo-module prepare",
+    "prepublishOnly": "expo-module prepublishOnly",
+    "expo-module": "expo-module",
+    "open:ios": "xed example/ios",
+    "open:android": "open -a \"Android Studio\" example/android"
+  },
+  "keywords": [
+    "react-native",
+    "expo",
+    "munim-pencilkit",
+    "MunimPencilkit"
+  ],
+  "repository": "https://github.com/sheehanmunim/munim-pencilkit",
+  "bugs": {
+    "url": "https://github.com/sheehanmunim/munim-pencilkit/issues"
+  },
+  "author": "sheehanmunim <sheehanmunim@gmail.com> (https://github.com/sheehanmunim)",
+  "license": "MIT",
+  "homepage": "https://github.com/sheehanmunim/munim-pencilkit#readme",
+  "devDependencies": {
+    "@types/react": "~19.1.0",
+    "@types/react-native": "^0.72.8",
+    "expo": "^54.0.10",
+    "expo-module-scripts": "^5.0.7",
+    "react-native": "0.81.4",
+    "typescript": "^5.9.2"
+  },
+  "peerDependencies": {
+    "expo": "*",
+    "react": "*",
+    "react-native": "*"
+  }
+}
