@@ -122,6 +122,23 @@ public class MunimPencilkitModule: Module {
         view.applyToolConfiguration()
       }
       
+      // Ink behavior control props
+      Prop("enableInkSmoothing") { (view: MunimPencilkitView, enable: Bool) in
+        view.setEnableInkSmoothing(enable)
+      }
+      
+      Prop("enableStrokeRefinement") { (view: MunimPencilkitView, enable: Bool) in
+        view.setEnableStrokeRefinement(enable)
+      }
+      
+      Prop("enableHandwritingRecognition") { (view: MunimPencilkitView, enable: Bool) in
+        view.setEnableHandwritingRecognition(enable)
+      }
+      
+      Prop("naturalDrawingMode") { (view: MunimPencilkitView, natural: Bool) in
+        view.setNaturalDrawingMode(natural)
+      }
+      
       // Drawing data props
       Prop("drawingData") { (view: MunimPencilkitView, data: Data) in
         view.loadDrawingData(data)
@@ -174,6 +191,22 @@ public class MunimPencilkitModule: Module {
         let uiColor = color.flatMap { UIColor(hex: $0) }
         let cgWidth = width.map { CGFloat($0) }
         view.setTool(toolType, color: uiColor, width: cgWidth)
+      }
+      
+      AsyncFunction("setEnableInkSmoothing") { (view: MunimPencilkitView, enable: Bool) in
+        view.setEnableInkSmoothing(enable)
+      }
+      
+      AsyncFunction("setEnableStrokeRefinement") { (view: MunimPencilkitView, enable: Bool) in
+        view.setEnableStrokeRefinement(enable)
+      }
+      
+      AsyncFunction("setEnableHandwritingRecognition") { (view: MunimPencilkitView, enable: Bool) in
+        view.setEnableHandwritingRecognition(enable)
+      }
+      
+      AsyncFunction("setNaturalDrawingMode") { (view: MunimPencilkitView, natural: Bool) in
+        view.setNaturalDrawingMode(natural)
       }
       
       // MARK: - Advanced Stroke Inspection

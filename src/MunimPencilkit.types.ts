@@ -115,6 +115,12 @@ export interface MunimPencilkitViewProps {
   toolWidth?: number;
   eraserType?: PKEraserType;
 
+  // Ink Behavior Controls
+  enableInkSmoothing?: boolean;
+  enableStrokeRefinement?: boolean;
+  enableHandwritingRecognition?: boolean;
+  naturalDrawingMode?: boolean;
+
   // Drawing Data
   drawingData?: ArrayBuffer;
   initialDrawing?: PKDrawingData;
@@ -163,6 +169,12 @@ export interface MunimPencilkitViewMethods {
   // Tool Management
   setTool(toolType: PKToolType, color?: string, width?: number): Promise<void>;
   getTool(): Promise<PKToolConfiguration | null>;
+
+  // Ink Behavior Controls
+  setEnableInkSmoothing(enable: boolean): Promise<void>;
+  setEnableStrokeRefinement(enable: boolean): Promise<void>;
+  setEnableHandwritingRecognition(enable: boolean): Promise<void>;
+  setNaturalDrawingMode(natural: boolean): Promise<void>;
 
   // View State
   hasContent(): Promise<boolean>;

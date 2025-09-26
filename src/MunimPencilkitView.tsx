@@ -80,6 +80,23 @@ const MunimPencilkitView = React.forwardRef<
       return null;
     },
 
+    // Ink Behavior Controls
+    async setEnableInkSmoothing(enable: boolean): Promise<void> {
+      return nativeViewRef.current?.setEnableInkSmoothing?.(enable);
+    },
+
+    async setEnableStrokeRefinement(enable: boolean): Promise<void> {
+      return nativeViewRef.current?.setEnableStrokeRefinement?.(enable);
+    },
+
+    async setEnableHandwritingRecognition(enable: boolean): Promise<void> {
+      return nativeViewRef.current?.setEnableHandwritingRecognition?.(enable);
+    },
+
+    async setNaturalDrawingMode(natural: boolean): Promise<void> {
+      return nativeViewRef.current?.setNaturalDrawingMode?.(natural);
+    },
+
     // View State
     async hasContent(): Promise<boolean> {
       // This would need to be implemented in the native side or derived from events

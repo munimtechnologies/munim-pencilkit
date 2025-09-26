@@ -140,6 +140,12 @@ class MunimPencilkitView: ExpoView {
   var _currentToolType: String = "pen"
   var _currentToolColor: String = "#000000"
   var _currentToolWidth: CGFloat = 10.0
+  
+  // Ink behavior control properties
+  private var _enableInkSmoothing: Bool = true
+  private var _enableStrokeRefinement: Bool = true
+  private var _enableHandwritingRecognition: Bool = true
+  private var _naturalDrawingMode: Bool = false
 
   required init(appContext: AppContext? = nil) {
     super.init(appContext: appContext)
@@ -205,6 +211,46 @@ class MunimPencilkitView: ExpoView {
       }
     default:
       canvasView.drawingPolicy = .default
+    }
+  }
+  
+  // MARK: - Ink Behavior Controls
+  
+  func setEnableInkSmoothing(_ enable: Bool) {
+    _enableInkSmoothing = enable
+    applyToolConfiguration()
+  }
+  
+  func setEnableStrokeRefinement(_ enable: Bool) {
+    _enableStrokeRefinement = enable
+    applyToolConfiguration()
+  }
+  
+  func setEnableHandwritingRecognition(_ enable: Bool) {
+    _enableHandwritingRecognition = enable
+    configureHandwritingRecognition()
+  }
+  
+  func setNaturalDrawingMode(_ natural: Bool) {
+    _naturalDrawingMode = natural
+    if natural {
+      // Natural drawing mode disables most processing
+      _enableInkSmoothing = false
+      _enableStrokeRefinement = false
+      _enableHandwritingRecognition = false
+    }
+    applyToolConfiguration()
+    configureHandwritingRecognition()
+  }
+  
+  private func configureHandwritingRecognition() {
+    // Configure Scribble interaction based on handwriting recognition setting
+    if #available(iOS 14.0, *) {
+      if _enableHandwritingRecognition {
+        configureScribbleInteraction(enabled: true)
+      } else {
+        configureScribbleInteraction(enabled: false)
+      }
     }
   }
   
@@ -522,24 +568,36 @@ class MunimPencilkitView: ExpoView {
   func setTool(_ toolType: String, color: UIColor?, width: CGFloat?) {
     var tool: PKTool
     
-    switch toolType {
+    // Adjust tool selection based on ink behavior settings
+    var adjustedToolType = toolType
+    if _naturalDrawingMode || !_enableInkSmoothing {
+      // For natural drawing, prefer marker which has less smoothing
+      if toolType == "pen" || toolType == "pencil" {
+        adjustedToolType = "marker"
+      }
+    }
+    
+    switch adjustedToolType {
     case "pen":
       let inkType: PKInk.InkType = .pen
       let defaultColor = color ?? UIColor.black
-      let defaultWidth = width ?? 10.0
-      tool = PKInkingTool(inkType, color: defaultColor, width: defaultWidth)
+      // Adjust width based on refinement settings
+      let adjustedWidth = _enableStrokeRefinement ? (width ?? 10.0) : max(width ?? 10.0, 6.0)
+      tool = PKInkingTool(inkType, color: defaultColor, width: adjustedWidth)
       
     case "pencil":
       let inkType: PKInk.InkType = .pencil
       let defaultColor = color ?? UIColor.black
-      let defaultWidth = width ?? 10.0
-      tool = PKInkingTool(inkType, color: defaultColor, width: defaultWidth)
+      // Pencil with natural settings uses slightly thicker strokes
+      let adjustedWidth = _enableStrokeRefinement ? (width ?? 8.0) : max(width ?? 8.0, 8.0)
+      tool = PKInkingTool(inkType, color: defaultColor, width: adjustedWidth)
       
     case "marker":
       let inkType: PKInk.InkType = .marker
-      let defaultColor = color ?? UIColor.yellow
-      let defaultWidth = width ?? 20.0
-      tool = PKInkingTool(inkType, color: defaultColor, width: defaultWidth)
+      let defaultColor = color ?? UIColor.black // Changed from yellow to respect color choice
+      // Marker naturally has less smoothing, good for natural drawing
+      let adjustedWidth = width ?? 12.0
+      tool = PKInkingTool(inkType, color: defaultColor, width: adjustedWidth)
       
     case "eraser":
       if #available(iOS 16.4, *) {
