@@ -283,47 +283,114 @@ class MunimPencilkitView: ExpoView {
   func getDrawingData(debug: Bool = false) async -> [String: Any] {
     // Try immediate execution first, fallback to waiting if needed
     if isViewReady() {
-      return safeExecute({
-        let drawing = self.canvasView.drawing
-        let strokeCount = drawing.strokes.count
-        
-        if strokeCount == 0 {
-          return NSNull()
-        }
-        
-        // Try immediate serialization
-        do {
-          let data = try drawing.dataRepresentation()
-          if !data.isEmpty {
-            return data
-          }
-        } catch {
-          // Fallback to JSON data
-          let strokes = drawing.strokes.map { $0.toDictionary() }
-          let fallbackData: [String: Any] = [
-            "type": "fallbackStrokes",
-            "version": 1,
-            "strokeCount": strokes.count,
-            "bounds": [
-              "x": drawing.bounds.origin.x,
-              "y": drawing.bounds.origin.y,
-              "width": drawing.bounds.size.width,
-              "height": drawing.bounds.size.height
-            ],
-            "strokes": strokes,
+      let drawing = canvasView.drawing
+      let strokeCount = drawing.strokes.count
+      
+      if strokeCount == 0 {
+        if debug {
+          return [
+            "result": NSNull(),
+            "debug": true,
+            "method": "getDrawingData",
+            "strokes": 0,
             "timestamp": Date().timeIntervalSince1970
           ]
-          return try JSONSerialization.data(withJSONObject: fallbackData, options: [])
+        } else {
+          return ["data": NSNull()]
         }
-        
-        return NSNull()
-      }, fallback: NSNull(), debug: debug, method: "getDrawingData")
+      }
+      
+      // Try immediate serialization
+      do {
+        let data = try drawing.dataRepresentation()
+        if !data.isEmpty {
+          if debug {
+            return [
+              "result": data,
+              "debug": true,
+              "method": "getDrawingData",
+              "strokes": strokeCount,
+              "bytes": data.count,
+              "timestamp": Date().timeIntervalSince1970
+            ]
+          } else {
+            return ["data": data]
+          }
+        }
+      } catch {
+        // Fallback to JSON data
+        let strokes = drawing.strokes.map { $0.toDictionary() }
+        let fallbackData: [String: Any] = [
+          "type": "fallbackStrokes",
+          "version": 1,
+          "strokeCount": strokes.count,
+          "bounds": [
+            "x": drawing.bounds.origin.x,
+            "y": drawing.bounds.origin.y,
+            "width": drawing.bounds.size.width,
+            "height": drawing.bounds.size.height
+          ],
+          "strokes": strokes,
+          "timestamp": Date().timeIntervalSince1970
+        ]
+        do {
+          let jsonData = try JSONSerialization.data(withJSONObject: fallbackData, options: [])
+          if debug {
+            return [
+              "result": jsonData,
+              "debug": true,
+              "method": "getDrawingData",
+              "strokes": strokeCount,
+              "bytes": jsonData.count,
+              "timestamp": Date().timeIntervalSince1970
+            ]
+          } else {
+            return ["data": jsonData]
+          }
+        } catch {
+          if debug {
+            return [
+              "result": NSNull(),
+              "debug": true,
+              "method": "getDrawingData",
+              "error": "JSON serialization failed: \(error.localizedDescription)",
+              "strokes": strokeCount,
+              "timestamp": Date().timeIntervalSince1970
+            ]
+          } else {
+            return ["data": NSNull()]
+          }
+        }
+      }
+      
+      if debug {
+        return [
+          "result": NSNull(),
+          "debug": true,
+          "method": "getDrawingData",
+          "strokes": strokeCount,
+          "timestamp": Date().timeIntervalSince1970
+        ]
+      } else {
+        return ["data": NSNull()]
+      }
     }
     
     // Fallback to waiting if view not ready
     let isReady = await waitForViewReady()
     guard isReady else {
-      return safeExecute({ NSNull() }, fallback: NSNull(), debug: debug, method: "getDrawingData")
+      if debug {
+        return [
+          "result": NSNull(),
+          "debug": true,
+          "method": "getDrawingData",
+          "error": "View not ready after timeout",
+          "strokes": 0,
+          "timestamp": Date().timeIntervalSince1970
+        ]
+      } else {
+        return ["data": NSNull()]
+      }
     }
     
     let drawing = canvasView.drawing
@@ -549,15 +616,16 @@ class MunimPencilkitView: ExpoView {
     return strokes.enumerated().compactMap { index, stroke in
       // For now, just return basic stroke info
       // In a real implementation, you'd search through stroke data
+      let bounds = stroke.renderBounds
       return [
         "index": index,
         "timestamp": Date().timeIntervalSince1970,
         "pointCount": stroke.path.count,
         "bounds": [
-          "x": stroke.path.boundingBox.origin.x,
-          "y": stroke.path.boundingBox.origin.y,
-          "width": stroke.path.boundingBox.size.width,
-          "height": stroke.path.boundingBox.size.height
+          "x": bounds.origin.x,
+          "y": bounds.origin.y,
+          "width": bounds.size.width,
+          "height": bounds.size.height
         ]
       ]
     }
