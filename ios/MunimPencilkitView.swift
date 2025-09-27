@@ -281,17 +281,17 @@ class MunimPencilkitView: ExpoView {
   }
   
   func getDrawingData() -> Data? {
-    print("🔥🔥🔥 [PencilKit] View getDrawingData() called - METHOD IS BEING CALLED!")
+    NSLog("🔥🔥🔥 [PencilKit] View getDrawingData() called - METHOD IS BEING CALLED!")
     
     // Always get fresh data from the canvas
     let drawing = canvasView.drawing
     let strokeCount = drawing.strokes.count
     
-    print("🔥 [PencilKit] getDrawingData() - current strokes: \(strokeCount)")
+    NSLog("🔥 [PencilKit] getDrawingData() - current strokes: \(strokeCount)")
     
     // If no strokes, return nil immediately
     if strokeCount == 0 {
-      print("🔥 [PencilKit] getDrawingData() - no strokes, returning nil")
+      NSLog("🔥 [PencilKit] getDrawingData() - no strokes, returning nil")
       return nil
     }
     
@@ -299,17 +299,17 @@ class MunimPencilkitView: ExpoView {
     do {
       let data = try drawing.dataRepresentation()
       if !data.isEmpty {
-        print("🔥 [PencilKit] getDrawingData() - immediate success: \(data.count) bytes")
+        NSLog("🔥 [PencilKit] getDrawingData() - immediate success: \(data.count) bytes")
         return data
       } else {
-        print("🔥 [PencilKit] getDrawingData() - immediate serialization returned empty data")
+        NSLog("🔥 [PencilKit] getDrawingData() - immediate serialization returned empty data")
       }
     } catch {
-      print("🔥 [PencilKit] getDrawingData() - immediate serialization failed: \(error)")
+      NSLog("🔥 [PencilKit] getDrawingData() - immediate serialization failed: \(error)")
     }
     
     // If immediate serialization failed, try with a delay
-    print("🔥 [PencilKit] getDrawingData() - trying delayed serialization...")
+    NSLog("🔥 [PencilKit] getDrawingData() - trying delayed serialization...")
     
     // Use a different approach - don't block the main thread
     var result: Data?
@@ -319,15 +319,15 @@ class MunimPencilkitView: ExpoView {
     DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
       do {
         let delayedDrawing = self.canvasView.drawing
-        print("🔥 [PencilKit] getDrawingData() - delayed attempt, strokes: \(delayedDrawing.strokes.count)")
+        NSLog("🔥 [PencilKit] getDrawingData() - delayed attempt, strokes: \(delayedDrawing.strokes.count)")
         result = try delayedDrawing.dataRepresentation()
         if let data = result {
-          print("🔥 [PencilKit] getDrawingData() - delayed result: \(data.count) bytes")
+          NSLog("🔥 [PencilKit] getDrawingData() - delayed result: \(data.count) bytes")
         } else {
-          print("🔥 [PencilKit] getDrawingData() - delayed result is nil")
+          NSLog("🔥 [PencilKit] getDrawingData() - delayed result is nil")
         }
       } catch {
-        print("🔥 [PencilKit] getDrawingData() - delayed serialization failed: \(error)")
+        NSLog("🔥 [PencilKit] getDrawingData() - delayed serialization failed: \(error)")
       }
       group.leave()
     }
@@ -336,34 +336,39 @@ class MunimPencilkitView: ExpoView {
     let timeout = DispatchTime.now() + 1.0
     if group.wait(timeout: timeout) == .success {
       if let data = result, !data.isEmpty {
-        print("🔥 [PencilKit] getDrawingData() - returning delayed data: \(data.count) bytes")
+        NSLog("🔥 [PencilKit] getDrawingData() - returning delayed data: \(data.count) bytes")
         return data
       } else {
-        print("🔥 [PencilKit] getDrawingData() - delayed data is empty or nil")
+        NSLog("🔥 [PencilKit] getDrawingData() - delayed data is empty or nil")
       }
     } else {
-      print("🔥 [PencilKit] getDrawingData() - delayed serialization timed out")
+      NSLog("🔥 [PencilKit] getDrawingData() - delayed serialization timed out")
     }
     
-    print("🔥 [PencilKit] getDrawingData() - all methods failed, returning nil")
+    NSLog("🔥 [PencilKit] getDrawingData() - all methods failed, returning nil")
     return nil
   }
 
   // MARK: - Simple State Accessors
   func hasContent() -> Bool {
-    print("🔥🔥🔥 [PencilKit] View hasContent() called - METHOD IS BEING CALLED!")
     let drawing = canvasView.drawing
     let strokeCount = drawing.strokes.count
     let has = strokeCount > 0
-    print("🔥🔥🔥 [PencilKit] View hasContent() - strokes: \(strokeCount), result: \(has)")
+    
+    // Use NSLog instead of print for better React Native console visibility
+    NSLog("🔥🔥🔥 [PencilKit] View hasContent() called - METHOD IS BEING CALLED!")
+    NSLog("🔥🔥🔥 [PencilKit] View hasContent() - strokes: \(strokeCount), result: \(has)")
+    
     return has
   }
   
   func getStrokeCount() -> Int {
-    print("🔥🔥🔥 [PencilKit] View getStrokeCount() called - METHOD IS BEING CALLED!")
     let drawing = canvasView.drawing
     let count = drawing.strokes.count
-    print("🔥🔥🔥 [PencilKit] View getStrokeCount() - strokes: \(count)")
+    
+    NSLog("🔥🔥🔥 [PencilKit] View getStrokeCount() called - METHOD IS BEING CALLED!")
+    NSLog("🔥🔥🔥 [PencilKit] View getStrokeCount() - strokes: \(count)")
+    
     return count
   }
   

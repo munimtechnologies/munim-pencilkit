@@ -12,7 +12,7 @@ public class MunimPencilkitModule: Module {
     // MARK: - Test Functions
     
     Function("testNativeModule") {
-      print("🔥 [PencilKit] testNativeModule called - NATIVE MODULE IS WORKING!")
+      NSLog("🔥 [PencilKit] testNativeModule called - NATIVE MODULE IS WORKING!")
       return "Native module is working!"
     }
     
@@ -166,24 +166,24 @@ public class MunimPencilkitModule: Module {
       }
       
       AsyncFunction("getDrawingData") { (view: MunimPencilkitView) -> Data? in
-        print("🔥 [PencilKit] Module getDrawingData() called")
+        NSLog("🔥 [PencilKit] Module getDrawingData() called")
         let result = view.getDrawingData()
-        print("🔥 [PencilKit] Module getDrawingData() returning: \(result?.count ?? 0) bytes")
+        NSLog("🔥 [PencilKit] Module getDrawingData() returning: \(result?.count ?? 0) bytes")
         return result
       }
 
       // View State Accessors
       AsyncFunction("hasContent") { (view: MunimPencilkitView) -> Bool in
-        print("🔥 [PencilKit] Module hasContent() called")
+        NSLog("🔥 [PencilKit] Module hasContent() called")
         let result = view.hasContent()
-        print("🔥 [PencilKit] Module hasContent() returning: \(result)")
+        NSLog("🔥 [PencilKit] Module hasContent() returning: \(result)")
         return result
       }
       
       AsyncFunction("getStrokeCount") { (view: MunimPencilkitView) -> Int in
-        print("🔥 [PencilKit] Module getStrokeCount() called")
+        NSLog("🔥 [PencilKit] Module getStrokeCount() called")
         let result = view.getStrokeCount()
-        print("🔥 [PencilKit] Module getStrokeCount() returning: \(result)")
+        NSLog("🔥 [PencilKit] Module getStrokeCount() returning: \(result)")
         return result
       }
       
