@@ -281,16 +281,23 @@ class MunimPencilkitView: ExpoView {
   }
   
   func getDrawingData(debug: Bool = false) async -> [String: Any] {
-    // Force display update to ensure drawing is committed
+    // CRITICAL: Force PencilKit to commit any pending strokes
     await MainActor.run {
+      // 1. Force the canvas to finish any active drawing session
+      canvasView.isUserInteractionEnabled = false
+      canvasView.isUserInteractionEnabled = true
+      
+      // 2. Force display updates
       canvasView.setNeedsDisplay()
       canvasView.layoutIfNeeded()
+      canvasView.displayIfNeeded()
+      
+      // 3. Force the drawing to be committed by reassigning it
+      let currentDrawing = canvasView.drawing
+      canvasView.drawing = currentDrawing
     }
     
-    // Small delay to ensure PencilKit has committed the drawing
-    try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
-    
-    // SIMPLE: Just read the drawing directly as Apple intended
+    // Now read the drawing data
     let drawing = canvasView.drawing
     let strokeCount = drawing.strokes.count
     
@@ -380,16 +387,23 @@ class MunimPencilkitView: ExpoView {
 
   // MARK: - Simple State Accessors
   func hasContent(debug: Bool = false) async -> [String: Any] {
-    // Force display update to ensure drawing is committed
+    // CRITICAL: Force PencilKit to commit any pending strokes
     await MainActor.run {
+      // 1. Force the canvas to finish any active drawing session
+      canvasView.isUserInteractionEnabled = false
+      canvasView.isUserInteractionEnabled = true
+      
+      // 2. Force display updates
       canvasView.setNeedsDisplay()
       canvasView.layoutIfNeeded()
+      canvasView.displayIfNeeded()
+      
+      // 3. Force the drawing to be committed by reassigning it
+      let currentDrawing = canvasView.drawing
+      canvasView.drawing = currentDrawing
     }
     
-    // Small delay to ensure PencilKit has committed the drawing
-    try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
-    
-    // SIMPLE: Just read the drawing directly as Apple intended
+    // Now read the drawing data
     let drawing = canvasView.drawing
     let strokeCount = drawing.strokes.count
     let hasContent = strokeCount > 0
@@ -411,16 +425,23 @@ class MunimPencilkitView: ExpoView {
   }
   
   func getStrokeCount(debug: Bool = false) async -> [String: Any] {
-    // Force display update to ensure drawing is committed
+    // CRITICAL: Force PencilKit to commit any pending strokes
     await MainActor.run {
+      // 1. Force the canvas to finish any active drawing session
+      canvasView.isUserInteractionEnabled = false
+      canvasView.isUserInteractionEnabled = true
+      
+      // 2. Force display updates
       canvasView.setNeedsDisplay()
       canvasView.layoutIfNeeded()
+      canvasView.displayIfNeeded()
+      
+      // 3. Force the drawing to be committed by reassigning it
+      let currentDrawing = canvasView.drawing
+      canvasView.drawing = currentDrawing
     }
     
-    // Small delay to ensure PencilKit has committed the drawing
-    try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
-    
-    // SIMPLE: Just read the drawing directly as Apple intended
+    // Now read the drawing data
     let drawing = canvasView.drawing
     let strokeCount = drawing.strokes.count
     
@@ -931,11 +952,23 @@ class MunimPencilkitView: ExpoView {
 
 extension MunimPencilkitView: PKCanvasViewDelegate {
   func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
-    // Force display update to ensure drawing is committed
+    // CRITICAL: Force PencilKit to commit any pending strokes
+    // This is the key to making data available immediately
+    
+    // 1. Force the canvas to finish any active drawing session
+    canvasView.isUserInteractionEnabled = false
+    canvasView.isUserInteractionEnabled = true
+    
+    // 2. Force display updates
     canvasView.setNeedsDisplay()
     canvasView.layoutIfNeeded()
+    canvasView.displayIfNeeded()
     
-    // SIMPLE: Just read the drawing directly as Apple intended
+    // 3. Force the drawing to be committed by reassigning it
+    let currentDrawing = canvasView.drawing
+    canvasView.drawing = currentDrawing
+    
+    // 4. Now read the drawing data
     let drawing = canvasView.drawing
     let hasContent = !drawing.strokes.isEmpty
     let strokeCount = drawing.strokes.count
