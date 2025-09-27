@@ -281,21 +281,49 @@ class MunimPencilkitView: ExpoView {
   }
   
   func getDrawingData(debug: Bool = false) async -> [String: Any] {
-    // Wait for view to be ready
+    // Try immediate execution first, fallback to waiting if needed
+    if isViewReady() {
+      return safeExecute({
+        let drawing = self.canvasView.drawing
+        let strokeCount = drawing.strokes.count
+        
+        if strokeCount == 0 {
+          return NSNull()
+        }
+        
+        // Try immediate serialization
+        do {
+          let data = try drawing.dataRepresentation()
+          if !data.isEmpty {
+            return data
+          }
+        } catch {
+          // Fallback to JSON data
+          let strokes = drawing.strokes.map { $0.toDictionary() }
+          let fallbackData: [String: Any] = [
+            "type": "fallbackStrokes",
+            "version": 1,
+            "strokeCount": strokes.count,
+            "bounds": [
+              "x": drawing.bounds.origin.x,
+              "y": drawing.bounds.origin.y,
+              "width": drawing.bounds.size.width,
+              "height": drawing.bounds.size.height
+            ],
+            "strokes": strokes,
+            "timestamp": Date().timeIntervalSince1970
+          ]
+          return try JSONSerialization.data(withJSONObject: fallbackData, options: [])
+        }
+        
+        return NSNull()
+      }, fallback: NSNull(), debug: debug, method: "getDrawingData")
+    }
+    
+    // Fallback to waiting if view not ready
     let isReady = await waitForViewReady()
     guard isReady else {
-      if debug {
-        return [
-          "result": NSNull(),
-          "debug": true,
-          "method": "getDrawingData",
-          "error": "View not ready after timeout",
-          "strokes": 0,
-          "timestamp": Date().timeIntervalSince1970
-        ]
-      } else {
-        return [:] // Return empty for non-debug mode
-      }
+      return safeExecute({ NSNull() }, fallback: NSNull(), debug: debug, method: "getDrawingData")
     }
     
     let drawing = canvasView.drawing
@@ -402,7 +430,8 @@ class MunimPencilkitView: ExpoView {
   // MARK: - View State Management
   
   private func isViewReady() -> Bool {
-    return canvasView.superview != nil && canvasView.window != nil
+    // More lenient check - just ensure the view is in the hierarchy
+    return canvasView.superview != nil
   }
   
   private func waitForViewReady(timeout: TimeInterval = 2.0) async -> Bool {
@@ -413,74 +442,70 @@ class MunimPencilkitView: ExpoView {
     return isViewReady()
   }
   
+  private func safeExecute<T>(_ operation: () -> T, fallback: T, debug: Bool = false, method: String) -> [String: Any] {
+    do {
+      let result = operation()
+      if debug {
+        return [
+          "result": result,
+          "debug": true,
+          "method": method,
+          "timestamp": Date().timeIntervalSince1970
+        ]
+      } else {
+        // Return appropriate format based on method
+        switch method {
+        case "getDrawingData":
+          return ["data": result]
+        case "hasContent":
+          return ["hasContent": result]
+        case "getStrokeCount":
+          return ["strokeCount": result]
+        default:
+          return ["result": result]
+        }
+      }
+    } catch {
+      if debug {
+        return [
+          "result": fallback,
+          "debug": true,
+          "method": method,
+          "error": error.localizedDescription,
+          "timestamp": Date().timeIntervalSince1970
+        ]
+      } else {
+        return ["error": error.localizedDescription]
+      }
+    }
+  }
+  
   // MARK: - Simple State Accessors
   func hasContent(debug: Bool = false) async -> [String: Any] {
     // Wait for view to be ready
     let isReady = await waitForViewReady()
     guard isReady else {
-      if debug {
-        return [
-          "result": false,
-          "debug": true,
-          "method": "hasContent",
-          "error": "View not ready after timeout",
-          "strokes": 0,
-          "timestamp": Date().timeIntervalSince1970
-        ]
-      } else {
-        return ["hasContent": false]
-      }
+      return safeExecute({ false }, fallback: false, debug: debug, method: "hasContent")
     }
     
-    let drawing = canvasView.drawing
-    let strokeCount = drawing.strokes.count
-    let has = strokeCount > 0
-    
-    if debug {
-      return [
-        "result": has,
-        "debug": true,
-        "method": "hasContent",
-        "strokes": strokeCount,
-        "timestamp": Date().timeIntervalSince1970
-      ]
-    } else {
-      return ["hasContent": has]
-    }
+    return safeExecute({
+      let drawing = self.canvasView.drawing
+      let strokeCount = drawing.strokes.count
+      return strokeCount > 0
+    }, fallback: false, debug: debug, method: "hasContent")
   }
   
   func getStrokeCount(debug: Bool = false) async -> [String: Any] {
     // Wait for view to be ready
     let isReady = await waitForViewReady()
     guard isReady else {
-      if debug {
-        return [
-          "result": 0,
-          "debug": true,
-          "method": "getStrokeCount",
-          "error": "View not ready after timeout",
-          "strokes": 0,
-          "timestamp": Date().timeIntervalSince1970
-        ]
-      } else {
-        return ["strokeCount": 0]
-      }
+      return safeExecute({ 0 }, fallback: 0, debug: debug, method: "getStrokeCount")
     }
     
-    let drawing = canvasView.drawing
-    let count = drawing.strokes.count
-    
-    if debug {
-      return [
-        "result": count,
-        "debug": true,
-        "method": "getStrokeCount",
-        "strokes": count,
-        "timestamp": Date().timeIntervalSince1970
-      ]
-    } else {
-      return ["strokeCount": count]
-    }
+    return safeExecute({
+      let drawing = self.canvasView.drawing
+      return drawing.strokes.count
+    }, fallback: 0, debug: debug, method: "getStrokeCount")
   }
   
   func getDrawingBoundsStruct() -> [String: CGFloat] {

@@ -187,6 +187,10 @@ public class MunimPencilkitModule: Module {
         view.loadDrawingData(data)
       }
       
+      AsyncFunction("getDrawingBoundsStruct") { (view: MunimPencilkitView) -> [String: CGFloat] in
+        return view.getDrawingBoundsStruct()
+      }
+      
       AsyncFunction("exportAsImage") { (view: MunimPencilkitView, scale: Double) -> String? in
         // Try to export drawing image based on drawing bounds; if drawing is empty, fall back to canvas snapshot
         if let image = view.exportDrawingAsImage(scale: CGFloat(scale)),
