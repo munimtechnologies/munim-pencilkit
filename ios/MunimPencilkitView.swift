@@ -281,17 +281,36 @@ class MunimPencilkitView: ExpoView {
   }
   
   func getDrawingData() -> Data? {
-    NSLog("🔥🔥🔥 [PencilKit] View getDrawingData() called - METHOD IS BEING CALLED!")
+    // Send debug info via event dispatcher
+    onDrawingChanged([
+      "debug": true,
+      "method": "getDrawingData",
+      "called": true,
+      "timestamp": Date().timeIntervalSince1970
+    ])
     
     // Always get fresh data from the canvas
     let drawing = canvasView.drawing
     let strokeCount = drawing.strokes.count
     
-    NSLog("🔥 [PencilKit] getDrawingData() - current strokes: \(strokeCount)")
+    // Send stroke count info
+    onDrawingChanged([
+      "debug": true,
+      "method": "getDrawingData",
+      "step": "strokeCount",
+      "strokes": strokeCount,
+      "timestamp": Date().timeIntervalSince1970
+    ])
     
     // If no strokes, return nil immediately
     if strokeCount == 0 {
-      NSLog("🔥 [PencilKit] getDrawingData() - no strokes, returning nil")
+      onDrawingChanged([
+        "debug": true,
+        "method": "getDrawingData",
+        "step": "noStrokes",
+        "result": "nil",
+        "timestamp": Date().timeIntervalSince1970
+      ])
       return nil
     }
     
@@ -299,17 +318,39 @@ class MunimPencilkitView: ExpoView {
     do {
       let data = try drawing.dataRepresentation()
       if !data.isEmpty {
-        NSLog("🔥 [PencilKit] getDrawingData() - immediate success: \(data.count) bytes")
+        onDrawingChanged([
+          "debug": true,
+          "method": "getDrawingData",
+          "step": "immediateSuccess",
+          "bytes": data.count,
+          "timestamp": Date().timeIntervalSince1970
+        ])
         return data
       } else {
-        NSLog("🔥 [PencilKit] getDrawingData() - immediate serialization returned empty data")
+        onDrawingChanged([
+          "debug": true,
+          "method": "getDrawingData",
+          "step": "immediateEmpty",
+          "timestamp": Date().timeIntervalSince1970
+        ])
       }
     } catch {
-      NSLog("🔥 [PencilKit] getDrawingData() - immediate serialization failed: \(error)")
+      onDrawingChanged([
+        "debug": true,
+        "method": "getDrawingData",
+        "step": "immediateError",
+        "error": error.localizedDescription,
+        "timestamp": Date().timeIntervalSince1970
+      ])
     }
     
     // If immediate serialization failed, try with a delay
-    NSLog("🔥 [PencilKit] getDrawingData() - trying delayed serialization...")
+    onDrawingChanged([
+      "debug": true,
+      "method": "getDrawingData",
+      "step": "delayedAttempt",
+      "timestamp": Date().timeIntervalSince1970
+    ])
     
     // Use a different approach - don't block the main thread
     var result: Data?
@@ -319,15 +360,38 @@ class MunimPencilkitView: ExpoView {
     DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
       do {
         let delayedDrawing = self.canvasView.drawing
-        NSLog("🔥 [PencilKit] getDrawingData() - delayed attempt, strokes: \(delayedDrawing.strokes.count)")
+        onDrawingChanged([
+          "debug": true,
+          "method": "getDrawingData",
+          "step": "delayedAttempt",
+          "strokes": delayedDrawing.strokes.count,
+          "timestamp": Date().timeIntervalSince1970
+        ])
         result = try delayedDrawing.dataRepresentation()
         if let data = result {
-          NSLog("🔥 [PencilKit] getDrawingData() - delayed result: \(data.count) bytes")
+          onDrawingChanged([
+            "debug": true,
+            "method": "getDrawingData",
+            "step": "delayedSuccess",
+            "bytes": data.count,
+            "timestamp": Date().timeIntervalSince1970
+          ])
         } else {
-          NSLog("🔥 [PencilKit] getDrawingData() - delayed result is nil")
+          onDrawingChanged([
+            "debug": true,
+            "method": "getDrawingData",
+            "step": "delayedNil",
+            "timestamp": Date().timeIntervalSince1970
+          ])
         }
       } catch {
-        NSLog("🔥 [PencilKit] getDrawingData() - delayed serialization failed: \(error)")
+        onDrawingChanged([
+          "debug": true,
+          "method": "getDrawingData",
+          "step": "delayedError",
+          "error": error.localizedDescription,
+          "timestamp": Date().timeIntervalSince1970
+        ])
       }
       group.leave()
     }
@@ -336,16 +400,38 @@ class MunimPencilkitView: ExpoView {
     let timeout = DispatchTime.now() + 1.0
     if group.wait(timeout: timeout) == .success {
       if let data = result, !data.isEmpty {
-        NSLog("🔥 [PencilKit] getDrawingData() - returning delayed data: \(data.count) bytes")
+        onDrawingChanged([
+          "debug": true,
+          "method": "getDrawingData",
+          "step": "delayedReturn",
+          "bytes": data.count,
+          "timestamp": Date().timeIntervalSince1970
+        ])
         return data
       } else {
-        NSLog("🔥 [PencilKit] getDrawingData() - delayed data is empty or nil")
+        onDrawingChanged([
+          "debug": true,
+          "method": "getDrawingData",
+          "step": "delayedEmpty",
+          "timestamp": Date().timeIntervalSince1970
+        ])
       }
     } else {
-      NSLog("🔥 [PencilKit] getDrawingData() - delayed serialization timed out")
+      onDrawingChanged([
+        "debug": true,
+        "method": "getDrawingData",
+        "step": "timeout",
+        "timestamp": Date().timeIntervalSince1970
+      ])
     }
     
-    NSLog("🔥 [PencilKit] getDrawingData() - all methods failed, returning nil")
+    onDrawingChanged([
+      "debug": true,
+      "method": "getDrawingData",
+      "step": "allFailed",
+      "result": "nil",
+      "timestamp": Date().timeIntervalSince1970
+    ])
     return nil
   }
 
@@ -355,9 +441,14 @@ class MunimPencilkitView: ExpoView {
     let strokeCount = drawing.strokes.count
     let has = strokeCount > 0
     
-    // Use NSLog instead of print for better React Native console visibility
-    NSLog("🔥🔥🔥 [PencilKit] View hasContent() called - METHOD IS BEING CALLED!")
-    NSLog("🔥🔥🔥 [PencilKit] View hasContent() - strokes: \(strokeCount), result: \(has)")
+    // Send debug info via event dispatcher
+    onDrawingChanged([
+      "debug": true,
+      "method": "hasContent",
+      "strokes": strokeCount,
+      "result": has,
+      "timestamp": Date().timeIntervalSince1970
+    ])
     
     return has
   }
@@ -366,8 +457,13 @@ class MunimPencilkitView: ExpoView {
     let drawing = canvasView.drawing
     let count = drawing.strokes.count
     
-    NSLog("🔥🔥🔥 [PencilKit] View getStrokeCount() called - METHOD IS BEING CALLED!")
-    NSLog("🔥🔥🔥 [PencilKit] View getStrokeCount() - strokes: \(count)")
+    // Send debug info via event dispatcher
+    onDrawingChanged([
+      "debug": true,
+      "method": "getStrokeCount",
+      "strokes": count,
+      "timestamp": Date().timeIntervalSince1970
+    ])
     
     return count
   }
