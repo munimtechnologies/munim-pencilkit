@@ -280,79 +280,42 @@ class MunimPencilkitView: ExpoView {
     canvasView.undoManager?.redo()
   }
   
-  func getDrawingData() -> Data? {
-    // Send debug info via event dispatcher
-    onDrawingChanged([
-      "debug": true,
-      "method": "getDrawingData",
-      "called": true,
-      "timestamp": Date().timeIntervalSince1970
-    ])
-    
-    // Always get fresh data from the canvas
+  func getDrawingData() -> [String: Any] {
     let drawing = canvasView.drawing
     let strokeCount = drawing.strokes.count
     
-    // Send stroke count info
-    onDrawingChanged([
+    var debugInfo: [String: Any] = [
       "debug": true,
       "method": "getDrawingData",
-      "step": "strokeCount",
       "strokes": strokeCount,
       "timestamp": Date().timeIntervalSince1970
-    ])
+    ]
     
-    // If no strokes, return nil immediately
     if strokeCount == 0 {
-      onDrawingChanged([
-        "debug": true,
-        "method": "getDrawingData",
-        "step": "noStrokes",
-        "result": "nil",
-        "timestamp": Date().timeIntervalSince1970
-      ])
-      return nil
+      debugInfo["result"] = NSNull()
+      debugInfo["step"] = "noStrokes"
+      return debugInfo
     }
     
     // Try immediate serialization
     do {
       let data = try drawing.dataRepresentation()
       if !data.isEmpty {
-        onDrawingChanged([
-          "debug": true,
-          "method": "getDrawingData",
-          "step": "immediateSuccess",
-          "bytes": data.count,
-          "timestamp": Date().timeIntervalSince1970
-        ])
-        return data
+        debugInfo["result"] = data
+        debugInfo["step"] = "immediateSuccess"
+        debugInfo["bytes"] = data.count
+        return debugInfo
       } else {
-        onDrawingChanged([
-          "debug": true,
-          "method": "getDrawingData",
-          "step": "immediateEmpty",
-          "timestamp": Date().timeIntervalSince1970
-        ])
+        debugInfo["step"] = "immediateEmpty"
       }
     } catch {
-      onDrawingChanged([
-        "debug": true,
-        "method": "getDrawingData",
-        "step": "immediateError",
-        "error": error.localizedDescription,
-        "timestamp": Date().timeIntervalSince1970
-      ])
+      debugInfo["step"] = "immediateError"
+      debugInfo["error"] = error.localizedDescription
     }
     
     // If immediate serialization failed, try with a delay
-    onDrawingChanged([
-      "debug": true,
-      "method": "getDrawingData",
-      "step": "delayedAttempt",
-      "timestamp": Date().timeIntervalSince1970
-    ])
+    debugInfo["step"] = "delayedAttempt"
     
-    // Use a different approach - don't block the main thread
     var result: Data?
     let group = DispatchGroup()
     
@@ -360,38 +323,16 @@ class MunimPencilkitView: ExpoView {
     DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
       do {
         let delayedDrawing = self.canvasView.drawing
-        self.onDrawingChanged([
-          "debug": true,
-          "method": "getDrawingData",
-          "step": "delayedAttempt",
-          "strokes": delayedDrawing.strokes.count,
-          "timestamp": Date().timeIntervalSince1970
-        ])
         result = try delayedDrawing.dataRepresentation()
         if let data = result {
-          self.onDrawingChanged([
-            "debug": true,
-            "method": "getDrawingData",
-            "step": "delayedSuccess",
-            "bytes": data.count,
-            "timestamp": Date().timeIntervalSince1970
-          ])
+          debugInfo["step"] = "delayedSuccess"
+          debugInfo["bytes"] = data.count
         } else {
-          self.onDrawingChanged([
-            "debug": true,
-            "method": "getDrawingData",
-            "step": "delayedNil",
-            "timestamp": Date().timeIntervalSince1970
-          ])
+          debugInfo["step"] = "delayedNil"
         }
       } catch {
-        self.onDrawingChanged([
-          "debug": true,
-          "method": "getDrawingData",
-          "step": "delayedError",
-          "error": error.localizedDescription,
-          "timestamp": Date().timeIntervalSince1970
-        ])
+        debugInfo["step"] = "delayedError"
+        debugInfo["error"] = error.localizedDescription
       }
       group.leave()
     }
@@ -400,72 +341,48 @@ class MunimPencilkitView: ExpoView {
     let timeout = DispatchTime.now() + 1.0
     if group.wait(timeout: timeout) == .success {
       if let data = result, !data.isEmpty {
-        onDrawingChanged([
-          "debug": true,
-          "method": "getDrawingData",
-          "step": "delayedReturn",
-          "bytes": data.count,
-          "timestamp": Date().timeIntervalSince1970
-        ])
-        return data
+        debugInfo["result"] = data
+        debugInfo["step"] = "delayedReturn"
+        debugInfo["bytes"] = data.count
+        return debugInfo
       } else {
-        onDrawingChanged([
-          "debug": true,
-          "method": "getDrawingData",
-          "step": "delayedEmpty",
-          "timestamp": Date().timeIntervalSince1970
-        ])
+        debugInfo["step"] = "delayedEmpty"
       }
     } else {
-      onDrawingChanged([
-        "debug": true,
-        "method": "getDrawingData",
-        "step": "timeout",
-        "timestamp": Date().timeIntervalSince1970
-      ])
+      debugInfo["step"] = "timeout"
     }
     
-    onDrawingChanged([
-      "debug": true,
-      "method": "getDrawingData",
-      "step": "allFailed",
-      "result": "nil",
-      "timestamp": Date().timeIntervalSince1970
-    ])
-    return nil
+    debugInfo["result"] = NSNull()
+    debugInfo["step"] = "allFailed"
+    return debugInfo
   }
 
   // MARK: - Simple State Accessors
-  func hasContent() -> Bool {
+  func hasContent() -> [String: Any] {
     let drawing = canvasView.drawing
     let strokeCount = drawing.strokes.count
     let has = strokeCount > 0
     
-    // Send debug info via event dispatcher
-    onDrawingChanged([
+    return [
+      "result": has,
       "debug": true,
       "method": "hasContent",
       "strokes": strokeCount,
-      "result": has,
       "timestamp": Date().timeIntervalSince1970
-    ])
-    
-    return has
+    ]
   }
   
-  func getStrokeCount() -> Int {
+  func getStrokeCount() -> [String: Any] {
     let drawing = canvasView.drawing
     let count = drawing.strokes.count
     
-    // Send debug info via event dispatcher
-    onDrawingChanged([
+    return [
+      "result": count,
       "debug": true,
       "method": "getStrokeCount",
       "strokes": count,
       "timestamp": Date().timeIntervalSince1970
-    ])
-    
-    return count
+    ]
   }
   
   func getDrawingBoundsStruct() -> [String: CGFloat] {

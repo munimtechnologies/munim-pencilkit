@@ -165,22 +165,22 @@ public class MunimPencilkitModule: Module {
         view.redo()
       }
       
-      AsyncFunction("getDrawingData") { (view: MunimPencilkitView) -> Data? in
+      AsyncFunction("getDrawingData") { (view: MunimPencilkitView) -> [String: Any] in
         NSLog("🔥 [PencilKit] Module getDrawingData() called")
         let result = view.getDrawingData()
-        NSLog("🔥 [PencilKit] Module getDrawingData() returning: \(result?.count ?? 0) bytes")
+        NSLog("🔥 [PencilKit] Module getDrawingData() returning: \(result)")
         return result
       }
 
       // View State Accessors
-      AsyncFunction("hasContent") { (view: MunimPencilkitView) -> Bool in
+      AsyncFunction("hasContent") { (view: MunimPencilkitView) -> [String: Any] in
         NSLog("🔥 [PencilKit] Module hasContent() called")
         let result = view.hasContent()
         NSLog("🔥 [PencilKit] Module hasContent() returning: \(result)")
         return result
       }
       
-      AsyncFunction("getStrokeCount") { (view: MunimPencilkitView) -> Int in
+      AsyncFunction("getStrokeCount") { (view: MunimPencilkitView) -> [String: Any] in
         NSLog("🔥 [PencilKit] Module getStrokeCount() called")
         let result = view.getStrokeCount()
         NSLog("🔥 [PencilKit] Module getStrokeCount() returning: \(result)")
