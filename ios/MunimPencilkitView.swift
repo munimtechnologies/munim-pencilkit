@@ -281,6 +281,9 @@ class MunimPencilkitView: ExpoView {
   }
   
   func getDrawingData(debug: Bool = false) async -> [String: Any] {
+    // CRITICAL FIX: Ensure drawing is fully committed before serialization
+    await forceDrawingCommit()
+    
     // Try immediate execution first, fallback to waiting if needed
     if isViewReady() {
       let drawing = canvasView.drawing
@@ -501,6 +504,18 @@ class MunimPencilkitView: ExpoView {
     return canvasView.superview != nil
   }
   
+  private func forceDrawingCommit() async {
+    await MainActor.run {
+      // Force the canvas to finish any pending drawing operations
+      self.canvasView.setNeedsDisplay()
+      self.canvasView.layoutIfNeeded()
+      
+      // Force the drawing to be committed to the PKDrawing object
+      // This ensures that any pending strokes are properly added
+      self.canvasView.drawing = self.canvasView.drawing
+    }
+  }
+  
   private func waitForViewReady(timeout: TimeInterval = 2.0) async -> Bool {
     let startTime = Date()
     while !isViewReady() && Date().timeIntervalSince(startTime) < timeout {
@@ -549,6 +564,9 @@ class MunimPencilkitView: ExpoView {
   
   // MARK: - Simple State Accessors
   func hasContent(debug: Bool = false) async -> [String: Any] {
+    // CRITICAL FIX: Ensure drawing is fully committed before checking
+    await forceDrawingCommit()
+    
     // Wait for view to be ready
     let isReady = await waitForViewReady()
     guard isReady else {
@@ -563,6 +581,9 @@ class MunimPencilkitView: ExpoView {
   }
   
   func getStrokeCount(debug: Bool = false) async -> [String: Any] {
+    // CRITICAL FIX: Ensure drawing is fully committed before checking
+    await forceDrawingCommit()
+    
     // Wait for view to be ready
     let isReady = await waitForViewReady()
     guard isReady else {
@@ -1041,7 +1062,11 @@ class MunimPencilkitView: ExpoView {
 
 extension MunimPencilkitView: PKCanvasViewDelegate {
   func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
-    // Get fresh values from the canvas
+    // CRITICAL FIX: Ensure drawing is properly committed before reading
+    // Force the canvas to finish any pending drawing operations
+    canvasView.setNeedsDisplay()
+    
+    // Get fresh values from the canvas after ensuring it's up to date
     let drawing = canvasView.drawing
     let hasContent = !drawing.strokes.isEmpty
     let strokeCount = drawing.strokes.count
@@ -1049,6 +1074,8 @@ extension MunimPencilkitView: PKCanvasViewDelegate {
     
     // Debug logging to track state changes
     print("[PencilKit] Drawing changed - hasContent=\(hasContent), strokeCount=\(strokeCount)")
+    print("[PencilKit] Drawing bounds: \(bounds)")
+    print("[PencilKit] Drawing strokes: \(drawing.strokes.count)")
     
     // Update cached state for debugging purposes only
     self._lastStrokeCount = strokeCount
