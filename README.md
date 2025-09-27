@@ -399,6 +399,35 @@ const data = await canvasRef.current?.getDrawingData(); // ArrayBuffer (non-null
 
 The library now includes comprehensive debug support with proper TypeScript definitions:
 
+### Critical Fixes & Reliability Improvements (1.2.8+)
+
+Version 1.2.8 includes critical fixes for method reliability and view initialization:
+
+```typescript
+// All methods now properly wait for view initialization
+const hasContent = await canvasRef.current?.hasContent();
+const strokeCount = await canvasRef.current?.getStrokeCount();
+const drawingData = await canvasRef.current?.getDrawingData();
+
+// Methods now return proper values instead of undefined
+console.log('Has content:', hasContent); // boolean or debug object
+console.log('Stroke count:', strokeCount); // number or debug object
+console.log('Drawing data:', drawingData); // ArrayBuffer or debug object
+```
+
+**Key Improvements:**
+- 🔧 **Fixed Undefined Returns**: Methods no longer return `undefined` due to timing issues
+- ⏱️ **View Initialization**: Added proper async waiting for view readiness
+- 🛡️ **Error Handling**: Enhanced error handling with detailed debug information
+- 🔄 **Fallback Mechanisms**: Robust fallbacks for serialization failures
+- 🐛 **Debug Information**: Comprehensive debug objects for troubleshooting
+
+**Reliability Features:**
+- ✅ **Async Method Calls**: All critical methods now use proper async/await
+- ✅ **Initialization Timeout**: 2-second timeout for view readiness
+- ✅ **Thread Safety**: Methods properly called on main thread
+- ✅ **Fallback Serialization**: JSON fallback when PKDrawing serialization fails
+
 ```typescript
 // Methods can return either data or debug objects
 const result = await canvasRef.current?.getDrawingData();
@@ -968,6 +997,8 @@ For a complete guide to all advanced features, see our [Advanced Features Docume
 6. **Handwriting Recognition Interference**: Disable `enableHandwritingRecognition` for pure drawing apps
 7. **Empty Strokes or Null Serialization/Export (iOS)**: Update to `munim-pencilkit@1.1.2+`. A prior issue could prevent strokes from registering when disabling handwriting recognition. Version 1.1.2 also adds PNG/PDF fallbacks to snapshot the canvas when drawing bounds are empty.
 8. **Need to check content programmatically**: Use `hasContent()`, `getStrokeCount()`, and `getDrawingBounds()` (available in `1.1.3+`).
+9. **Methods returning undefined**: Update to `munim-pencilkit@1.2.8+`. This version fixes critical timing issues where methods were called before view initialization was complete.
+10. **Serialization methods failing**: Version 1.2.8+ includes robust fallback mechanisms and proper async handling for all serialization methods.
 
 ### iOS-Specific Issues
 
