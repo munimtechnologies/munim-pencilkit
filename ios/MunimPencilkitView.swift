@@ -281,6 +281,15 @@ class MunimPencilkitView: ExpoView {
   }
   
   func getDrawingData(debug: Bool = false) async -> [String: Any] {
+    // Force display update to ensure drawing is committed
+    await MainActor.run {
+      canvasView.setNeedsDisplay()
+      canvasView.layoutIfNeeded()
+    }
+    
+    // Small delay to ensure PencilKit has committed the drawing
+    try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
+    
     // SIMPLE: Just read the drawing directly as Apple intended
     let drawing = canvasView.drawing
     let strokeCount = drawing.strokes.count
@@ -371,6 +380,15 @@ class MunimPencilkitView: ExpoView {
 
   // MARK: - Simple State Accessors
   func hasContent(debug: Bool = false) async -> [String: Any] {
+    // Force display update to ensure drawing is committed
+    await MainActor.run {
+      canvasView.setNeedsDisplay()
+      canvasView.layoutIfNeeded()
+    }
+    
+    // Small delay to ensure PencilKit has committed the drawing
+    try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
+    
     // SIMPLE: Just read the drawing directly as Apple intended
     let drawing = canvasView.drawing
     let strokeCount = drawing.strokes.count
@@ -393,6 +411,15 @@ class MunimPencilkitView: ExpoView {
   }
   
   func getStrokeCount(debug: Bool = false) async -> [String: Any] {
+    // Force display update to ensure drawing is committed
+    await MainActor.run {
+      canvasView.setNeedsDisplay()
+      canvasView.layoutIfNeeded()
+    }
+    
+    // Small delay to ensure PencilKit has committed the drawing
+    try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
+    
     // SIMPLE: Just read the drawing directly as Apple intended
     let drawing = canvasView.drawing
     let strokeCount = drawing.strokes.count
@@ -904,6 +931,10 @@ class MunimPencilkitView: ExpoView {
 
 extension MunimPencilkitView: PKCanvasViewDelegate {
   func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
+    // Force display update to ensure drawing is committed
+    canvasView.setNeedsDisplay()
+    canvasView.layoutIfNeeded()
+    
     // SIMPLE: Just read the drawing directly as Apple intended
     let drawing = canvasView.drawing
     let hasContent = !drawing.strokes.isEmpty
