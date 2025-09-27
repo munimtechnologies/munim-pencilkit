@@ -90,7 +90,7 @@
 
 - 📊 **Individual Stroke Access**: Complete PKStroke, PKStrokePath, PKStrokePoint data
 - 🔢 **Point-Level Analysis**: Force, azimuth, altitude, and timing data
-- 📈 **Drawing Analytics**: Stroke count, complexity analysis, performance metrics
+- 📈 **Drawing Analytics**: Stroke count, complexity analysis, and drawing insights
 - 🎯 **Spatial Search**: Find strokes by region, proximity, or properties
 - 🧮 **Path Interpolation**: Smooth stroke reconstruction and analysis
 
@@ -118,7 +118,7 @@
 
 - 🚄 **60fps Drawing**: Optimized for smooth Apple Pencil rendering
 - 💾 **Memory Efficient**: Smart memory management for large drawings
-- 📊 **Real-time Analytics**: Performance monitoring and optimization suggestions
+- 📊 **Real-time Analytics**: Drawing analysis and optimization insights
 - 🎯 **Sub-pixel Precision**: Apple Pencil sub-pixel accuracy
 
 ### 🎛️ **Ink Behavior Controls**
@@ -375,8 +375,8 @@ await canvasRef.current?.setNaturalDrawingMode(false);
 const isAvailable = await canvasRef.current?.isScribbleAvailable();
 await canvasRef.current?.configureScribbleInteraction(true);
 
-// Performance Monitoring
-const metrics = await canvasRef.current?.getPerformanceMetrics();
+// Performance Monitoring (Note: getPerformanceMetrics not yet implemented)
+// const metrics = await canvasRef.current?.getPerformanceMetrics();
 ```
 
 ### Content & Serialization Helpers (1.1.3+)
@@ -410,12 +410,13 @@ const strokeCount = await canvasRef.current?.getStrokeCount();
 const drawingData = await canvasRef.current?.getDrawingData();
 
 // Methods now return proper values instead of undefined
-console.log('Has content:', hasContent); // boolean or debug object
-console.log('Stroke count:', strokeCount); // number or debug object
-console.log('Drawing data:', drawingData); // ArrayBuffer or debug object
+console.log("Has content:", hasContent); // boolean or debug object
+console.log("Stroke count:", strokeCount); // number or debug object
+console.log("Drawing data:", drawingData); // ArrayBuffer or debug object
 ```
 
 **Key Improvements:**
+
 - 🔧 **Fixed Undefined Returns**: Methods no longer return `undefined` due to timing issues
 - ⏱️ **View Initialization**: Added proper async waiting for view readiness
 - 🛡️ **Error Handling**: Enhanced error handling with detailed debug information
@@ -423,6 +424,7 @@ console.log('Drawing data:', drawingData); // ArrayBuffer or debug object
 - 🐛 **Debug Information**: Comprehensive debug objects for troubleshooting
 
 **Reliability Features:**
+
 - ✅ **Async Method Calls**: All critical methods now use proper async/await
 - ✅ **Initialization Timeout**: 2-second timeout for view readiness
 - ✅ **Thread Safety**: Methods properly called on main thread
@@ -844,10 +846,9 @@ export default function ProfessionalDrawingApp() {
 
   const getDetailedAnalysis = useCallback(async () => {
     try {
-      const [analysis, strokes, performance] = await Promise.all([
+      const [analysis, strokes] = await Promise.all([
         canvasRef.current?.analyzeDrawing(),
         canvasRef.current?.getAllStrokes(),
-        canvasRef.current?.getPerformanceMetrics(),
       ]);
 
       setDrawingStats({
@@ -855,8 +856,8 @@ export default function ProfessionalDrawingApp() {
         totalPoints: analysis.totalPoints,
         averageForce: analysis.averageForce,
         inkTypes: analysis.inkTypes,
-        complexity: performance.strokeComplexity,
-        memoryUsage: performance.memoryUsage,
+        complexity: analysis.strokeCount > 50 ? 'high' : 'normal',
+        memoryUsage: 0, // Performance metrics not yet implemented
       });
 
       Alert.alert('Analysis Complete', 'Check the stats below!');
@@ -919,7 +920,7 @@ export default function ProfessionalDrawingApp() {
             <Text>Total Points: {drawingStats.totalPoints}</Text>
             <Text>Average Force: {drawingStats.averageForce.toFixed(3)}</Text>
             <Text>Complexity: {drawingStats.complexity}</Text>
-            <Text>Memory Usage: {(drawingStats.memoryUsage / 1024).toFixed(1)}KB</Text>
+            <Text>Memory Usage: Not available</Text>
             <Text>Ink Types: {JSON.stringify(drawingStats.inkTypes)}</Text>
           </View>
         )}
@@ -1017,18 +1018,14 @@ For a complete guide to all advanced features, see our [Advanced Features Docume
 Enable debug logging in your app:
 
 ```typescript
-import { enableDebugMode } from "munim-pencilkit";
-
-// Enable debug mode in development
-if (__DEV__) {
-  enableDebugMode(true);
-}
+// Debug mode is automatically enabled in development builds
+// Debug information is included in method return values when available
 ```
 
 ### Performance Tips
 
-1. **Large Drawings**: Use `optimizeDrawing()` for drawings with 500+ strokes
-2. **Memory Management**: Monitor memory usage with `getPerformanceMetrics()`
+1. **Large Drawings**: Consider using `getAllStrokes()` for analysis of complex drawings
+2. **Memory Management**: Monitor stroke count and drawing bounds for memory usage
 3. **Export Optimization**: Use appropriate scale factors (1.0-3.0) for exports
 4. **Event Throttling**: Throttle `onDrawingChanged` events for better performance
 
@@ -1058,7 +1055,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - **🚀 Complete Feature Coverage**: Only React Native library with 100% PencilKit API coverage
 - **💎 Production Ready**: Used in professional drawing and note-taking applications
-- **🔬 Advanced Analytics**: Unique stroke-level analysis and performance monitoring
+- **🔬 Advanced Analytics**: Unique stroke-level analysis and drawing insights
 - **📱 Modern React Native**: Built for React Native's new architecture with full TypeScript support
 - **🎨 Professional Quality**: 60fps drawing with sub-pixel Apple Pencil precision
 - **🔄 Future Proof**: Regular updates to support the latest iOS features
