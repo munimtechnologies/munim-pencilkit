@@ -407,6 +407,59 @@ Version 1.2.8 includes critical fixes for method reliability and view initializa
 
 Version 1.2.9 introduces proper debug mode control for methods that previously always returned debug objects:
 
+### Swift Compilation Fixes (1.2.10+)
+
+Version 1.2.10 fixes critical Swift compilation errors that were preventing the package from building:
+
+- **Fixed Swift closure default arguments error** - Removed default parameters from Expo AsyncFunction closures
+- **Added missing native methods** - getDrawingBoundsStruct, getToolPickerInfo, getScribbleConfiguration, searchStrokes
+- **Fixed PKStrokePath property access** - Corrected boundingBox to use stroke.renderBounds
+- **Improved error handling** - Better fallback strategies for failed method calls
+
+### Comprehensive Bug Fixes (1.2.11+)
+
+Version 1.2.11 includes comprehensive fixes for all identified critical issues:
+
+- **Added missing native methods** - Complete implementation of all TypeScript wrapper methods
+- **Fixed view readiness detection** - More lenient checks for better reliability
+- **Added robust error handling** - safeExecute helper for consistent error management
+- **Improved data serialization** - Multiple fallback strategies for reliable data export
+- **Standardized return formats** - Consistent handling between debug and non-debug modes
+
+### Drawing Commit Timing Fixes (1.2.12-1.2.15)
+
+Versions 1.2.12-1.2.15 address critical drawing commit timing issues:
+
+- **Fixed drawing commit timing bug** - Ensures strokes are properly committed to PKDrawing object
+- **Added forceDrawingCommit() method** - Forces PencilKit to commit all pending strokes
+- **Enhanced drawing pipeline synchronization** - Proper sync with PencilKit's internal drawing pipeline
+- **Added comprehensive debug logging** - Track drawing state changes and method execution
+- **Multiple fallback strategies** - Graceful degradation when drawing isn't immediately available
+
+### Simplified Apple-Compliant Implementation (1.2.16+)
+
+Version 1.2.16+ simplifies the implementation to match Apple's PencilKit documentation exactly:
+
+- **Removed all complex timing logic** - No more force commits, waiting, or complex synchronization
+- **Direct PencilKit API usage** - Uses canvasView.drawing exactly as Apple intended
+- **Simplified delegate methods** - Clean, straightforward event handling
+- **Added debugDrawingState() method** - Comprehensive debugging for troubleshooting
+- **Apple-compliant approach** - Follows PencilKit documentation precisely
+
+### Final Optimization (1.2.17+)
+
+Version 1.2.17 represents the final, optimized implementation:
+
+- **Complete API compliance** - Uses PencilKit exactly as documented by Apple
+- **Simplified method implementations** - Direct access to drawing properties
+- **Enhanced debugging capabilities** - Comprehensive state inspection
+- **Removed all overcomplicated logic** - Clean, maintainable codebase
+- **Maximum reliability** - Follows Apple's intended usage patterns
+
+### Debug Mode Control (1.2.9+)
+
+Version 1.2.9 introduces proper debug mode control for methods that previously always returned debug objects:
+
 ```typescript
 // Default behavior - returns raw data (no debug wrapper)
 const hasContent = await canvasRef.current?.hasContent(); // boolean
@@ -422,6 +475,31 @@ console.log("Has content:", hasContent); // true/false
 console.log("Stroke count:", strokeCount); // 42
 console.log("Drawing data:", drawingData); // ArrayBuffer or null
 ```
+
+### Comprehensive Debugging (1.2.17+)
+
+Version 1.2.17+ includes a comprehensive debugging method for troubleshooting:
+
+```typescript
+// Debug drawing state - shows everything about the canvas and drawing
+const debugState = await canvasRef.current?.debugDrawingState();
+console.log('Debug state:', debugState);
+
+// Returns:
+// {
+//   strokeCount: number,
+//   bounds: { x, y, width, height },
+//   canvasFrame: { x, y, width, height },
+//   canvasHidden: boolean,
+//   canvasAlpha: number
+// }
+```
+
+This method helps diagnose:
+- Whether strokes are actually being detected
+- Canvas view setup and visibility
+- Drawing bounds and frame information
+- Any view hierarchy issues
 
 **Key Improvements:**
 
@@ -1008,8 +1086,10 @@ For a complete guide to all advanced features, see our [Advanced Features Docume
 6. **Handwriting Recognition Interference**: Disable `enableHandwritingRecognition` for pure drawing apps
 7. **Empty Strokes or Null Serialization/Export (iOS)**: Update to `munim-pencilkit@1.1.2+`. A prior issue could prevent strokes from registering when disabling handwriting recognition. Version 1.1.2 also adds PNG/PDF fallbacks to snapshot the canvas when drawing bounds are empty.
 8. **Need to check content programmatically**: Use `hasContent()`, `getStrokeCount()`, and `getDrawingBounds()` (available in `1.1.3+`).
-9. **Methods returning undefined**: Update to `munim-pencilkit@1.2.8+`. This version fixes critical timing issues where methods were called before view initialization was complete.
-10. **Serialization methods failing**: Version 1.2.8+ includes robust fallback mechanisms and proper async handling for all serialization methods.
+9. **Methods returning undefined**: Update to `munim-pencilkit@1.2.17+`. This version uses Apple's PencilKit API exactly as documented, eliminating all timing issues.
+10. **Serialization methods failing**: Version 1.2.17+ uses direct PencilKit API access with comprehensive debugging via `debugDrawingState()` method.
+11. **Drawing not being detected**: Use the new `debugDrawingState()` method to inspect canvas state and verify proper setup.
+12. **Complex timing issues**: Version 1.2.17+ removes all complex timing logic and uses PencilKit exactly as Apple intended.
 
 ### iOS-Specific Issues
 
