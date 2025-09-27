@@ -281,116 +281,72 @@ class MunimPencilkitView: ExpoView {
   }
   
   func getDrawingData() -> Data? {
-    // Try immediate serialization first
-    var result: Data?
-    if Thread.isMainThread {
-      result = canvasView.drawing.dataRepresentation()
-    } else {
-      DispatchQueue.main.sync {
-        result = self.canvasView.drawing.dataRepresentation()
-      }
-    }
+    // Always get fresh data from the canvas
+    let drawing = canvasView.drawing
     
     // Debug logging
-    print("[PencilKit] getDrawingData() - immediate attempt: \(result?.count ?? 0) bytes, cached: \(_lastDrawingData?.count ?? 0) bytes, strokeCount: \(_lastStrokeCount)")
+    print("[PencilKit] getDrawingData() - strokes: \(drawing.strokes.count)")
     
-    // If immediate serialization succeeded, return it
-    if let data = result, !data.isEmpty {
-      print("[PencilKit] getDrawingData() - returning immediate data: \(data.count) bytes")
-      return data
+    // Try immediate serialization
+    do {
+      let data = try drawing.dataRepresentation()
+      if !data.isEmpty {
+        print("[PencilKit] getDrawingData() - immediate success: \(data.count) bytes")
+        return data
+      }
+    } catch {
+      print("[PencilKit] getDrawingData() - immediate serialization failed: \(error)")
     }
     
     // If we have strokes but serialization failed, try with a delay
-    if !canvasView.drawing.strokes.isEmpty {
-      print("[PencilKit] getDrawingData() - immediate serialization failed, trying with delay...")
-      var delayedResult: Data?
+    if !drawing.strokes.isEmpty {
+      print("[PencilKit] getDrawingData() - trying delayed serialization...")
+      
+      // Use a semaphore to wait for delayed serialization
       let semaphore = DispatchSemaphore(value: 0)
+      var result: Data?
       
       DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-        delayedResult = self.canvasView.drawing.dataRepresentation()
+        do {
+          result = try self.canvasView.drawing.dataRepresentation()
+        } catch {
+          print("[PencilKit] getDrawingData() - delayed serialization failed: \(error)")
+        }
         semaphore.signal()
       }
       
       // Wait up to 0.5 seconds for delayed serialization
       let timeout = DispatchTime.now() + 0.5
       if semaphore.wait(timeout: timeout) == .success {
-        if let data = delayedResult, !data.isEmpty {
-          print("[PencilKit] getDrawingData() - returning delayed data: \(data.count) bytes")
-          // Update cache with successful delayed result
-          self._lastDrawingData = data
+        if let data = result, !data.isEmpty {
+          print("[PencilKit] getDrawingData() - delayed success: \(data.count) bytes")
           return data
         }
       }
     }
     
-    // If current data is empty but we have cached strokes, use cached data
-    if _lastStrokeCount > 0, let cachedData = _lastDrawingData, !cachedData.isEmpty {
-      print("[PencilKit] getDrawingData() - using cached data: \(cachedData.count) bytes")
-      return cachedData
-    }
-    
-    // Last resort: create fallback data if we have strokes but no serialized data
-    if !canvasView.drawing.strokes.isEmpty {
-      print("[PencilKit] getDrawingData() - creating fallback stroke data as last resort")
-      if let fallbackData = createFallbackStrokeData() {
-        self._fallbackStrokeData = fallbackData
-        print("[PencilKit] getDrawingData() - returning fallback data: \(fallbackData.count) bytes")
-        return fallbackData
-      }
-    }
-    
-    // Return cached fallback data if available
-    if let fallbackData = _fallbackStrokeData {
-      print("[PencilKit] getDrawingData() - returning cached fallback data: \(fallbackData.count) bytes")
-      return fallbackData
-    }
-    
-    print("[PencilKit] getDrawingData() - all methods failed, returning nil")
+    print("[PencilKit] getDrawingData() - serialization failed, returning nil")
     return nil
   }
 
   // MARK: - Simple State Accessors
   func hasContent() -> Bool {
-    var has = false
-    if Thread.isMainThread {
-      has = !canvasView.drawing.strokes.isEmpty
-    } else {
-      DispatchQueue.main.sync {
-        has = !self.canvasView.drawing.strokes.isEmpty
-      }
-    }
-    // Always prioritize cached state if it indicates content, as PencilKit may temporarily clear strokes during processing
-    let result = has || _lastStrokeCount > 0
-    print("[PencilKit] hasContent() - current: \(has), cached: \(_lastStrokeCount > 0), result: \(result)")
-    return result
+    let drawing = canvasView.drawing
+    let has = !drawing.strokes.isEmpty
+    print("[PencilKit] hasContent() - strokes: \(drawing.strokes.count), result: \(has)")
+    return has
   }
   
   func getStrokeCount() -> Int {
-    var count = 0
-    if Thread.isMainThread {
-      count = canvasView.drawing.strokes.count
-    } else {
-      DispatchQueue.main.sync {
-        count = self.canvasView.drawing.strokes.count
-      }
-    }
-    // Always return the maximum of current and cached count to handle race conditions
-    let result = max(count, _lastStrokeCount)
-    print("[PencilKit] getStrokeCount() - current: \(count), cached: \(_lastStrokeCount), result: \(result)")
-    return result
+    let drawing = canvasView.drawing
+    let count = drawing.strokes.count
+    print("[PencilKit] getStrokeCount() - strokes: \(count)")
+    return count
   }
   
   func getDrawingBoundsStruct() -> [String: CGFloat] {
-    var bounds = CGRect.zero
-    if Thread.isMainThread {
-      bounds = canvasView.drawing.bounds
-    } else {
-      DispatchQueue.main.sync {
-        bounds = self.canvasView.drawing.bounds
-      }
-    }
-    // Use cached bounds if current bounds are empty but we have cached strokes
-    if bounds.isEmpty && _lastStrokeCount > 0 { bounds = _lastBounds }
+    let drawing = canvasView.drawing
+    let bounds = drawing.bounds
     return [
       "x": bounds.origin.x,
       "y": bounds.origin.y,
@@ -450,56 +406,18 @@ class MunimPencilkitView: ExpoView {
   
   @available(iOS 13.0, *)
   func getAllStrokes() -> [[String: Any]] {
-    var currentStrokes: [PKStroke] = []
-    var result: [[String: Any]] = []
+    let drawing = canvasView.drawing
+    let strokes = drawing.strokes
+    let result = strokes.map { $0.toDictionary() }
     
-    let work = {
-      currentStrokes = self.canvasView.drawing.strokes
-      result = currentStrokes.map { $0.toDictionary() }
-    }
-    
-    if Thread.isMainThread {
-      work()
-    } else {
-      DispatchQueue.main.sync(execute: work)
-    }
-    
-    // Debug logging to track the issue
-    print("[PencilKit] getAllStrokes() - current: \(currentStrokes.count), cached: \(_lastStrokeCount), hasCachedData: \(_lastDrawingData != nil)")
-    
-    // If current strokes are empty but we have cached strokes, use cached data
-    if currentStrokes.isEmpty && _lastStrokeCount > 0 {
-      if let data = self._lastDrawingData, !data.isEmpty {
-        do {
-          let drawing = try PKDrawing(data: data)
-          let cachedResult = drawing.strokes.map { $0.toDictionary() }
-          print("[PencilKit] getAllStrokes() - using cached data: \(cachedResult.count) strokes")
-          return cachedResult
-        } catch {
-          print("[PencilKit] getAllStrokes() - failed to parse cached data: \(error)")
-        }
-      }
-    }
-    
-    print("[PencilKit] getAllStrokes() - returning current result: \(result.count) strokes")
+    print("[PencilKit] getAllStrokes() - returning: \(result.count) strokes")
     return result
   }
   
   @available(iOS 13.0, *)
   func getStroke(at index: Int) -> [String: Any]? {
-    var strokes = canvasView.drawing.strokes
-    
-    // If current strokes are empty but we have cached strokes, use cached data
-    if strokes.isEmpty && _lastStrokeCount > 0 {
-      if let data = self._lastDrawingData, !data.isEmpty {
-        do {
-          let drawing = try PKDrawing(data: data)
-          strokes = drawing.strokes
-        } catch {
-          print("[PencilKit] getStroke() - failed to parse cached data: \(error)")
-        }
-      }
-    }
+    let drawing = canvasView.drawing
+    let strokes = drawing.strokes
     
     guard index >= 0 && index < strokes.count else { return nil }
     return strokes[index].toDictionary()
@@ -507,19 +425,8 @@ class MunimPencilkitView: ExpoView {
   
   @available(iOS 13.0, *)
   func getStrokesInRegion(_ region: CGRect) -> [[String: Any]] {
-    var strokes = canvasView.drawing.strokes
-    
-    // If current strokes are empty but we have cached strokes, use cached data
-    if strokes.isEmpty && _lastStrokeCount > 0 {
-      if let data = self._lastDrawingData, !data.isEmpty {
-        do {
-          let drawing = try PKDrawing(data: data)
-          strokes = drawing.strokes
-        } catch {
-          print("[PencilKit] getStrokesInRegion() - failed to parse cached data: \(error)")
-        }
-      }
-    }
+    let drawing = canvasView.drawing
+    let strokes = drawing.strokes
     
     return strokes.filter { stroke in
       stroke.renderBounds.intersects(region)
@@ -528,19 +435,9 @@ class MunimPencilkitView: ExpoView {
   
   @available(iOS 13.0, *)
   func analyzeDrawing() -> [String: Any] {
-    var strokes = canvasView.drawing.strokes
+    let drawing = canvasView.drawing
+    let strokes = drawing.strokes
     
-    // If current strokes are empty but we have cached strokes, use cached data
-    if strokes.isEmpty && _lastStrokeCount > 0 {
-      if let data = self._lastDrawingData, !data.isEmpty {
-        do {
-          let drawing = try PKDrawing(data: data)
-          strokes = drawing.strokes
-        } catch {
-          print("[PencilKit] analyzeDrawing() - failed to parse cached data: \(error)")
-        }
-      }
-    }
     var analysis: [String: Any] = [:]
     
     analysis["strokeCount"] = strokes.count
@@ -573,10 +470,10 @@ class MunimPencilkitView: ExpoView {
     analysis["inkTypes"] = inkTypes
     analysis["averageForce"] = totalForcePoints > 0 ? averageForce / Double(totalForcePoints) : 0
     analysis["bounds"] = [
-      "x": canvasView.drawing.bounds.origin.x,
-      "y": canvasView.drawing.bounds.origin.y,
-      "width": canvasView.drawing.bounds.size.width,
-      "height": canvasView.drawing.bounds.size.height
+      "x": drawing.bounds.origin.x,
+      "y": drawing.bounds.origin.y,
+      "width": drawing.bounds.size.width,
+      "height": drawing.bounds.size.height
     ]
     
     return analysis
@@ -861,45 +758,20 @@ class MunimPencilkitView: ExpoView {
 
 extension MunimPencilkitView: PKCanvasViewDelegate {
   func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
-    // Ensure event is dispatched on main thread with fresh values
+    // Get fresh values from the canvas
     let drawing = canvasView.drawing
     let hasContent = !drawing.strokes.isEmpty
     let strokeCount = drawing.strokes.count
     let bounds = drawing.bounds
     
     // Debug logging to track state changes
-    print("[PencilKit] Drawing changed - current: hasContent=\(hasContent), strokeCount=\(strokeCount), cached: _lastStrokeCount=\(_lastStrokeCount)")
+    print("[PencilKit] Drawing changed - hasContent=\(hasContent), strokeCount=\(strokeCount)")
     
-    // Update cached state immediately
+    // Update cached state for debugging purposes only
     self._lastStrokeCount = strokeCount
     self._lastBounds = bounds
     
-    // Try immediate serialization
-    let immediateData = drawing.dataRepresentation()
-    if !immediateData.isEmpty {
-      self._lastDrawingData = immediateData
-      print("[PencilKit] Drawing changed - immediate serialization successful: \(immediateData.count) bytes")
-    } else if strokeCount > 0 {
-      print("[PencilKit] Drawing changed - immediate serialization failed, scheduling delayed attempt")
-      
-      // Schedule delayed serialization attempt
-      DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
-        guard let self = self else { return }
-        let delayedData = self.canvasView.drawing.dataRepresentation()
-        if !delayedData.isEmpty {
-          self._lastDrawingData = delayedData
-          print("[PencilKit] Drawing changed - delayed serialization successful: \(delayedData.count) bytes")
-        } else {
-          print("[PencilKit] Drawing changed - delayed serialization also failed, creating fallback data")
-          // Create fallback data when both immediate and delayed serialization fail
-          if let fallbackData = self.createFallbackStrokeData() {
-            self._fallbackStrokeData = fallbackData
-            print("[PencilKit] Drawing changed - fallback data created: \(fallbackData.count) bytes")
-          }
-        }
-      }
-    }
-    
+    // Dispatch the event with current state
     onDrawingChanged([
       "hasContent": hasContent,
       "strokeCount": strokeCount,
