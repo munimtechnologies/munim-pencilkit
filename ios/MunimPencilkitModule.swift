@@ -168,15 +168,15 @@ public class MunimPencilkitModule: Module {
       // MARK: - Updated Methods with Debug Return Types
       
       AsyncFunction("getDrawingData") { (view: MunimPencilkitView) -> [String: Any] in
-        return view.getDrawingData()
+        return await view.getDrawingData()
       }
 
       AsyncFunction("hasContent") { (view: MunimPencilkitView) -> [String: Any] in
-        return view.hasContent()
+        return await view.hasContent()
       }
       
       AsyncFunction("getStrokeCount") { (view: MunimPencilkitView) -> [String: Any] in
-        return view.getStrokeCount()
+        return await view.getStrokeCount()
       }
       
       AsyncFunction("getDrawingBounds") { (view: MunimPencilkitView) -> [String: CGFloat] in
@@ -243,7 +243,7 @@ public class MunimPencilkitModule: Module {
       // MARK: - Advanced Stroke Inspection
       
       AsyncFunction("getAllStrokes") { (view: MunimPencilkitView) -> [[String: Any]] in
-        return view.getAllStrokes()
+        return await view.getAllStrokes()
       }
       
       AsyncFunction("getStroke") { (view: MunimPencilkitView, index: Int) -> [String: Any]? in

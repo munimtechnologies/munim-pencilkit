@@ -431,6 +431,7 @@ if (result && typeof result === 'object' && 'debug' in result) {
 ```
 
 **Debug Features:**
+
 - 🐛 **Debug Return Types**: Methods return detailed debug objects when in debug mode
 - 📊 **Method Tracking**: Track which methods are called and their execution steps
 - ⏱️ **Timing Information**: Timestamps for performance analysis
