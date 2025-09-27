@@ -360,7 +360,7 @@ class MunimPencilkitView: ExpoView {
     DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
       do {
         let delayedDrawing = self.canvasView.drawing
-        onDrawingChanged([
+        self.onDrawingChanged([
           "debug": true,
           "method": "getDrawingData",
           "step": "delayedAttempt",
@@ -369,7 +369,7 @@ class MunimPencilkitView: ExpoView {
         ])
         result = try delayedDrawing.dataRepresentation()
         if let data = result {
-          onDrawingChanged([
+          self.onDrawingChanged([
             "debug": true,
             "method": "getDrawingData",
             "step": "delayedSuccess",
@@ -377,7 +377,7 @@ class MunimPencilkitView: ExpoView {
             "timestamp": Date().timeIntervalSince1970
           ])
         } else {
-          onDrawingChanged([
+          self.onDrawingChanged([
             "debug": true,
             "method": "getDrawingData",
             "step": "delayedNil",
@@ -385,7 +385,7 @@ class MunimPencilkitView: ExpoView {
           ])
         }
       } catch {
-        onDrawingChanged([
+        self.onDrawingChanged([
           "debug": true,
           "method": "getDrawingData",
           "step": "delayedError",
