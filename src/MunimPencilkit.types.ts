@@ -180,7 +180,9 @@ export interface MunimPencilkitViewMethods {
   redo(): Promise<void>;
 
   // Data Management
-  getDrawingData(debug?: boolean): Promise<ArrayBuffer | null | DebugEventPayload>;
+  getDrawingData(
+    debug?: boolean
+  ): Promise<ArrayBuffer | null | DebugEventPayload>;
   loadDrawingData(data: ArrayBuffer): Promise<void>;
 
   // Export Functions

@@ -167,20 +167,24 @@ public class MunimPencilkitModule: Module {
       
       // MARK: - Updated Methods with Debug Return Types
       
-      AsyncFunction("getDrawingData") { (view: MunimPencilkitView, debug: Bool = false) -> [String: Any] in
+      AsyncFunction("getDrawingData") { (view: MunimPencilkitView, debug: Bool) -> [String: Any] in
         return await view.getDrawingData(debug: debug)
       }
 
-      AsyncFunction("hasContent") { (view: MunimPencilkitView, debug: Bool = false) -> [String: Any] in
+      AsyncFunction("hasContent") { (view: MunimPencilkitView, debug: Bool) -> [String: Any] in
         return await view.hasContent(debug: debug)
       }
       
-      AsyncFunction("getStrokeCount") { (view: MunimPencilkitView, debug: Bool = false) -> [String: Any] in
+      AsyncFunction("getStrokeCount") { (view: MunimPencilkitView, debug: Bool) -> [String: Any] in
         return await view.getStrokeCount(debug: debug)
       }
       
       AsyncFunction("getDrawingBounds") { (view: MunimPencilkitView) -> [String: CGFloat] in
         return view.getDrawingBoundsStruct()
+      }
+      
+      AsyncFunction("loadDrawingData") { (view: MunimPencilkitView, data: Data) in
+        view.loadDrawingData(data)
       }
       
       AsyncFunction("exportAsImage") { (view: MunimPencilkitView, scale: Double) -> String? in

@@ -38,7 +38,9 @@ const MunimPencilkitView = React.forwardRef<
     },
 
     // Data Management
-    async getDrawingData(debug: boolean = false): Promise<ArrayBuffer | null | DebugEventPayload> {
+    async getDrawingData(
+      debug: boolean = false
+    ): Promise<ArrayBuffer | null | DebugEventPayload> {
       const result = await nativeViewRef.current?.getDrawingData(debug);
       if (debug) {
         return result as DebugEventPayload;
@@ -105,7 +107,9 @@ const MunimPencilkitView = React.forwardRef<
     },
 
     // View State
-    async hasContent(debug: boolean = false): Promise<boolean | DebugEventPayload> {
+    async hasContent(
+      debug: boolean = false
+    ): Promise<boolean | DebugEventPayload> {
       const result = await nativeViewRef.current?.hasContent(debug);
       if (debug) {
         return result as DebugEventPayload;
@@ -114,7 +118,9 @@ const MunimPencilkitView = React.forwardRef<
       }
     },
 
-    async getStrokeCount(debug: boolean = false): Promise<number | DebugEventPayload> {
+    async getStrokeCount(
+      debug: boolean = false
+    ): Promise<number | DebugEventPayload> {
       const result = await nativeViewRef.current?.getStrokeCount(debug);
       if (debug) {
         return result as DebugEventPayload;
