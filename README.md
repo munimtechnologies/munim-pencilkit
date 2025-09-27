@@ -483,7 +483,7 @@ Version 1.2.17+ includes a comprehensive debugging method for troubleshooting:
 ```typescript
 // Debug drawing state - shows everything about the canvas and drawing
 const debugState = await canvasRef.current?.debugDrawingState();
-console.log('Debug state:', debugState);
+console.log("Debug state:", debugState);
 
 // Returns:
 // {
@@ -496,6 +496,7 @@ console.log('Debug state:', debugState);
 ```
 
 This method helps diagnose:
+
 - Whether strokes are actually being detected
 - Canvas view setup and visibility
 - Drawing bounds and frame information

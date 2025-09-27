@@ -364,220 +364,7 @@ class MunimPencilkitView: ExpoView {
       }
     }
   }
-    
-    let drawing = canvasView.drawing
-    let strokeCount = drawing.strokes.count
-    
-    if strokeCount == 0 {
-      if debug {
-        return [
-          "result": NSNull(),
-          "debug": true,
-          "method": "getDrawingData",
-          "strokes": 0,
-          "step": "noStrokes",
-          "timestamp": Date().timeIntervalSince1970
-        ]
-      } else {
-        return [:] // Return empty for non-debug mode
-      }
-    }
-    
-    // Try immediate serialization with better error handling
-    do {
-      let data = try drawing.dataRepresentation()
-      if !data.isEmpty {
-        if debug {
-          return [
-            "result": data,
-            "debug": true,
-            "method": "getDrawingData",
-            "strokes": strokeCount,
-            "step": "immediateSuccess",
-            "bytes": data.count,
-            "timestamp": Date().timeIntervalSince1970
-          ]
-        } else {
-          // Return raw data for non-debug mode
-          return ["data": data]
-        }
-      }
-    } catch {
-      if debug {
-        return [
-          "result": NSNull(),
-          "debug": true,
-          "method": "getDrawingData",
-          "strokes": strokeCount,
-          "step": "immediateError",
-          "error": error.localizedDescription,
-          "timestamp": Date().timeIntervalSince1970
-        ]
-      } else {
-        return [:] // Return empty for non-debug mode on error
-      }
-    }
-    
-    // Fallback to stroke data if PKDrawing serialization fails
-    do {
-      let strokes = drawing.strokes.map { $0.toDictionary() }
-      let fallbackData: [String: Any] = [
-        "type": "fallbackStrokes",
-        "version": 1,
-        "strokeCount": strokes.count,
-        "bounds": [
-          "x": drawing.bounds.origin.x,
-          "y": drawing.bounds.origin.y,
-          "width": drawing.bounds.size.width,
-          "height": drawing.bounds.size.height
-        ],
-        "strokes": strokes,
-        "timestamp": Date().timeIntervalSince1970
-      ]
-      
-      let jsonData = try JSONSerialization.data(withJSONObject: fallbackData, options: [])
-      if debug {
-        return [
-          "result": jsonData,
-          "debug": true,
-          "method": "getDrawingData",
-          "strokes": strokeCount,
-          "step": "fallbackSuccess",
-          "bytes": jsonData.count,
-          "timestamp": Date().timeIntervalSince1970
-        ]
-      } else {
-        return ["data": jsonData]
-      }
-    } catch {
-      if debug {
-        return [
-          "result": NSNull(),
-          "debug": true,
-          "method": "getDrawingData",
-          "strokes": strokeCount,
-          "step": "fallbackError",
-          "error": error.localizedDescription,
-          "timestamp": Date().timeIntervalSince1970
-        ]
-      } else {
-        return [:] // Return empty for non-debug mode on error
-      }
-    }
-  }
 
-  // MARK: - View State Management
-  
-  private func isViewReady() -> Bool {
-    // More lenient check - just ensure the view is in the hierarchy
-    return canvasView.superview != nil
-  }
-  
-  private func forceDrawingCommit() async {
-    await MainActor.run {
-      // CRITICAL FIX: Force PencilKit to commit all pending strokes
-      
-      // 1. Force the canvas to finish any pending drawing operations
-      self.canvasView.setNeedsDisplay()
-      self.canvasView.layoutIfNeeded()
-      
-      // 2. Force the canvas to end any active drawing session
-      // This ensures strokes are committed from "pending" to "final" state
-      if self.canvasView.isUserInteractionEnabled {
-        // Temporarily disable interaction to force commit
-        self.canvasView.isUserInteractionEnabled = false
-        self.canvasView.isUserInteractionEnabled = true
-      }
-      
-      // 3. Force a complete redraw to ensure all strokes are processed
-      self.canvasView.setNeedsDisplay()
-      self.canvasView.displayIfNeeded()
-      
-      // 4. Force the drawing to be committed to the PKDrawing object
-      // This ensures that any pending strokes are properly added
-      let currentDrawing = self.canvasView.drawing
-      self.canvasView.drawing = currentDrawing
-      
-      // 5. Additional force commit by accessing the drawing multiple times
-      // This triggers PencilKit's internal commit mechanisms
-      _ = self.canvasView.drawing.strokes.count
-      _ = self.canvasView.drawing.bounds
-    }
-  }
-  
-  private func waitForDrawingCommit(timeout: TimeInterval = 1.0) async -> Bool {
-    let startTime = Date()
-    var lastStrokeCount = 0
-    
-    while Date().timeIntervalSince(startTime) < timeout {
-      await MainActor.run {
-        lastStrokeCount = self.canvasView.drawing.strokes.count
-      }
-      
-      // If we have strokes, wait a bit more to ensure they're fully committed
-      if lastStrokeCount > 0 {
-        try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
-        await MainActor.run {
-          let currentStrokeCount = self.canvasView.drawing.strokes.count
-          if currentStrokeCount == lastStrokeCount {
-            // Stroke count is stable, drawing is likely committed
-            return
-          }
-        }
-      }
-      
-      try? await Task.sleep(nanoseconds: 10_000_000) // 10ms
-    }
-    
-    return lastStrokeCount > 0
-  }
-  
-  private func waitForViewReady(timeout: TimeInterval = 2.0) async -> Bool {
-    let startTime = Date()
-    while !isViewReady() && Date().timeIntervalSince(startTime) < timeout {
-      try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
-    }
-    return isViewReady()
-  }
-  
-  private func safeExecute<T>(_ operation: () -> T, fallback: T, debug: Bool = false, method: String) -> [String: Any] {
-    do {
-      let result = operation()
-      if debug {
-        return [
-          "result": result,
-          "debug": true,
-          "method": method,
-          "timestamp": Date().timeIntervalSince1970
-        ]
-      } else {
-        // Return appropriate format based on method
-        switch method {
-        case "getDrawingData":
-          return ["data": result]
-        case "hasContent":
-          return ["hasContent": result]
-        case "getStrokeCount":
-          return ["strokeCount": result]
-        default:
-          return ["result": result]
-        }
-      }
-    } catch {
-      if debug {
-        return [
-          "result": fallback,
-          "debug": true,
-          "method": method,
-          "error": error.localizedDescription,
-          "timestamp": Date().timeIntervalSince1970
-        ]
-      } else {
-        return ["error": error.localizedDescription]
-      }
-    }
-  }
-  
   // MARK: - Simple State Accessors
   func hasContent(debug: Bool = false) async -> [String: Any] {
     // SIMPLE: Just read the drawing directly as Apple intended
@@ -1019,34 +806,6 @@ class MunimPencilkitView: ExpoView {
     }
   }
   
-  @objc private func handleAdvancedTap(_ gesture: UITapGestureRecognizer) {
-    let location = gesture.location(in: canvasView)
-    
-    // Dispatch advanced tap event
-    onDrawingChanged([
-      "type": "advancedTap",
-      "location": ["x": location.x, "y": location.y],
-      "timestamp": Date().timeIntervalSince1970
-    ])
-  }
-  
-  @objc private func handleAdvancedLongPress(_ gesture: UILongPressGestureRecognizer) {
-    if gesture.state == .began {
-      let location = gesture.location(in: canvasView)
-      
-      // Find strokes near the long press location
-      let nearbyStrokes = findStrokesNear(point: location, threshold: 20.0)
-      
-      // Dispatch advanced long press event
-      onDrawingChanged([
-        "type": "advancedLongPress",
-        "location": ["x": location.x, "y": location.y],
-        "nearbyStrokes": nearbyStrokes,
-        "timestamp": Date().timeIntervalSince1970
-      ])
-    }
-  }
-  
   // MARK: - Tool management
   
   func applyToolConfiguration() {
@@ -1112,6 +871,34 @@ class MunimPencilkitView: ExpoView {
       "color": color?.hexString ?? "#000000",
       "width": width ?? 10.0
     ])
+  }
+  
+  @objc private func handleAdvancedTap(_ gesture: UITapGestureRecognizer) {
+    let location = gesture.location(in: canvasView)
+    
+    // Dispatch advanced tap event
+    onDrawingChanged([
+      "type": "advancedTap",
+      "location": ["x": location.x, "y": location.y],
+      "timestamp": Date().timeIntervalSince1970
+    ])
+  }
+  
+  @objc private func handleAdvancedLongPress(_ gesture: UILongPressGestureRecognizer) {
+    if gesture.state == .began {
+      let location = gesture.location(in: canvasView)
+      
+      // Find strokes near the long press location
+      let nearbyStrokes = findStrokesNear(point: location, threshold: 20.0)
+      
+      // Dispatch advanced long press event
+      onDrawingChanged([
+        "type": "advancedLongPress",
+        "location": ["x": location.x, "y": location.y],
+        "nearbyStrokes": nearbyStrokes.count,
+        "timestamp": Date().timeIntervalSince1970
+      ])
+    }
   }
 }
 
