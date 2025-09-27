@@ -281,7 +281,7 @@ class MunimPencilkitView: ExpoView {
   }
   
   func getDrawingData() -> Data? {
-    print("🔥 [PencilKit] getDrawingData() called")
+    print("🔥🔥🔥 [PencilKit] View getDrawingData() called - METHOD IS BEING CALLED!")
     
     // Always get fresh data from the canvas
     let drawing = canvasView.drawing
@@ -351,19 +351,19 @@ class MunimPencilkitView: ExpoView {
 
   // MARK: - Simple State Accessors
   func hasContent() -> Bool {
-    print("🔥 [PencilKit] hasContent() called")
+    print("🔥🔥🔥 [PencilKit] View hasContent() called - METHOD IS BEING CALLED!")
     let drawing = canvasView.drawing
     let strokeCount = drawing.strokes.count
     let has = strokeCount > 0
-    print("🔥 [PencilKit] hasContent() - strokes: \(strokeCount), result: \(has)")
+    print("🔥🔥🔥 [PencilKit] View hasContent() - strokes: \(strokeCount), result: \(has)")
     return has
   }
   
   func getStrokeCount() -> Int {
-    print("🔥 [PencilKit] getStrokeCount() called")
+    print("🔥🔥🔥 [PencilKit] View getStrokeCount() called - METHOD IS BEING CALLED!")
     let drawing = canvasView.drawing
     let count = drawing.strokes.count
-    print("🔥 [PencilKit] getStrokeCount() - strokes: \(count)")
+    print("🔥🔥🔥 [PencilKit] View getStrokeCount() - strokes: \(count)")
     return count
   }
   
