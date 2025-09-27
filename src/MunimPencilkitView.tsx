@@ -7,6 +7,7 @@ import {
   PKDrawingExportOptions,
   PKToolType,
   PKDrawingBounds,
+  DebugEventPayload,
 } from "./MunimPencilkit.types";
 
 // Native view component
@@ -37,9 +38,8 @@ const MunimPencilkitView = React.forwardRef<
     },
 
     // Data Management
-    async getDrawingData(): Promise<ArrayBuffer | null> {
-      const data = await nativeViewRef.current?.getDrawingData();
-      return data ? data : null;
+    async getDrawingData(): Promise<ArrayBuffer | null | DebugEventPayload> {
+      return await nativeViewRef.current?.getDrawingData();
     },
 
     async loadDrawingData(data: ArrayBuffer): Promise<void> {
@@ -63,7 +63,11 @@ const MunimPencilkitView = React.forwardRef<
     },
 
     async exportAsData(): Promise<ArrayBuffer | null> {
-      return this.getDrawingData();
+      const result = await this.getDrawingData();
+      if (result && typeof result === 'object' && 'debug' in result) {
+        return result.result || null;
+      }
+      return result;
     },
 
     // Tool Management
@@ -98,17 +102,28 @@ const MunimPencilkitView = React.forwardRef<
     },
 
     // View State
-    async hasContent(): Promise<boolean> {
-      return (await nativeViewRef.current?.hasContent()) || false;
+    async hasContent(): Promise<boolean | DebugEventPayload> {
+      return await nativeViewRef.current?.hasContent();
     },
 
-    async getStrokeCount(): Promise<number> {
-      return (await nativeViewRef.current?.getStrokeCount()) || 0;
+    async getStrokeCount(): Promise<number | DebugEventPayload> {
+      return await nativeViewRef.current?.getStrokeCount();
     },
 
     async getDrawingBounds(): Promise<PKDrawingBounds> {
       return (
         (await nativeViewRef.current?.getDrawingBounds()) || {
+          x: 0,
+          y: 0,
+          width: 0,
+          height: 0,
+        }
+      );
+    },
+
+    async getDrawingBoundsStruct(): Promise<PKDrawingBounds> {
+      return (
+        (await nativeViewRef.current?.getDrawingBoundsStruct()) || {
           x: 0,
           y: 0,
           width: 0,

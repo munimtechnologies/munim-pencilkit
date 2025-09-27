@@ -61,12 +61,34 @@ export interface PKDrawingData {
   strokeCount: number;
 }
 
+// MARK: - Debug Types
+
+export interface DebugEventPayload {
+  debug: true;
+  method: string;
+  step?: string;
+  strokes: number;
+  result?: any;
+  bytes?: number;
+  error?: string;
+  timestamp: number;
+}
+
 // MARK: - Event Payload Types
 
 export interface OnDrawingChangedEventPayload {
   hasContent: boolean;
   strokeCount: number;
   bounds: PKDrawingBounds;
+  // Debug properties (optional)
+  debug?: boolean;
+  method?: string;
+  step?: string;
+  strokes?: number;
+  result?: any;
+  bytes?: number;
+  error?: string;
+  timestamp?: number;
 }
 
 export interface OnToolChangedEventPayload {
@@ -158,7 +180,7 @@ export interface MunimPencilkitViewMethods {
   redo(): Promise<void>;
 
   // Data Management
-  getDrawingData(): Promise<ArrayBuffer | null>;
+  getDrawingData(): Promise<ArrayBuffer | null | DebugEventPayload>;
   loadDrawingData(data: ArrayBuffer): Promise<void>;
 
   // Export Functions
@@ -177,9 +199,10 @@ export interface MunimPencilkitViewMethods {
   setNaturalDrawingMode(natural: boolean): Promise<void>;
 
   // View State
-  hasContent(): Promise<boolean>;
-  getStrokeCount(): Promise<number>;
+  hasContent(): Promise<boolean | DebugEventPayload>;
+  getStrokeCount(): Promise<number | DebugEventPayload>;
   getDrawingBounds(): Promise<PKDrawingBounds>;
+  getDrawingBoundsStruct(): Promise<PKDrawingBounds>;
 
   // Zoom and Pan
   zoomToFitDrawing(animated?: boolean): Promise<void>;
@@ -242,20 +265,17 @@ export interface MunimPencilkitViewMethods {
 // MARK: - Module Interface
 
 export interface MunimPencilkitModule {
+  // Test Functions
+  testNativeModule(): string;
+
   // Tool Information
   getAvailableTools(): { [key: string]: PKTool };
   getInkTypes(): { [key: string]: string };
 
-  // System Information
-  isPencilKitAvailable(): boolean;
-  getSupportedFeatures(): string[];
-
-  // Global Configuration
-  setGlobalDrawingPolicy(policy: PKDrawingPolicy): void;
-
-  // Utility Functions
-  createDrawingData(strokes?: any[]): Promise<ArrayBuffer>;
-  validateDrawingData(data: ArrayBuffer): Promise<boolean>;
+  // Drawing Export (Global Functions - these return null as they're handled by view)
+  exportDrawingAsImage(scale?: number): Promise<string | null>;
+  exportDrawingAsData(): Promise<ArrayBuffer | null>;
+  exportDrawingAsPDF(scale?: number): Promise<ArrayBuffer | null>;
 }
 
 // MARK: - Legacy Support (for backward compatibility)

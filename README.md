@@ -131,11 +131,12 @@
 
 ### 🔧 **Developer Experience**
 
-- 📘 **Full TypeScript**: Complete type definitions with IntelliSense
+- 📘 **Full TypeScript**: Complete type definitions with IntelliSense and debug support
 - ⚛️ **Modern React**: Hooks, refs, and imperative API support
 - 🚀 **Expo Compatible**: Works with Expo SDK 51+ managed and bare workflows
-- 🔗 **Event System**: Comprehensive drawing event handling
+- 🔗 **Event System**: Comprehensive drawing event handling with debug payloads
 - ♿ **Accessibility**: VoiceOver and accessibility support
+- 🐛 **Debug Support**: Built-in debug mode with detailed method return types
 
 ## 📦 Installation
 
@@ -394,10 +395,53 @@ const bounds = await canvasRef.current?.getDrawingBounds();
 const data = await canvasRef.current?.getDrawingData(); // ArrayBuffer (non-null when content exists)
 ```
 
+### Debug Support & Type Safety (1.1.4+)
+
+The library now includes comprehensive debug support with proper TypeScript definitions:
+
+```typescript
+// Methods can return either data or debug objects
+const result = await canvasRef.current?.getDrawingData();
+
+// Type-safe handling of debug responses
+if (result && typeof result === 'object' && 'debug' in result) {
+  // Debug response
+  console.log('Debug info:', {
+    method: result.method,
+    strokes: result.strokes,
+    timestamp: result.timestamp,
+    step: result.step,
+    error: result.error
+  });
+} else {
+  // Regular data response
+  console.log('Drawing data:', result);
+}
+
+// Event payloads also support debug properties
+<MunimPencilkitView
+  onDrawingChanged={({ nativeEvent }) => {
+    if (nativeEvent.debug) {
+      console.log('Debug drawing event:', nativeEvent);
+    } else {
+      console.log('Regular drawing event:', nativeEvent);
+    }
+  }}
+/>
+```
+
+**Debug Features:**
+- 🐛 **Debug Return Types**: Methods return detailed debug objects when in debug mode
+- 📊 **Method Tracking**: Track which methods are called and their execution steps
+- ⏱️ **Timing Information**: Timestamps for performance analysis
+- 🔍 **Error Details**: Detailed error information when operations fail
+- 📈 **Stroke Analytics**: Real-time stroke count and processing information
+
 Notes:
 
 - If drawing bounds are empty, image/PDF export will fall back to a canvas snapshot (1.1.2+).
 - Ensure `drawingPolicy` and `allowsFingerDrawing` are set to allow your input method.
+- Debug mode provides enhanced type safety and detailed method return information.
 
 ## 🎛️ Ink Behavior Controls
 

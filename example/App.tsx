@@ -49,6 +49,14 @@ export default function App() {
     []
   );
 
+  // Helper function to extract result from debug objects
+  const extractResult = (debugObj: any) => {
+    if (debugObj && typeof debugObj === "object" && "result" in debugObj) {
+      return debugObj.result;
+    }
+    return debugObj;
+  };
+
   const handleToolChanged = useCallback(
     ({ nativeEvent }: { nativeEvent: OnToolChangedEventPayload }) => {
       setCurrentTool(nativeEvent.toolType);
@@ -390,6 +398,72 @@ export default function App() {
               <Text style={styles.inkInfoDescription}>{description}</Text>
             </View>
           ))}
+        </Group>
+
+        {/* Debug Methods Test */}
+        <Group name="Debug Methods Test">
+          <View style={styles.buttonRow}>
+            <Button
+              title="Test hasContent()"
+              onPress={async () => {
+                try {
+                  const result = await pencilKitRef.current?.hasContent();
+                  console.log(
+                    "hasContent() result:",
+                    JSON.stringify(result, null, 2)
+                  );
+                  const extracted = extractResult(result);
+                  Alert.alert(
+                    "hasContent() Debug",
+                    `Debug Object: ${JSON.stringify(result, null, 2)}\n\nExtracted Result: ${extracted}`
+                  );
+                } catch (error) {
+                  console.log("hasContent error:", error);
+                }
+              }}
+              color="#FF6B6B"
+            />
+            <Button
+              title="Test getStrokeCount()"
+              onPress={async () => {
+                try {
+                  const result = await pencilKitRef.current?.getStrokeCount();
+                  console.log(
+                    "getStrokeCount() result:",
+                    JSON.stringify(result, null, 2)
+                  );
+                  const extracted = extractResult(result);
+                  Alert.alert(
+                    "getStrokeCount() Debug",
+                    `Debug Object: ${JSON.stringify(result, null, 2)}\n\nExtracted Result: ${extracted}`
+                  );
+                } catch (error) {
+                  console.log("getStrokeCount error:", error);
+                }
+              }}
+              color="#4ECDC4"
+            />
+            <Button
+              title="Test getDrawingData()"
+              onPress={async () => {
+                try {
+                  const result = await pencilKitRef.current?.getDrawingData();
+                  console.log(
+                    "getDrawingData() result:",
+                    JSON.stringify(result, null, 2)
+                  );
+                  const extracted = extractResult(result);
+                  Alert.alert(
+                    "getDrawingData() Debug",
+                    `Debug Object: ${JSON.stringify(result, null, 2)}\n\nExtracted Result: ${extracted ? "Data available" : "No data"}`
+                  );
+                } catch (error) {
+                  console.log("getDrawingData error:", error);
+                }
+              }}
+              color="#45B7D1"
+            />
+          </View>
         </Group>
 
         {/* Advanced Features */}
