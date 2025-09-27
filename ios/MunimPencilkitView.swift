@@ -633,6 +633,37 @@ class MunimPencilkitView: ExpoView {
     ]
   }
   
+  // MARK: - Debug Methods
+  func debugDrawingState() -> [String: Any] {
+    let drawing = canvasView.drawing
+    let strokes = drawing.strokes
+    let bounds = drawing.bounds
+    
+    print("[PencilKit] DEBUG - strokeCount: \(strokes.count)")
+    print("[PencilKit] DEBUG - bounds: \(bounds)")
+    print("[PencilKit] DEBUG - canvasView.frame: \(canvasView.frame)")
+    print("[PencilKit] DEBUG - canvasView.isHidden: \(canvasView.isHidden)")
+    print("[PencilKit] DEBUG - canvasView.alpha: \(canvasView.alpha)")
+    
+    return [
+      "strokeCount": strokes.count,
+      "bounds": [
+        "x": bounds.origin.x,
+        "y": bounds.origin.y,
+        "width": bounds.size.width,
+        "height": bounds.size.height
+      ],
+      "canvasFrame": [
+        "x": canvasView.frame.origin.x,
+        "y": canvasView.frame.origin.y,
+        "width": canvasView.frame.size.width,
+        "height": canvasView.frame.size.height
+      ],
+      "canvasHidden": canvasView.isHidden,
+      "canvasAlpha": canvasView.alpha
+    ]
+  }
+  
   func getToolPickerInfo() -> [String: Any] {
     return [
       "isVisible": toolPicker?.isVisible ?? false,
@@ -1088,11 +1119,7 @@ class MunimPencilkitView: ExpoView {
 
 extension MunimPencilkitView: PKCanvasViewDelegate {
   func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
-    // CRITICAL FIX: Ensure drawing is properly committed before reading
-    // Force the canvas to finish any pending drawing operations
-    canvasView.setNeedsDisplay()
-    
-    // Get fresh values from the canvas after ensuring it's up to date
+    // SIMPLE: Just read the drawing directly as Apple intended
     let drawing = canvasView.drawing
     let hasContent = !drawing.strokes.isEmpty
     let strokeCount = drawing.strokes.count
