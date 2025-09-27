@@ -40,7 +40,7 @@ const MunimPencilkitView = React.forwardRef<
     // Data Management
     async getDrawingData(
       debug: boolean = false
-    ): Promise<ArrayBuffer | null | DebugEventPayload> {
+    ): Promise<string | null | DebugEventPayload> {
       const result = await nativeViewRef.current?.getDrawingData(debug);
       if (debug) {
         return result as DebugEventPayload;
@@ -70,9 +70,9 @@ const MunimPencilkitView = React.forwardRef<
       return data ? data : null;
     },
 
-    async exportAsData(): Promise<ArrayBuffer | null> {
+    async exportAsData(): Promise<string | null> {
       const result = await this.getDrawingData(false);
-      return result as ArrayBuffer | null;
+      return result as string | null;
     },
 
     // Tool Management

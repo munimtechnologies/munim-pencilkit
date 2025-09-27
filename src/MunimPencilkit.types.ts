@@ -182,13 +182,13 @@ export interface MunimPencilkitViewMethods {
   // Data Management
   getDrawingData(
     debug?: boolean
-  ): Promise<ArrayBuffer | null | DebugEventPayload>;
+  ): Promise<string | null | DebugEventPayload>;
   loadDrawingData(data: ArrayBuffer): Promise<void>;
 
   // Export Functions
   exportAsImage(options?: PKDrawingExportOptions): Promise<string | null>;
   exportAsPDF(options?: PKDrawingExportOptions): Promise<ArrayBuffer | null>;
-  exportAsData(): Promise<ArrayBuffer | null>;
+  exportAsData(): Promise<string | null>;
 
   // Tool Management
   setTool(toolType: PKToolType, color?: string, width?: number): Promise<void>;

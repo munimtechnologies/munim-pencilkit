@@ -305,9 +305,11 @@ class MunimPencilkitView: ExpoView {
     // Try to serialize the drawing using Apple's method
     do {
       let data = try drawing.dataRepresentation()
+      let base64String = data.base64EncodedString()
+      
       if debug {
         return [
-          "result": data,
+          "result": base64String,
           "debug": true,
           "method": "getDrawingData",
           "strokes": strokeCount,
@@ -315,7 +317,7 @@ class MunimPencilkitView: ExpoView {
           "timestamp": Date().timeIntervalSince1970
         ]
       } else {
-        return ["data": data]
+        return ["data": base64String]
       }
     } catch {
       // Fallback to JSON data if PKDrawing serialization fails
@@ -336,9 +338,11 @@ class MunimPencilkitView: ExpoView {
       
       do {
         let jsonData = try JSONSerialization.data(withJSONObject: fallbackData, options: [])
+        let base64String = jsonData.base64EncodedString()
+        
         if debug {
           return [
-            "result": jsonData,
+            "result": base64String,
             "debug": true,
             "method": "getDrawingData",
             "strokes": strokeCount,
@@ -346,7 +350,7 @@ class MunimPencilkitView: ExpoView {
             "timestamp": Date().timeIntervalSince1970
           ]
         } else {
-          return ["data": jsonData]
+          return ["data": base64String]
         }
       } catch {
         if debug {
