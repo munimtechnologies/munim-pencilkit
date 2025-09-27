@@ -165,26 +165,18 @@ public class MunimPencilkitModule: Module {
         view.redo()
       }
       
+      // MARK: - Updated Methods with Debug Return Types
+      
       AsyncFunction("getDrawingData") { (view: MunimPencilkitView) -> [String: Any] in
-        NSLog("🔥 [PencilKit] Module getDrawingData() called")
-        let result = view.getDrawingData()
-        NSLog("🔥 [PencilKit] Module getDrawingData() returning: \(result)")
-        return result
+        return view.getDrawingData()
       }
 
-      // View State Accessors
       AsyncFunction("hasContent") { (view: MunimPencilkitView) -> [String: Any] in
-        NSLog("🔥 [PencilKit] Module hasContent() called")
-        let result = view.hasContent()
-        NSLog("🔥 [PencilKit] Module hasContent() returning: \(result)")
-        return result
+        return view.hasContent()
       }
       
       AsyncFunction("getStrokeCount") { (view: MunimPencilkitView) -> [String: Any] in
-        NSLog("🔥 [PencilKit] Module getStrokeCount() called")
-        let result = view.getStrokeCount()
-        NSLog("🔥 [PencilKit] Module getStrokeCount() returning: \(result)")
-        return result
+        return view.getStrokeCount()
       }
       
       AsyncFunction("getDrawingBounds") { (view: MunimPencilkitView) -> [String: CGFloat] in
