@@ -191,6 +191,18 @@ public class MunimPencilkitModule: Module {
         return view.getDrawingBoundsStruct()
       }
       
+      AsyncFunction("getToolPickerInfo") { (view: MunimPencilkitView) -> [String: Any] in
+        return view.getToolPickerInfo()
+      }
+      
+      AsyncFunction("getScribbleConfiguration") { (view: MunimPencilkitView) -> [String: Any] in
+        return view.getScribbleConfiguration()
+      }
+      
+      AsyncFunction("searchStrokes") { (view: MunimPencilkitView, query: String) -> [[String: Any]] in
+        return view.searchStrokes(query: query)
+      }
+      
       AsyncFunction("exportAsImage") { (view: MunimPencilkitView, scale: Double) -> String? in
         // Try to export drawing image based on drawing bounds; if drawing is empty, fall back to canvas snapshot
         if let image = view.exportDrawingAsImage(scale: CGFloat(scale)),

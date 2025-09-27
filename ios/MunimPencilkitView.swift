@@ -519,6 +519,50 @@ class MunimPencilkitView: ExpoView {
     ]
   }
   
+  func getToolPickerInfo() -> [String: Any] {
+    return [
+      "isVisible": toolPicker?.isVisible ?? false,
+      "selectedTool": [
+        "type": "pen", // Default tool type
+        "width": 1.0,
+        "color": "black"
+      ],
+      "availableTools": [
+        "pen", "pencil", "marker", "highlighter", "eraser"
+      ]
+    ]
+  }
+  
+  func getScribbleConfiguration() -> [String: Any] {
+    return [
+      "isEnabled": true,
+      "language": "en-US",
+      "recognitionLevel": "accurate"
+    ]
+  }
+  
+  func searchStrokes(query: String) -> [[String: Any]] {
+    let drawing = canvasView.drawing
+    let strokes = drawing.strokes
+    
+    // Simple search implementation - in a real app you'd want more sophisticated search
+    return strokes.enumerated().compactMap { index, stroke in
+      // For now, just return basic stroke info
+      // In a real implementation, you'd search through stroke data
+      return [
+        "index": index,
+        "timestamp": Date().timeIntervalSince1970,
+        "pointCount": stroke.path.count,
+        "bounds": [
+          "x": stroke.path.boundingBox.origin.x,
+          "y": stroke.path.boundingBox.origin.y,
+          "width": stroke.path.boundingBox.size.width,
+          "height": stroke.path.boundingBox.size.height
+        ]
+      ]
+    }
+  }
+  
   func loadDrawingData(_ data: Data) {
     do {
       let drawing = try PKDrawing(data: data)
