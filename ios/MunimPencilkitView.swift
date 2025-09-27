@@ -281,119 +281,19 @@ class MunimPencilkitView: ExpoView {
   }
   
   func getDrawingData(debug: Bool = false) async -> [String: Any] {
-    // CRITICAL FIX: Ensure drawing is fully committed before serialization
-    await forceDrawingCommit()
+    // SIMPLE: Just read the drawing directly as Apple intended
+    let drawing = canvasView.drawing
+    let strokeCount = drawing.strokes.count
     
-    // Additional delay to ensure PencilKit has fully processed the drawing
-    try? await Task.sleep(nanoseconds: 100_000_000) // 100ms delay
+    // Debug logging
+    print("[PencilKit] getDrawingData - strokeCount: \(strokeCount), bounds: \(drawing.bounds)")
     
-    // Try immediate execution first, fallback to waiting if needed
-    if isViewReady() {
-      let drawing = canvasView.drawing
-      let strokeCount = drawing.strokes.count
-      
-      // Debug logging to track the actual state
-      print("[PencilKit] getDrawingData - strokeCount: \(strokeCount), bounds: \(drawing.bounds)")
-      
-      if strokeCount == 0 {
-        if debug {
-          return [
-            "result": NSNull(),
-            "debug": true,
-            "method": "getDrawingData",
-            "strokes": 0,
-            "timestamp": Date().timeIntervalSince1970
-          ]
-        } else {
-          return ["data": NSNull()]
-        }
-      }
-      
-      // Try immediate serialization
-      do {
-        let data = try drawing.dataRepresentation()
-        if !data.isEmpty {
-          if debug {
-            return [
-              "result": data,
-              "debug": true,
-              "method": "getDrawingData",
-              "strokes": strokeCount,
-              "bytes": data.count,
-              "timestamp": Date().timeIntervalSince1970
-            ]
-          } else {
-            return ["data": data]
-          }
-        }
-      } catch {
-        // Fallback to JSON data
-        let strokes = drawing.strokes.map { $0.toDictionary() }
-        let fallbackData: [String: Any] = [
-          "type": "fallbackStrokes",
-          "version": 1,
-          "strokeCount": strokes.count,
-          "bounds": [
-            "x": drawing.bounds.origin.x,
-            "y": drawing.bounds.origin.y,
-            "width": drawing.bounds.size.width,
-            "height": drawing.bounds.size.height
-          ],
-          "strokes": strokes,
-          "timestamp": Date().timeIntervalSince1970
-        ]
-        do {
-          let jsonData = try JSONSerialization.data(withJSONObject: fallbackData, options: [])
-          if debug {
-            return [
-              "result": jsonData,
-              "debug": true,
-              "method": "getDrawingData",
-              "strokes": strokeCount,
-              "bytes": jsonData.count,
-              "timestamp": Date().timeIntervalSince1970
-            ]
-          } else {
-            return ["data": jsonData]
-          }
-        } catch {
-          if debug {
-            return [
-              "result": NSNull(),
-              "debug": true,
-              "method": "getDrawingData",
-              "error": "JSON serialization failed: \(error.localizedDescription)",
-              "strokes": strokeCount,
-              "timestamp": Date().timeIntervalSince1970
-            ]
-          } else {
-            return ["data": NSNull()]
-          }
-        }
-      }
-      
+    if strokeCount == 0 {
       if debug {
         return [
           "result": NSNull(),
           "debug": true,
           "method": "getDrawingData",
-          "strokes": strokeCount,
-          "timestamp": Date().timeIntervalSince1970
-        ]
-      } else {
-        return ["data": NSNull()]
-      }
-    }
-    
-    // Fallback to waiting if view not ready
-    let isReady = await waitForViewReady()
-    guard isReady else {
-      if debug {
-        return [
-          "result": NSNull(),
-          "debug": true,
-          "method": "getDrawingData",
-          "error": "View not ready after timeout",
           "strokes": 0,
           "timestamp": Date().timeIntervalSince1970
         ]
@@ -401,6 +301,69 @@ class MunimPencilkitView: ExpoView {
         return ["data": NSNull()]
       }
     }
+    
+    // Try to serialize the drawing using Apple's method
+    do {
+      let data = try drawing.dataRepresentation()
+      if debug {
+        return [
+          "result": data,
+          "debug": true,
+          "method": "getDrawingData",
+          "strokes": strokeCount,
+          "bytes": data.count,
+          "timestamp": Date().timeIntervalSince1970
+        ]
+      } else {
+        return ["data": data]
+      }
+    } catch {
+      // Fallback to JSON data if PKDrawing serialization fails
+      let strokes = drawing.strokes.map { $0.toDictionary() }
+      let fallbackData: [String: Any] = [
+        "type": "fallbackStrokes",
+        "version": 1,
+        "strokeCount": strokes.count,
+        "bounds": [
+          "x": drawing.bounds.origin.x,
+          "y": drawing.bounds.origin.y,
+          "width": drawing.bounds.size.width,
+          "height": drawing.bounds.size.height
+        ],
+        "strokes": strokes,
+        "timestamp": Date().timeIntervalSince1970
+      ]
+      
+      do {
+        let jsonData = try JSONSerialization.data(withJSONObject: fallbackData, options: [])
+        if debug {
+          return [
+            "result": jsonData,
+            "debug": true,
+            "method": "getDrawingData",
+            "strokes": strokeCount,
+            "bytes": jsonData.count,
+            "timestamp": Date().timeIntervalSince1970
+          ]
+        } else {
+          return ["data": jsonData]
+        }
+      } catch {
+        if debug {
+          return [
+            "result": NSNull(),
+            "debug": true,
+            "method": "getDrawingData",
+            "error": "JSON serialization failed: \(error.localizedDescription)",
+            "strokes": strokeCount,
+            "timestamp": Date().timeIntervalSince1970
+          ]
+        } else {
+          return ["data": NSNull()]
+        }
+      }
+    }
+  }
     
     let drawing = canvasView.drawing
     let strokeCount = drawing.strokes.count
@@ -617,52 +580,46 @@ class MunimPencilkitView: ExpoView {
   
   // MARK: - Simple State Accessors
   func hasContent(debug: Bool = false) async -> [String: Any] {
-    // CRITICAL FIX: Ensure drawing is fully committed before checking
-    await forceDrawingCommit()
+    // SIMPLE: Just read the drawing directly as Apple intended
+    let drawing = canvasView.drawing
+    let strokeCount = drawing.strokes.count
+    let hasContent = strokeCount > 0
     
-    // Wait for drawing to actually be committed
-    let drawingCommitted = await waitForDrawingCommit()
+    // Debug logging
+    print("[PencilKit] hasContent - strokeCount: \(strokeCount), hasContent: \(hasContent)")
     
-    // Wait for view to be ready
-    let isReady = await waitForViewReady()
-    guard isReady else {
-      return safeExecute({ false }, fallback: false, debug: debug, method: "hasContent")
+    if debug {
+      return [
+        "result": hasContent,
+        "debug": true,
+        "method": "hasContent",
+        "strokes": strokeCount,
+        "timestamp": Date().timeIntervalSince1970
+      ]
+    } else {
+      return ["hasContent": hasContent]
     }
-    
-    return safeExecute({
-      let drawing = self.canvasView.drawing
-      let strokeCount = drawing.strokes.count
-      let hasContent = strokeCount > 0
-      
-      // Debug logging to track the actual state
-      print("[PencilKit] hasContent - strokeCount: \(strokeCount), hasContent: \(hasContent), drawingCommitted: \(drawingCommitted)")
-      
-      return hasContent
-    }, fallback: false, debug: debug, method: "hasContent")
   }
   
   func getStrokeCount(debug: Bool = false) async -> [String: Any] {
-    // CRITICAL FIX: Ensure drawing is fully committed before checking
-    await forceDrawingCommit()
+    // SIMPLE: Just read the drawing directly as Apple intended
+    let drawing = canvasView.drawing
+    let strokeCount = drawing.strokes.count
     
-    // Wait for drawing to actually be committed
-    let drawingCommitted = await waitForDrawingCommit()
+    // Debug logging
+    print("[PencilKit] getStrokeCount - strokeCount: \(strokeCount)")
     
-    // Wait for view to be ready
-    let isReady = await waitForViewReady()
-    guard isReady else {
-      return safeExecute({ 0 }, fallback: 0, debug: debug, method: "getStrokeCount")
+    if debug {
+      return [
+        "result": strokeCount,
+        "debug": true,
+        "method": "getStrokeCount",
+        "strokes": strokeCount,
+        "timestamp": Date().timeIntervalSince1970
+      ]
+    } else {
+      return ["strokeCount": strokeCount]
     }
-    
-    return safeExecute({
-      let drawing = self.canvasView.drawing
-      let strokeCount = drawing.strokes.count
-      
-      // Debug logging to track the actual state
-      print("[PencilKit] getStrokeCount - strokeCount: \(strokeCount), drawingCommitted: \(drawingCommitted)")
-      
-      return strokeCount
-    }, fallback: 0, debug: debug, method: "getStrokeCount")
   }
   
   func getDrawingBoundsStruct() -> [String: CGFloat] {
