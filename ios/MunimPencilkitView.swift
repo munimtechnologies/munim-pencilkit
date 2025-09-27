@@ -281,17 +281,17 @@ class MunimPencilkitView: ExpoView {
   }
   
   func getDrawingData() -> Data? {
-    print("[PencilKit] getDrawingData() called")
+    print("🔥 [PencilKit] getDrawingData() called")
     
     // Always get fresh data from the canvas
     let drawing = canvasView.drawing
     let strokeCount = drawing.strokes.count
     
-    print("[PencilKit] getDrawingData() - current strokes: \(strokeCount)")
+    print("🔥 [PencilKit] getDrawingData() - current strokes: \(strokeCount)")
     
     // If no strokes, return nil immediately
     if strokeCount == 0 {
-      print("[PencilKit] getDrawingData() - no strokes, returning nil")
+      print("🔥 [PencilKit] getDrawingData() - no strokes, returning nil")
       return nil
     }
     
@@ -299,70 +299,71 @@ class MunimPencilkitView: ExpoView {
     do {
       let data = try drawing.dataRepresentation()
       if !data.isEmpty {
-        print("[PencilKit] getDrawingData() - immediate success: \(data.count) bytes")
+        print("🔥 [PencilKit] getDrawingData() - immediate success: \(data.count) bytes")
         return data
       } else {
-        print("[PencilKit] getDrawingData() - immediate serialization returned empty data")
+        print("🔥 [PencilKit] getDrawingData() - immediate serialization returned empty data")
       }
     } catch {
-      print("[PencilKit] getDrawingData() - immediate serialization failed: \(error)")
+      print("🔥 [PencilKit] getDrawingData() - immediate serialization failed: \(error)")
     }
     
     // If immediate serialization failed, try with a delay
-    print("[PencilKit] getDrawingData() - trying delayed serialization...")
+    print("🔥 [PencilKit] getDrawingData() - trying delayed serialization...")
     
-    // Use a semaphore to wait for delayed serialization
-    let semaphore = DispatchSemaphore(value: 0)
+    // Use a different approach - don't block the main thread
     var result: Data?
+    let group = DispatchGroup()
     
+    group.enter()
     DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
       do {
         let delayedDrawing = self.canvasView.drawing
-        print("[PencilKit] getDrawingData() - delayed attempt, strokes: \(delayedDrawing.strokes.count)")
+        print("🔥 [PencilKit] getDrawingData() - delayed attempt, strokes: \(delayedDrawing.strokes.count)")
         result = try delayedDrawing.dataRepresentation()
         if let data = result {
-          print("[PencilKit] getDrawingData() - delayed result: \(data.count) bytes")
+          print("🔥 [PencilKit] getDrawingData() - delayed result: \(data.count) bytes")
         } else {
-          print("[PencilKit] getDrawingData() - delayed result is nil")
+          print("🔥 [PencilKit] getDrawingData() - delayed result is nil")
         }
       } catch {
-        print("[PencilKit] getDrawingData() - delayed serialization failed: \(error)")
+        print("🔥 [PencilKit] getDrawingData() - delayed serialization failed: \(error)")
       }
-      semaphore.signal()
+      group.leave()
     }
     
     // Wait up to 1 second for delayed serialization
     let timeout = DispatchTime.now() + 1.0
-    if semaphore.wait(timeout: timeout) == .success {
+    if group.wait(timeout: timeout) == .success {
       if let data = result, !data.isEmpty {
-        print("[PencilKit] getDrawingData() - returning delayed data: \(data.count) bytes")
+        print("🔥 [PencilKit] getDrawingData() - returning delayed data: \(data.count) bytes")
         return data
       } else {
-        print("[PencilKit] getDrawingData() - delayed data is empty or nil")
+        print("🔥 [PencilKit] getDrawingData() - delayed data is empty or nil")
       }
     } else {
-      print("[PencilKit] getDrawingData() - delayed serialization timed out")
+      print("🔥 [PencilKit] getDrawingData() - delayed serialization timed out")
     }
     
-    print("[PencilKit] getDrawingData() - all methods failed, returning nil")
+    print("🔥 [PencilKit] getDrawingData() - all methods failed, returning nil")
     return nil
   }
 
   // MARK: - Simple State Accessors
   func hasContent() -> Bool {
-    print("[PencilKit] hasContent() called")
+    print("🔥 [PencilKit] hasContent() called")
     let drawing = canvasView.drawing
     let strokeCount = drawing.strokes.count
     let has = strokeCount > 0
-    print("[PencilKit] hasContent() - strokes: \(strokeCount), result: \(has)")
+    print("🔥 [PencilKit] hasContent() - strokes: \(strokeCount), result: \(has)")
     return has
   }
   
   func getStrokeCount() -> Int {
-    print("[PencilKit] getStrokeCount() called")
+    print("🔥 [PencilKit] getStrokeCount() called")
     let drawing = canvasView.drawing
     let count = drawing.strokes.count
-    print("[PencilKit] getStrokeCount() - strokes: \(count)")
+    print("🔥 [PencilKit] getStrokeCount() - strokes: \(count)")
     return count
   }
   
