@@ -9,6 +9,13 @@ public class MunimPencilkitModule: Module {
     // Defines event names that the module can send to JavaScript.
     Events("onDrawingChanged", "onToolChanged", "onDrawingStarted", "onDrawingEnded")
 
+    // MARK: - Test Functions
+    
+    Function("testNativeModule") {
+      print("🔥 [PencilKit] testNativeModule called - NATIVE MODULE IS WORKING!")
+      return "Native module is working!"
+    }
+    
     // MARK: - Drawing Management Functions
     
     AsyncFunction("exportDrawingAsImage") { (scale: Double) -> String? in
@@ -159,16 +166,25 @@ public class MunimPencilkitModule: Module {
       }
       
       AsyncFunction("getDrawingData") { (view: MunimPencilkitView) -> Data? in
-        return view.getDrawingData()
+        print("🔥 [PencilKit] Module getDrawingData() called")
+        let result = view.getDrawingData()
+        print("🔥 [PencilKit] Module getDrawingData() returning: \(result?.count ?? 0) bytes")
+        return result
       }
 
       // View State Accessors
       AsyncFunction("hasContent") { (view: MunimPencilkitView) -> Bool in
-        return view.hasContent()
+        print("🔥 [PencilKit] Module hasContent() called")
+        let result = view.hasContent()
+        print("🔥 [PencilKit] Module hasContent() returning: \(result)")
+        return result
       }
       
       AsyncFunction("getStrokeCount") { (view: MunimPencilkitView) -> Int in
-        return view.getStrokeCount()
+        print("🔥 [PencilKit] Module getStrokeCount() called")
+        let result = view.getStrokeCount()
+        print("🔥 [PencilKit] Module getStrokeCount() returning: \(result)")
+        return result
       }
       
       AsyncFunction("getDrawingBounds") { (view: MunimPencilkitView) -> [String: CGFloat] in
