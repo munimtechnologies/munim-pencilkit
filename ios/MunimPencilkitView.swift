@@ -281,23 +281,7 @@ class MunimPencilkitView: ExpoView {
   }
   
   func getDrawingData(debug: Bool = false) async -> [String: Any] {
-    // CRITICAL: Force PencilKit to commit any pending strokes
-    await MainActor.run {
-      // 1. Force the canvas to finish any active drawing session
-      canvasView.isUserInteractionEnabled = false
-      canvasView.isUserInteractionEnabled = true
-      
-      // 2. Force display updates
-      canvasView.setNeedsDisplay()
-      canvasView.layoutIfNeeded()
-      canvasView.displayIfNeeded()
-      
-      // 3. Force the drawing to be committed by reassigning it
-      let currentDrawing = canvasView.drawing
-      canvasView.drawing = currentDrawing
-    }
-    
-    // Now read the drawing data
+    // SIMPLE: Just read the drawing directly as Apple intended
     let drawing = canvasView.drawing
     let strokeCount = drawing.strokes.count
     
@@ -387,23 +371,7 @@ class MunimPencilkitView: ExpoView {
 
   // MARK: - Simple State Accessors
   func hasContent(debug: Bool = false) async -> [String: Any] {
-    // CRITICAL: Force PencilKit to commit any pending strokes
-    await MainActor.run {
-      // 1. Force the canvas to finish any active drawing session
-      canvasView.isUserInteractionEnabled = false
-      canvasView.isUserInteractionEnabled = true
-      
-      // 2. Force display updates
-      canvasView.setNeedsDisplay()
-      canvasView.layoutIfNeeded()
-      canvasView.displayIfNeeded()
-      
-      // 3. Force the drawing to be committed by reassigning it
-      let currentDrawing = canvasView.drawing
-      canvasView.drawing = currentDrawing
-    }
-    
-    // Now read the drawing data
+    // SIMPLE: Just read the drawing directly as Apple intended
     let drawing = canvasView.drawing
     let strokeCount = drawing.strokes.count
     let hasContent = strokeCount > 0
@@ -425,23 +393,7 @@ class MunimPencilkitView: ExpoView {
   }
   
   func getStrokeCount(debug: Bool = false) async -> [String: Any] {
-    // CRITICAL: Force PencilKit to commit any pending strokes
-    await MainActor.run {
-      // 1. Force the canvas to finish any active drawing session
-      canvasView.isUserInteractionEnabled = false
-      canvasView.isUserInteractionEnabled = true
-      
-      // 2. Force display updates
-      canvasView.setNeedsDisplay()
-      canvasView.layoutIfNeeded()
-      canvasView.displayIfNeeded()
-      
-      // 3. Force the drawing to be committed by reassigning it
-      let currentDrawing = canvasView.drawing
-      canvasView.drawing = currentDrawing
-    }
-    
-    // Now read the drawing data
+    // SIMPLE: Just read the drawing directly as Apple intended
     let drawing = canvasView.drawing
     let strokeCount = drawing.strokes.count
     
@@ -952,47 +904,13 @@ class MunimPencilkitView: ExpoView {
 
 extension MunimPencilkitView: PKCanvasViewDelegate {
   func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
-    // CRITICAL: Force PencilKit to commit any pending strokes
-    // This is the key to making data available immediately
+    // Simple logging - don't try to access data here
+    print("[PencilKit] Drawing changed - delegate called")
     
-    // 1. Force the canvas to finish any active drawing session
-    canvasView.isUserInteractionEnabled = false
-    canvasView.isUserInteractionEnabled = true
-    
-    // 2. Force display updates
-    canvasView.setNeedsDisplay()
-    canvasView.layoutIfNeeded()
-    canvasView.displayIfNeeded()
-    
-    // 3. Force the drawing to be committed by reassigning it
-    let currentDrawing = canvasView.drawing
-    canvasView.drawing = currentDrawing
-    
-    // 4. Now read the drawing data
-    let drawing = canvasView.drawing
-    let hasContent = !drawing.strokes.isEmpty
-    let strokeCount = drawing.strokes.count
-    let bounds = drawing.bounds
-    
-    // Debug logging to track state changes
-    print("[PencilKit] Drawing changed - hasContent=\(hasContent), strokeCount=\(strokeCount)")
-    print("[PencilKit] Drawing bounds: \(bounds)")
-    print("[PencilKit] Drawing strokes: \(drawing.strokes.count)")
-    
-    // Update cached state for debugging purposes only
-    self._lastStrokeCount = strokeCount
-    self._lastBounds = bounds
-    
-    // Dispatch the event with current state
+    // Just dispatch a simple event - data access should happen in canvasViewDidEndUsingTool
     onDrawingChanged([
-      "hasContent": hasContent,
-      "strokeCount": strokeCount,
-      "bounds": [
-        "x": bounds.origin.x,
-        "y": bounds.origin.y,
-        "width": bounds.size.width,
-        "height": bounds.size.height
-      ]
+      "type": "drawingChanged",
+      "timestamp": Date().timeIntervalSince1970
     ])
   }
   
@@ -1001,7 +919,32 @@ extension MunimPencilkitView: PKCanvasViewDelegate {
   }
   
   func canvasViewDidEndUsingTool(_ canvasView: PKCanvasView) {
-    onDrawingEnded([:])
+    // This is when the drawing is actually committed - access data here
+    let drawing = canvasView.drawing
+    let hasContent = !drawing.strokes.isEmpty
+    let strokeCount = drawing.strokes.count
+    let bounds = drawing.bounds
+    
+    // Debug logging
+    print("[PencilKit] Tool ended - hasContent=\(hasContent), strokeCount=\(strokeCount)")
+    print("[PencilKit] Drawing bounds: \(bounds)")
+    
+    // Update cached state
+    self._lastStrokeCount = strokeCount
+    self._lastBounds = bounds
+    
+    // Dispatch the event with actual data
+    onDrawingEnded([
+      "hasContent": hasContent,
+      "strokeCount": strokeCount,
+      "bounds": [
+        "x": bounds.origin.x,
+        "y": bounds.origin.y,
+        "width": bounds.size.width,
+        "height": bounds.size.height
+      ],
+      "timestamp": Date().timeIntervalSince1970
+    ])
   }
   
   func canvasViewDidFinishRendering(_ canvasView: PKCanvasView) {
