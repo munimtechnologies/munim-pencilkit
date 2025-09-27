@@ -1,6 +1,6 @@
 {
   "name": "munim-pencilkit",
-  "version": "1.2.22",
+  "version": "1.2.23",
   "description": "Complete Apple PencilKit implementation for React Native and Expo with 100% feature coverage including advanced stroke analysis, Scribble support, and professional drawing tools",
   "main": "build/index.js",
   "types": "build/index.d.ts",
