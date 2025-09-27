@@ -403,16 +403,24 @@ The library now includes comprehensive debug support with proper TypeScript defi
 
 Version 1.2.8 includes critical fixes for method reliability and view initialization:
 
-```typescript
-// All methods now properly wait for view initialization
-const hasContent = await canvasRef.current?.hasContent();
-const strokeCount = await canvasRef.current?.getStrokeCount();
-const drawingData = await canvasRef.current?.getDrawingData();
+### Debug Mode Control (1.2.9+)
 
-// Methods now return proper values instead of undefined
-console.log("Has content:", hasContent); // boolean or debug object
-console.log("Stroke count:", strokeCount); // number or debug object
-console.log("Drawing data:", drawingData); // ArrayBuffer or debug object
+Version 1.2.9 introduces proper debug mode control for methods that previously always returned debug objects:
+
+```typescript
+// Default behavior - returns raw data (no debug wrapper)
+const hasContent = await canvasRef.current?.hasContent(); // boolean
+const strokeCount = await canvasRef.current?.getStrokeCount(); // number
+const drawingData = await canvasRef.current?.getDrawingData(); // ArrayBuffer | null
+
+// Debug mode - returns detailed debug objects
+const debugInfo = await canvasRef.current?.hasContent(true); // DebugEventPayload
+const debugStrokes = await canvasRef.current?.getStrokeCount(true); // DebugEventPayload
+const debugData = await canvasRef.current?.getDrawingData(true); // DebugEventPayload
+
+console.log("Has content:", hasContent); // true/false
+console.log("Stroke count:", strokeCount); // 42
+console.log("Drawing data:", drawingData); // ArrayBuffer or null
 ```
 
 **Key Improvements:**
@@ -422,6 +430,8 @@ console.log("Drawing data:", drawingData); // ArrayBuffer or debug object
 - 🛡️ **Error Handling**: Enhanced error handling with detailed debug information
 - 🔄 **Fallback Mechanisms**: Robust fallbacks for serialization failures
 - 🐛 **Debug Information**: Comprehensive debug objects for troubleshooting
+- 🎛️ **Debug Mode Control**: Optional debug parameter for methods (default: false)
+- 📊 **Raw Data Returns**: Methods now return actual data by default, not debug wrappers
 
 **Reliability Features:**
 

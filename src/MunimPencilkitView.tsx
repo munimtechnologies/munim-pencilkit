@@ -38,8 +38,14 @@ const MunimPencilkitView = React.forwardRef<
     },
 
     // Data Management
-    async getDrawingData(): Promise<ArrayBuffer | null | DebugEventPayload> {
-      return await nativeViewRef.current?.getDrawingData();
+    async getDrawingData(debug: boolean = false): Promise<ArrayBuffer | null | DebugEventPayload> {
+      const result = await nativeViewRef.current?.getDrawingData(debug);
+      if (debug) {
+        return result as DebugEventPayload;
+      } else {
+        // Extract data from the result object
+        return result?.data || null;
+      }
     },
 
     async loadDrawingData(data: ArrayBuffer): Promise<void> {
@@ -63,11 +69,8 @@ const MunimPencilkitView = React.forwardRef<
     },
 
     async exportAsData(): Promise<ArrayBuffer | null> {
-      const result = await this.getDrawingData();
-      if (result && typeof result === 'object' && 'debug' in result) {
-        return result.result || null;
-      }
-      return result;
+      const result = await this.getDrawingData(false);
+      return result as ArrayBuffer | null;
     },
 
     // Tool Management
@@ -102,12 +105,22 @@ const MunimPencilkitView = React.forwardRef<
     },
 
     // View State
-    async hasContent(): Promise<boolean | DebugEventPayload> {
-      return await nativeViewRef.current?.hasContent();
+    async hasContent(debug: boolean = false): Promise<boolean | DebugEventPayload> {
+      const result = await nativeViewRef.current?.hasContent(debug);
+      if (debug) {
+        return result as DebugEventPayload;
+      } else {
+        return result?.hasContent || false;
+      }
     },
 
-    async getStrokeCount(): Promise<number | DebugEventPayload> {
-      return await nativeViewRef.current?.getStrokeCount();
+    async getStrokeCount(debug: boolean = false): Promise<number | DebugEventPayload> {
+      const result = await nativeViewRef.current?.getStrokeCount(debug);
+      if (debug) {
+        return result as DebugEventPayload;
+      } else {
+        return result?.strokeCount || 0;
+      }
     },
 
     async getDrawingBounds(): Promise<PKDrawingBounds> {

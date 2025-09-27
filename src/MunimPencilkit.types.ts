@@ -180,7 +180,7 @@ export interface MunimPencilkitViewMethods {
   redo(): Promise<void>;
 
   // Data Management
-  getDrawingData(): Promise<ArrayBuffer | null | DebugEventPayload>;
+  getDrawingData(debug?: boolean): Promise<ArrayBuffer | null | DebugEventPayload>;
   loadDrawingData(data: ArrayBuffer): Promise<void>;
 
   // Export Functions
@@ -199,8 +199,8 @@ export interface MunimPencilkitViewMethods {
   setNaturalDrawingMode(natural: boolean): Promise<void>;
 
   // View State
-  hasContent(): Promise<boolean | DebugEventPayload>;
-  getStrokeCount(): Promise<number | DebugEventPayload>;
+  hasContent(debug?: boolean): Promise<boolean | DebugEventPayload>;
+  getStrokeCount(debug?: boolean): Promise<number | DebugEventPayload>;
   getDrawingBounds(): Promise<PKDrawingBounds>;
   getDrawingBoundsStruct(): Promise<PKDrawingBounds>;
 
