@@ -284,10 +284,16 @@ class MunimPencilkitView: ExpoView {
     // CRITICAL FIX: Ensure drawing is fully committed before serialization
     await forceDrawingCommit()
     
+    // Additional delay to ensure PencilKit has fully processed the drawing
+    try? await Task.sleep(nanoseconds: 100_000_000) // 100ms delay
+    
     // Try immediate execution first, fallback to waiting if needed
     if isViewReady() {
       let drawing = canvasView.drawing
       let strokeCount = drawing.strokes.count
+      
+      // Debug logging to track the actual state
+      print("[PencilKit] getDrawingData - strokeCount: \(strokeCount), bounds: \(drawing.bounds)")
       
       if strokeCount == 0 {
         if debug {
@@ -506,14 +512,61 @@ class MunimPencilkitView: ExpoView {
   
   private func forceDrawingCommit() async {
     await MainActor.run {
-      // Force the canvas to finish any pending drawing operations
+      // CRITICAL FIX: Force PencilKit to commit all pending strokes
+      
+      // 1. Force the canvas to finish any pending drawing operations
       self.canvasView.setNeedsDisplay()
       self.canvasView.layoutIfNeeded()
       
-      // Force the drawing to be committed to the PKDrawing object
+      // 2. Force the canvas to end any active drawing session
+      // This ensures strokes are committed from "pending" to "final" state
+      if self.canvasView.isUserInteractionEnabled {
+        // Temporarily disable interaction to force commit
+        self.canvasView.isUserInteractionEnabled = false
+        self.canvasView.isUserInteractionEnabled = true
+      }
+      
+      // 3. Force a complete redraw to ensure all strokes are processed
+      self.canvasView.setNeedsDisplay()
+      self.canvasView.displayIfNeeded()
+      
+      // 4. Force the drawing to be committed to the PKDrawing object
       // This ensures that any pending strokes are properly added
-      self.canvasView.drawing = self.canvasView.drawing
+      let currentDrawing = self.canvasView.drawing
+      self.canvasView.drawing = currentDrawing
+      
+      // 5. Additional force commit by accessing the drawing multiple times
+      // This triggers PencilKit's internal commit mechanisms
+      _ = self.canvasView.drawing.strokes.count
+      _ = self.canvasView.drawing.bounds
     }
+  }
+  
+  private func waitForDrawingCommit(timeout: TimeInterval = 1.0) async -> Bool {
+    let startTime = Date()
+    var lastStrokeCount = 0
+    
+    while Date().timeIntervalSince(startTime) < timeout {
+      await MainActor.run {
+        lastStrokeCount = self.canvasView.drawing.strokes.count
+      }
+      
+      // If we have strokes, wait a bit more to ensure they're fully committed
+      if lastStrokeCount > 0 {
+        try? await Task.sleep(nanoseconds: 50_000_000) // 50ms
+        await MainActor.run {
+          let currentStrokeCount = self.canvasView.drawing.strokes.count
+          if currentStrokeCount == lastStrokeCount {
+            // Stroke count is stable, drawing is likely committed
+            return
+          }
+        }
+      }
+      
+      try? await Task.sleep(nanoseconds: 10_000_000) // 10ms
+    }
+    
+    return lastStrokeCount > 0
   }
   
   private func waitForViewReady(timeout: TimeInterval = 2.0) async -> Bool {
@@ -567,6 +620,9 @@ class MunimPencilkitView: ExpoView {
     // CRITICAL FIX: Ensure drawing is fully committed before checking
     await forceDrawingCommit()
     
+    // Wait for drawing to actually be committed
+    let drawingCommitted = await waitForDrawingCommit()
+    
     // Wait for view to be ready
     let isReady = await waitForViewReady()
     guard isReady else {
@@ -576,13 +632,21 @@ class MunimPencilkitView: ExpoView {
     return safeExecute({
       let drawing = self.canvasView.drawing
       let strokeCount = drawing.strokes.count
-      return strokeCount > 0
+      let hasContent = strokeCount > 0
+      
+      // Debug logging to track the actual state
+      print("[PencilKit] hasContent - strokeCount: \(strokeCount), hasContent: \(hasContent), drawingCommitted: \(drawingCommitted)")
+      
+      return hasContent
     }, fallback: false, debug: debug, method: "hasContent")
   }
   
   func getStrokeCount(debug: Bool = false) async -> [String: Any] {
     // CRITICAL FIX: Ensure drawing is fully committed before checking
     await forceDrawingCommit()
+    
+    // Wait for drawing to actually be committed
+    let drawingCommitted = await waitForDrawingCommit()
     
     // Wait for view to be ready
     let isReady = await waitForViewReady()
@@ -592,7 +656,12 @@ class MunimPencilkitView: ExpoView {
     
     return safeExecute({
       let drawing = self.canvasView.drawing
-      return drawing.strokes.count
+      let strokeCount = drawing.strokes.count
+      
+      // Debug logging to track the actual state
+      print("[PencilKit] getStrokeCount - strokeCount: \(strokeCount), drawingCommitted: \(drawingCommitted)")
+      
+      return strokeCount
     }, fallback: 0, debug: debug, method: "getStrokeCount")
   }
   
