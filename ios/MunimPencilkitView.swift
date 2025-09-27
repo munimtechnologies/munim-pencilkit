@@ -547,13 +547,7 @@ class MunimPencilkitView: ExpoView {
   
   @available(iOS 13.0, *)
   func getAllStrokes() async -> [[String: Any]] {
-    // Wait for view to be ready
-    let isReady = await waitForViewReady()
-    guard isReady else {
-      print("[PencilKit] getAllStrokes() - view not ready after timeout")
-      return []
-    }
-    
+    // SIMPLE: Just read the drawing directly as Apple intended
     let drawing = canvasView.drawing
     let strokes = drawing.strokes
     let result = strokes.map { $0.toDictionary() }
