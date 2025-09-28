@@ -61,6 +61,7 @@
 - [🔧 API Reference](#-api-reference)
 - [🎛️ Ink Behavior Controls](#️-ink-behavior-controls)
 - [📊 Raw Apple Pencil Data Collection](#-raw-apple-pencil-data-collection)
+- [🎯 Apple Pencil Gesture Detection](#-apple-pencil-gesture-detection)
 - [📖 Usage Examples](#-usage-examples)
 - [🎨 Advanced Features](#-advanced-features)
 - [🔍 Troubleshooting](#-troubleshooting)
@@ -138,6 +139,14 @@
 - 🎨 **Notability-Style Drawing**: Create natural, pen-on-paper experiences like professional apps
 - ⚡ **Dual Data Streams**: Access both PencilKit processed data AND raw unprocessed data
 - 🛠️ **Full Control**: Custom smoothing, filtering, and processing algorithms
+
+### 🎯 **Apple Pencil Gesture Detection**
+
+- 👆 **Double-Tap Support**: Detect Apple Pencil double-tap gestures (iOS 12.1+)
+- 🤏 **Squeeze Detection**: Apple Pencil Pro squeeze gesture support (iOS 16.4+)
+- ⚡ **Real-time Events**: Instant gesture recognition with custom actions
+- 🎨 **Professional Integration**: Same gesture system used by Notability and Procreate
+- 🔧 **Easy Configuration**: Simple enable/disable with automatic device compatibility checking
 
 ### 🔧 **Developer Experience**
 
@@ -335,6 +344,9 @@ interface MunimPencilkitViewProps {
   // Raw Apple Pencil Data Collection
   enableRawPencilData?: boolean; // Enable raw UITouch data collection
 
+  // Apple Pencil Gesture Detection
+  enablePencilGestures?: boolean; // Enable Apple Pencil gesture detection
+
   // Event Handlers
   onDrawingChanged?: (event) => void;
   onToolChanged?: (event) => void;
@@ -353,6 +365,10 @@ interface MunimPencilkitViewProps {
   onRawTouchEnded?: (event) => void;
   onRawTouchCancelled?: (event) => void;
   onRawStrokeCompleted?: (event) => void;
+
+  // Apple Pencil Gesture Events
+  onPencilDoubleTap?: (event) => void;
+  onPencilSqueeze?: (event) => void;
 }
 ```
 
@@ -395,6 +411,10 @@ await canvasRef.current?.setNaturalDrawingMode(false);
 await canvasRef.current?.setEnableRawPencilData(true);
 const rawSamples = await canvasRef.current?.getRawTouchSamples();
 await canvasRef.current?.clearRawTouchSamples();
+
+// Apple Pencil Gesture Detection
+await canvasRef.current?.setEnablePencilGestures(true);
+const gesturesAvailable = await canvasRef.current?.isPencilGesturesAvailable();
 
 // Scribble Support
 const isAvailable = await canvasRef.current?.isScribbleAvailable();
@@ -872,6 +892,136 @@ useEffect(() => {
 3. **Manage memory** - Clear samples periodically
 4. **Test on device** - Raw data behavior varies by device
 5. **Combine with PencilKit** - Use both for maximum flexibility
+
+## 🎯 Apple Pencil Gesture Detection
+
+Detect **Apple Pencil double-tap and squeeze gestures** just like professional drawing apps. These gestures provide intuitive shortcuts for common actions.
+
+### Supported Gestures
+
+| Gesture        | Device Support                            | iOS Version | Description                         |
+| -------------- | ----------------------------------------- | ----------- | ----------------------------------- |
+| **Double-Tap** | Apple Pencil (2nd gen) + Apple Pencil Pro | iOS 12.1+   | Quick tool switching, color palette |
+| **Squeeze**    | Apple Pencil Pro only                     | iOS 16.4+   | Advanced shortcuts, tool switching  |
+
+### Basic Usage
+
+```typescript
+import React, { useRef } from 'react';
+import { View } from 'react-native';
+import { MunimPencilkitView, MunimPencilkitViewRef } from 'munim-pencilkit';
+
+export default function GestureApp() {
+  const canvasRef = useRef<MunimPencilkitViewRef>(null);
+
+  const handleDoubleTap = (event) => {
+    console.log('Double-tap detected:', event.nativeEvent);
+    // Switch between pen and eraser
+    // Show color palette
+    // Toggle tool picker
+  };
+
+  const handleSqueeze = (event) => {
+    console.log('Squeeze detected:', event.nativeEvent);
+    // Show advanced options
+    // Quick tool switching
+    // Custom actions
+  };
+
+  return (
+    <View style={{ flex: 1 }}>
+      <MunimPencilkitView
+        ref={canvasRef}
+        style={{ flex: 1, backgroundColor: 'white' }}
+        enablePencilGestures={true}
+        onPencilDoubleTap={handleDoubleTap}
+        onPencilSqueeze={handleSqueeze}
+      />
+    </View>
+  );
+}
+```
+
+### Advanced Gesture Configuration
+
+```typescript
+// Check if gestures are available
+const isAvailable = await canvasRef.current?.isPencilGesturesAvailable();
+
+// Enable/disable gestures programmatically
+await canvasRef.current?.setEnablePencilGestures(true);
+
+// Gesture event data
+interface PencilGestureEventPayload {
+  type: "doubleTap" | "squeeze";
+  timestamp: number;
+  location: { x: number; y: number };
+}
+```
+
+### Real-World Applications
+
+#### Tool Switching (Notability-style)
+
+```typescript
+const handleDoubleTap = (event) => {
+  // Switch between current tool and eraser
+  const newTool = currentTool === "pen" ? "eraser" : "pen";
+  setCurrentTool(newTool);
+  canvasRef.current?.setTool(newTool, "#000000", 10);
+};
+```
+
+#### Color Palette (Procreate-style)
+
+```typescript
+const handleSqueeze = (event) => {
+  // Show color picker
+  setShowColorPicker(true);
+};
+```
+
+#### Quick Actions
+
+```typescript
+const handleDoubleTap = (event) => {
+  // Cycle through tools
+  const tools = ["pen", "pencil", "marker", "eraser"];
+  const currentIndex = tools.indexOf(currentTool);
+  const nextTool = tools[(currentIndex + 1) % tools.length];
+  setCurrentTool(nextTool);
+};
+```
+
+### Device Compatibility
+
+```typescript
+// Check gesture availability
+const checkGestures = async () => {
+  const available = await canvasRef.current?.isPencilGesturesAvailable();
+
+  if (available) {
+    console.log("Apple Pencil gestures supported!");
+  } else {
+    console.log("Apple Pencil gestures not available on this device");
+  }
+};
+```
+
+### Best Practices
+
+1. **Check Availability First** - Always verify gesture support before enabling
+2. **Provide Visual Feedback** - Show users when gestures are detected
+3. **Consistent Actions** - Use the same gesture for the same action across your app
+4. **Accessibility** - Provide alternative ways to access gesture functions
+5. **User Education** - Guide users on how to use gestures effectively
+
+### Troubleshooting Gestures
+
+- **Gestures not working**: Ensure `enablePencilGestures={true}` and device supports gestures
+- **Double-tap not detected**: Check Apple Pencil is properly paired and charged
+- **Squeeze not working**: Requires Apple Pencil Pro and iOS 16.4+
+- **Events not firing**: Verify gesture handlers are properly connected
 
 ## 📖 Usage Examples
 

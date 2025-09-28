@@ -119,6 +119,15 @@ const MunimPencilkitView = React.forwardRef<
       return nativeViewRef.current?.clearRawTouchSamples?.();
     },
 
+    // MARK: - Apple Pencil Gesture Detection
+    async setEnablePencilGestures(enable: boolean): Promise<void> {
+      return nativeViewRef.current?.setEnablePencilGestures?.(enable);
+    },
+
+    async isPencilGesturesAvailable(): Promise<boolean> {
+      return nativeViewRef.current?.isPencilGesturesAvailable?.() || false;
+    },
+
     // View State
     async hasContent(
       debug: boolean = false

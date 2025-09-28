@@ -208,6 +208,10 @@ class MunimPencilkitView: ExpoView {
   let onRawTouchCancelled = EventDispatcher()
   let onRawStrokeCompleted = EventDispatcher()
   
+  // Apple Pencil gesture event dispatchers
+  let onPencilDoubleTap = EventDispatcher()
+  let onPencilSqueeze = EventDispatcher()
+  
   // Configuration properties
   private var _showToolPicker: Bool = true
   private var _allowsFingerDrawing: Bool = true
@@ -229,6 +233,10 @@ class MunimPencilkitView: ExpoView {
   private var _enableRawPencilData: Bool = false
   private var _rawTouchSamples: [RawTouchSample] = []
   private var _isCollectingRawData: Bool = false
+  
+  // Apple Pencil gesture detection
+  private var _enablePencilGestures: Bool = false
+  private var _pencilInteraction: UIPencilInteraction?
 
   required init(appContext: AppContext? = nil) {
     super.init(appContext: appContext)
@@ -351,6 +359,41 @@ class MunimPencilkitView: ExpoView {
   
   func clearRawTouchSamples() {
     _rawTouchSamples.removeAll()
+  }
+  
+  // MARK: - Apple Pencil Gesture Detection
+  
+  func setEnablePencilGestures(_ enable: Bool) {
+    _enablePencilGestures = enable
+    if enable {
+      setupPencilGestureDetection()
+    } else {
+      removePencilGestureDetection()
+    }
+  }
+  
+  private func setupPencilGestureDetection() {
+    if #available(iOS 12.1, *) {
+      _pencilInteraction = UIPencilInteraction()
+      _pencilInteraction?.delegate = self
+      if let pencilInteraction = _pencilInteraction {
+        addInteraction(pencilInteraction)
+      }
+    }
+  }
+  
+  private func removePencilGestureDetection() {
+    if let pencilInteraction = _pencilInteraction {
+      removeInteraction(pencilInteraction)
+      _pencilInteraction = nil
+    }
+  }
+  
+  func isPencilGesturesAvailable() -> Bool {
+    if #available(iOS 12.1, *) {
+      return UIPencilInteraction.isSupported
+    }
+    return false
   }
   
   private func configureHandwritingRecognition() {
@@ -1183,6 +1226,32 @@ extension MunimPencilkitView: UIScribbleInteractionDelegate {
       "type": "scribbleDidFinish", 
       "timestamp": Date().timeIntervalSince1970
     ])
+  }
+}
+
+// MARK: - UIPencilInteractionDelegate
+
+@available(iOS 12.1, *)
+extension MunimPencilkitView: UIPencilInteractionDelegate {
+  func pencilInteractionDidTap(_ interaction: UIPencilInteraction) {
+    // Apple Pencil double-tap detected
+    let eventData: [String: Any] = [
+      "type": "doubleTap",
+      "timestamp": Date().timeIntervalSince1970,
+      "location": ["x": 0, "y": 0] // Location not available in pencil interaction
+    ]
+    onPencilDoubleTap(eventData)
+  }
+  
+  @available(iOS 16.4, *)
+  func pencilInteractionDidSqueeze(_ interaction: UIPencilInteraction) {
+    // Apple Pencil squeeze detected (Apple Pencil Pro only)
+    let eventData: [String: Any] = [
+      "type": "squeeze",
+      "timestamp": Date().timeIntervalSince1970,
+      "location": ["x": 0, "y": 0] // Location not available in pencil interaction
+    ]
+    onPencilSqueeze(eventData)
   }
 }
 

@@ -121,6 +121,8 @@ export type MunimPencilkitModuleEvents = {
   onRawTouchEnded: (params: RawTouchEventPayload) => void;
   onRawTouchCancelled: (params: RawTouchEventPayload) => void;
   onRawStrokeCompleted: (params: RawStrokeCompletedEventPayload) => void;
+  onPencilDoubleTap: (params: PencilGestureEventPayload) => void;
+  onPencilSqueeze: (params: PencilGestureEventPayload) => void;
 };
 
 // MARK: - View Props and Configuration
@@ -151,6 +153,9 @@ export interface MunimPencilkitViewProps {
   // Raw Apple Pencil Data Collection
   enableRawPencilData?: boolean;
 
+  // Apple Pencil Gesture Detection
+  enablePencilGestures?: boolean;
+
   // Drawing Data
   drawingData?: ArrayBuffer;
   initialDrawing?: PKDrawingData;
@@ -175,6 +180,10 @@ export interface MunimPencilkitViewProps {
   onRawStrokeCompleted?: (event: {
     nativeEvent: RawStrokeCompletedEventPayload;
   }) => void;
+  onPencilDoubleTap?: (event: {
+    nativeEvent: PencilGestureEventPayload;
+  }) => void;
+  onPencilSqueeze?: (event: { nativeEvent: PencilGestureEventPayload }) => void;
 
   // Advanced Configuration
   maxZoomScale?: number;
@@ -217,6 +226,10 @@ export interface MunimPencilkitViewMethods {
   setEnableRawPencilData(enable: boolean): Promise<void>;
   getRawTouchSamples(): Promise<RawTouchSample[]>;
   clearRawTouchSamples(): Promise<void>;
+
+  // MARK: - Apple Pencil Gesture Detection
+  setEnablePencilGestures(enable: boolean): Promise<void>;
+  isPencilGesturesAvailable(): Promise<boolean>;
 
   // View State
   hasContent(debug?: boolean): Promise<boolean | DebugEventPayload>;
@@ -507,6 +520,14 @@ export interface RawStrokeCompletedEventPayload {
   sampleCount: number;
   duration: number;
   timestamp: number;
+}
+
+// MARK: - Apple Pencil Gesture Types
+
+export interface PencilGestureEventPayload {
+  type: "doubleTap" | "squeeze";
+  timestamp: number;
+  location: { x: number; y: number };
 }
 
 // MARK: - Accessibility Types
