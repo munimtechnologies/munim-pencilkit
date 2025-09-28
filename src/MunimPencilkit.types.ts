@@ -185,9 +185,15 @@ export interface MunimPencilkitViewProps {
     nativeEvent: RawStrokeCompletedEventPayload;
   }) => void;
   onRawTouchHovered?: (event: { nativeEvent: RawTouchEventPayload }) => void;
-  onRawTouchEstimatedPropertiesUpdate?: (event: { nativeEvent: RawTouchEventPayload }) => void;
-  onPencilProximityChanged?: (event: { nativeEvent: PencilProximityEventPayload }) => void;
-  onPencilAirMovement?: (event: { nativeEvent: PencilAirMovementEventPayload }) => void;
+  onRawTouchEstimatedPropertiesUpdate?: (event: {
+    nativeEvent: RawTouchEventPayload;
+  }) => void;
+  onPencilProximityChanged?: (event: {
+    nativeEvent: PencilProximityEventPayload;
+  }) => void;
+  onPencilAirMovement?: (event: {
+    nativeEvent: PencilAirMovementEventPayload;
+  }) => void;
   onPencilDoubleTap?: (event: {
     nativeEvent: PencilGestureEventPayload;
   }) => void;
