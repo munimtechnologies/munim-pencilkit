@@ -540,7 +540,12 @@ class MunimPencilkitView: ExpoView {
       // Set up proximity detection timer
       setupProximityDetection()
       
-      print("🔧 [Hover] Hover detection enabled for Apple Pencil")
+      // Enable hover detection on the view
+      if responds(to: #selector(UIResponder.touchesHovered(_:with:))) {
+        print("🔧 [Hover] REAL hover detection enabled for Apple Pencil")
+      } else {
+        print("🔧 [Hover] Hover detection not supported on this device")
+      }
     } else {
       print("🔧 [Hover] Hover detection requires iOS 13.4+")
     }
@@ -573,41 +578,6 @@ class MunimPencilkitView: ExpoView {
     }
   }
   
-  // Simulate hover detection using touch events
-  private func simulateHoverDetection(for touch: UITouch) {
-    if _enableHoverDetection && touch.type == .pencil {
-      let sample = touch.toRawTouchSample()
-      _hoverSamples.append(sample)
-      
-      if !_isPencilNearby {
-        _isPencilNearby = true
-        print("🔧 [Proximity] Pencil came nearby")
-        onPencilProximityChanged([
-          "isNearby": true,
-          "timestamp": sample.timestamp
-        ])
-      }
-      
-      // Detect air movement
-      let currentLocation = touch.location(in: self)
-      let movement = sqrt(pow(currentLocation.x - _lastHoverLocation.x, 2) + 
-                         pow(currentLocation.y - _lastHoverLocation.y, 2))
-      
-      if movement > 5.0 { // Threshold for air movement
-        print("🔧 [Air] Pencil air movement detected: \(movement) points")
-        onPencilAirMovement([
-          "movement": movement,
-          "location": ["x": currentLocation.x, "y": currentLocation.y],
-          "timestamp": touch.timestamp
-        ])
-      }
-      
-      _lastHoverLocation = currentLocation
-      
-      print("🔧 [Hover] Simulated hover detected: \(sample.toDictionary())")
-      onRawTouchHovered(sample.toDictionary())
-    }
-  }
   
   func getHoverSamples() -> [[String: Any]] {
     return _hoverSamples.map { $0.toDictionary() }
@@ -1317,6 +1287,63 @@ class MunimPencilkitView: ExpoView {
   
   // MARK: - Raw Touch Event Handling
   
+  // Real hover detection (iOS 13.4+)
+  override func touchesHovered(_ touches: Set<UITouch>, with event: UIEvent?) {
+    super.touchesHovered(touches, with: event)
+    
+    if _enableHoverDetection {
+      for touch in touches {
+        if touch.type == .pencil {
+          let sample = touch.toRawTouchSample()
+          _hoverSamples.append(sample)
+          
+          if !_isPencilNearby {
+            _isPencilNearby = true
+            print("🔧 [Proximity] Pencil came nearby (REAL HOVER)")
+            onPencilProximityChanged([
+              "isNearby": true,
+              "timestamp": sample.timestamp
+            ])
+          }
+          
+          // Detect air movement
+          let currentLocation = touch.location(in: self)
+          let movement = sqrt(pow(currentLocation.x - _lastHoverLocation.x, 2) + 
+                             pow(currentLocation.y - _lastHoverLocation.y, 2))
+          
+          if movement > 5.0 { // Threshold for air movement
+            print("🔧 [Air] Pencil air movement detected (REAL): \(movement) points")
+            onPencilAirMovement([
+              "movement": movement,
+              "location": ["x": currentLocation.x, "y": currentLocation.y],
+              "timestamp": touch.timestamp
+            ])
+          }
+          
+          _lastHoverLocation = currentLocation
+          
+          print("🔧 [Hover] REAL hover detected: \(sample.toDictionary())")
+          onRawTouchHovered(sample.toDictionary())
+        }
+      }
+    }
+  }
+  
+  // Real estimated properties updates
+  override func touchesEstimatedPropertiesUpdate(_ touches: Set<UITouch>) {
+    super.touchesEstimatedPropertiesUpdate(touches)
+    
+    if _enableRawPencilData {
+      for touch in touches {
+        if touch.type == .pencil {
+          let sample = touch.toRawTouchSample()
+          
+          print("🔧 [RawTouch] REAL estimated properties update: \(sample.toDictionary())")
+          onRawTouchEstimatedPropertiesUpdate(sample.toDictionary())
+        }
+      }
+    }
+  }
   
   override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
     super.touchesBegan(touches, with: event)
@@ -1331,8 +1358,7 @@ class MunimPencilkitView: ExpoView {
           _rawTouchSamples.append(sample)
           _isCollectingRawData = true
           
-          // Simulate hover detection
-          simulateHoverDetection(for: touch)
+          // Real hover detection is handled in touchesHovered method
           
           print("🔧 [RawTouch] Dispatching onRawTouchBegan")
           onRawTouchBegan(sample.toDictionary())
@@ -1350,8 +1376,7 @@ class MunimPencilkitView: ExpoView {
           let sample = createRawTouchSample(from: touch, phase: .moved)
           _rawTouchSamples.append(sample)
           
-          // Simulate hover detection
-          simulateHoverDetection(for: touch)
+          // Real hover detection is handled in touchesHovered method
           
           // Check for estimated properties updates
           if !sample.estimatedProperties.isEmpty || !sample.estimatedPropertiesExpectingUpdates.isEmpty {
