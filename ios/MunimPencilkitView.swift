@@ -2,6 +2,69 @@ import ExpoModulesCore
 import PencilKit
 import UIKit
 
+// MARK: - Raw Apple Pencil Data Structures
+
+struct RawTouchSample {
+  let location: CGPoint
+  let force: CGFloat
+  let altitudeAngle: CGFloat
+  let azimuthAngle: CGFloat
+  let timestamp: TimeInterval
+  let size: CGSize
+  let type: UITouch.TouchType
+  let phase: UITouch.Phase
+  let estimatedProperties: UITouch.Properties
+  let estimatedPropertiesExpectingUpdates: UITouch.Properties
+  
+  func toDictionary() -> [String: Any] {
+    return [
+      "location": ["x": location.x, "y": location.y],
+      "force": force,
+      "altitudeAngle": altitudeAngle,
+      "azimuthAngle": azimuthAngle,
+      "timestamp": timestamp,
+      "size": ["width": size.width, "height": size.height],
+      "type": touchTypeToString(type),
+      "phase": touchPhaseToString(phase),
+      "estimatedProperties": propertiesToString(estimatedProperties),
+      "estimatedPropertiesExpectingUpdates": propertiesToString(estimatedPropertiesExpectingUpdates)
+    ]
+  }
+  
+  private func touchTypeToString(_ type: UITouch.TouchType) -> String {
+    switch type {
+    case .direct: return "direct"
+    case .indirect: return "indirect"
+    case .pencil: return "pencil"
+    case .indirectPointer: return "indirectPointer"
+    @unknown default: return "unknown"
+    }
+  }
+  
+  private func touchPhaseToString(_ phase: UITouch.Phase) -> String {
+    switch phase {
+    case .began: return "began"
+    case .moved: return "moved"
+    case .stationary: return "stationary"
+    case .ended: return "ended"
+    case .cancelled: return "cancelled"
+    @unknown default: return "unknown"
+    }
+  }
+  
+  private func propertiesToString(_ properties: UITouch.Properties) -> [String] {
+    var result: [String] = []
+    if properties.contains(.force) { result.append("force") }
+    if properties.contains(.azimuth) { result.append("azimuth") }
+    if properties.contains(.altitude) { result.append("altitude") }
+    if properties.contains(.location) { result.append("location") }
+    if properties.contains(.normalizedPosition) { result.append("normalizedPosition") }
+    if properties.contains(.estimatedProperties) { result.append("estimatedProperties") }
+    if properties.contains(.estimatedPropertiesExpectingUpdates) { result.append("estimatedPropertiesExpectingUpdates") }
+    return result
+  }
+}
+
 @available(iOS 13.0, *)
 extension PKStroke {
   func toDictionary() -> [String: Any] {
@@ -138,6 +201,13 @@ class MunimPencilkitView: ExpoView {
   let onDrawingStarted = EventDispatcher()
   let onDrawingEnded = EventDispatcher()
   
+  // Raw Apple Pencil data event dispatchers
+  let onRawTouchBegan = EventDispatcher()
+  let onRawTouchMoved = EventDispatcher()
+  let onRawTouchEnded = EventDispatcher()
+  let onRawTouchCancelled = EventDispatcher()
+  let onRawStrokeCompleted = EventDispatcher()
+  
   // Configuration properties
   private var _showToolPicker: Bool = true
   private var _allowsFingerDrawing: Bool = true
@@ -154,6 +224,11 @@ class MunimPencilkitView: ExpoView {
   private var _enableStrokeRefinement: Bool = true
   private var _enableHandwritingRecognition: Bool = true
   private var _naturalDrawingMode: Bool = false
+  
+  // Raw Apple Pencil data collection
+  private var _enableRawPencilData: Bool = false
+  private var _rawTouchSamples: [RawTouchSample] = []
+  private var _isCollectingRawData: Bool = false
 
   required init(appContext: AppContext? = nil) {
     super.init(appContext: appContext)
@@ -249,6 +324,33 @@ class MunimPencilkitView: ExpoView {
     }
     applyToolConfiguration()
     configureHandwritingRecognition()
+  }
+  
+  // MARK: - Raw Apple Pencil Data Collection
+  
+  func setEnableRawPencilData(_ enable: Bool) {
+    _enableRawPencilData = enable
+    if enable {
+      // Enable raw touch data collection
+      setupRawTouchHandling()
+    } else {
+      // Disable raw touch data collection
+      _rawTouchSamples.removeAll()
+      _isCollectingRawData = false
+    }
+  }
+  
+  private func setupRawTouchHandling() {
+    // Override touch handling to capture raw data
+    // This will be implemented in the touch event overrides
+  }
+  
+  func getRawTouchSamples() -> [[String: Any]] {
+    return _rawTouchSamples.map { $0.toDictionary() }
+  }
+  
+  func clearRawTouchSamples() {
+    _rawTouchSamples.removeAll()
   }
   
   private func configureHandwritingRecognition() {
@@ -897,6 +999,105 @@ class MunimPencilkitView: ExpoView {
         "timestamp": Date().timeIntervalSince1970
       ])
     }
+  }
+  
+  // MARK: - Raw Touch Event Handling
+  
+  override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+    super.touchesBegan(touches, with: event)
+    
+    if _enableRawPencilData {
+      for touch in touches {
+        if touch.type == .pencil {
+          let sample = createRawTouchSample(from: touch, phase: .began)
+          _rawTouchSamples.append(sample)
+          _isCollectingRawData = true
+          
+          onRawTouchBegan(sample.toDictionary())
+        }
+      }
+    }
+  }
+  
+  override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+    super.touchesMoved(touches, with: event)
+    
+    if _enableRawPencilData && _isCollectingRawData {
+      for touch in touches {
+        if touch.type == .pencil {
+          let sample = createRawTouchSample(from: touch, phase: .moved)
+          _rawTouchSamples.append(sample)
+          
+          onRawTouchMoved(sample.toDictionary())
+        }
+      }
+    }
+  }
+  
+  override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+    super.touchesEnded(touches, with: event)
+    
+    if _enableRawPencilData && _isCollectingRawData {
+      for touch in touches {
+        if touch.type == .pencil {
+          let sample = createRawTouchSample(from: touch, phase: .ended)
+          _rawTouchSamples.append(sample)
+          _isCollectingRawData = false
+          
+          onRawTouchEnded(sample.toDictionary())
+          
+          // Dispatch completed stroke with all samples
+          let strokeData: [String: Any] = [
+            "samples": _rawTouchSamples.map { $0.toDictionary() },
+            "sampleCount": _rawTouchSamples.count,
+            "duration": _rawTouchSamples.last?.timestamp ?? 0 - (_rawTouchSamples.first?.timestamp ?? 0),
+            "timestamp": Date().timeIntervalSince1970
+          ]
+          onRawStrokeCompleted(strokeData)
+        }
+      }
+    }
+  }
+  
+  override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+    super.touchesCancelled(touches, with: event)
+    
+    if _enableRawPencilData && _isCollectingRawData {
+      for touch in touches {
+        if touch.type == .pencil {
+          let sample = createRawTouchSample(from: touch, phase: .cancelled)
+          _rawTouchSamples.append(sample)
+          _isCollectingRawData = false
+          
+          onRawTouchCancelled(sample.toDictionary())
+        }
+      }
+    }
+  }
+  
+  private func createRawTouchSample(from touch: UITouch, phase: UITouch.Phase) -> RawTouchSample {
+    let location = touch.location(in: self)
+    let force = touch.force
+    let altitudeAngle = touch.altitudeAngle
+    let azimuthAngle = touch.azimuthAngle(in: self)
+    let timestamp = touch.timestamp
+    let size = touch.majorRadius > 0 ? CGSize(width: touch.majorRadius * 2, height: touch.majorRadius * 2) : CGSize(width: 1, height: 1)
+    let type = touch.type
+    let estimatedProperties = touch.estimatedProperties
+    let estimatedPropertiesExpectingUpdates = touch.estimatedPropertiesExpectingUpdates
+    
+    return RawTouchSample(
+      location: location,
+      force: force,
+      altitudeAngle: altitudeAngle,
+      azimuthAngle: azimuthAngle,
+      timestamp: timestamp,
+      size: size,
+      type: type,
+      phase: phase,
+      estimatedProperties: estimatedProperties,
+      estimatedPropertiesExpectingUpdates: estimatedPropertiesExpectingUpdates
+    )
   }
 }
 

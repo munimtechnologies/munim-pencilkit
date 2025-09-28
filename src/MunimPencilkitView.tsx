@@ -106,6 +106,19 @@ const MunimPencilkitView = React.forwardRef<
       return nativeViewRef.current?.setNaturalDrawingMode?.(natural);
     },
 
+    // MARK: - Raw Apple Pencil Data Collection
+    async setEnableRawPencilData(enable: boolean): Promise<void> {
+      return nativeViewRef.current?.setEnableRawPencilData?.(enable);
+    },
+
+    async getRawTouchSamples(): Promise<any[]> {
+      return nativeViewRef.current?.getRawTouchSamples() || [];
+    },
+
+    async clearRawTouchSamples(): Promise<void> {
+      return nativeViewRef.current?.clearRawTouchSamples?.();
+    },
+
     // View State
     async hasContent(
       debug: boolean = false

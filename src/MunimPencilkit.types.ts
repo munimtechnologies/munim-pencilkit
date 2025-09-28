@@ -116,6 +116,11 @@ export type MunimPencilkitModuleEvents = {
   onAdvancedLongPress: (params: PKAdvancedTouchEvent) => void;
   onScribbleWillBegin: (params: PKScribbleEvent) => void;
   onScribbleDidFinish: (params: PKScribbleEvent) => void;
+  onRawTouchBegan: (params: RawTouchEventPayload) => void;
+  onRawTouchMoved: (params: RawTouchEventPayload) => void;
+  onRawTouchEnded: (params: RawTouchEventPayload) => void;
+  onRawTouchCancelled: (params: RawTouchEventPayload) => void;
+  onRawStrokeCompleted: (params: RawStrokeCompletedEventPayload) => void;
 };
 
 // MARK: - View Props and Configuration
@@ -143,6 +148,9 @@ export interface MunimPencilkitViewProps {
   enableHandwritingRecognition?: boolean;
   naturalDrawingMode?: boolean;
 
+  // Raw Apple Pencil Data Collection
+  enableRawPencilData?: boolean;
+
   // Drawing Data
   drawingData?: ArrayBuffer;
   initialDrawing?: PKDrawingData;
@@ -160,6 +168,13 @@ export interface MunimPencilkitViewProps {
   onAdvancedLongPress?: (event: { nativeEvent: PKAdvancedTouchEvent }) => void;
   onScribbleWillBegin?: (event: { nativeEvent: PKScribbleEvent }) => void;
   onScribbleDidFinish?: (event: { nativeEvent: PKScribbleEvent }) => void;
+  onRawTouchBegan?: (event: { nativeEvent: RawTouchEventPayload }) => void;
+  onRawTouchMoved?: (event: { nativeEvent: RawTouchEventPayload }) => void;
+  onRawTouchEnded?: (event: { nativeEvent: RawTouchEventPayload }) => void;
+  onRawTouchCancelled?: (event: { nativeEvent: RawTouchEventPayload }) => void;
+  onRawStrokeCompleted?: (event: {
+    nativeEvent: RawStrokeCompletedEventPayload;
+  }) => void;
 
   // Advanced Configuration
   maxZoomScale?: number;
@@ -197,6 +212,11 @@ export interface MunimPencilkitViewMethods {
   setEnableStrokeRefinement(enable: boolean): Promise<void>;
   setEnableHandwritingRecognition(enable: boolean): Promise<void>;
   setNaturalDrawingMode(natural: boolean): Promise<void>;
+
+  // MARK: - Raw Apple Pencil Data Collection
+  setEnableRawPencilData(enable: boolean): Promise<void>;
+  getRawTouchSamples(): Promise<RawTouchSample[]>;
+  clearRawTouchSamples(): Promise<void>;
 
   // View State
   hasContent(debug?: boolean): Promise<boolean | DebugEventPayload>;
@@ -445,6 +465,48 @@ export interface PKDrawingInfo {
   version: string;
   contentVersion: PKContentVersion;
   analysis: PKDrawingAnalysis;
+}
+
+// MARK: - Raw Apple Pencil Data Types
+
+export interface RawTouchSample {
+  location: { x: number; y: number };
+  force: number;
+  altitudeAngle: number;
+  azimuthAngle: number;
+  timestamp: number;
+  size: { width: number; height: number };
+  type: "direct" | "indirect" | "pencil" | "indirectPointer" | "unknown";
+  phase: "began" | "moved" | "stationary" | "ended" | "cancelled" | "unknown";
+  estimatedProperties: string[];
+  estimatedPropertiesExpectingUpdates: string[];
+}
+
+export interface RawStrokeData {
+  samples: RawTouchSample[];
+  sampleCount: number;
+  duration: number;
+  timestamp: number;
+}
+
+export interface RawTouchEventPayload {
+  location: { x: number; y: number };
+  force: number;
+  altitudeAngle: number;
+  azimuthAngle: number;
+  timestamp: number;
+  size: { width: number; height: number };
+  type: "direct" | "indirect" | "pencil" | "indirectPointer" | "unknown";
+  phase: "began" | "moved" | "stationary" | "ended" | "cancelled" | "unknown";
+  estimatedProperties: string[];
+  estimatedPropertiesExpectingUpdates: string[];
+}
+
+export interface RawStrokeCompletedEventPayload {
+  samples: RawTouchSample[];
+  sampleCount: number;
+  duration: number;
+  timestamp: number;
 }
 
 // MARK: - Accessibility Types

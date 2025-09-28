@@ -60,6 +60,7 @@
 - [⚡ Quick Start](#-quick-start)
 - [🔧 API Reference](#-api-reference)
 - [🎛️ Ink Behavior Controls](#️-ink-behavior-controls)
+- [📊 Raw Apple Pencil Data Collection](#-raw-apple-pencil-data-collection)
 - [📖 Usage Examples](#-usage-examples)
 - [🎨 Advanced Features](#-advanced-features)
 - [🔍 Troubleshooting](#-troubleshooting)
@@ -128,6 +129,15 @@
 - 📝 **Handwriting Recognition**: Enable/disable Scribble handwriting-to-text features
 - 🎨 **Natural Drawing Mode**: Master toggle for unprocessed, authentic drawing experience
 - 🧠 **Smart Tool Selection**: Automatically switches tools and adjusts settings based on mode
+
+### 📊 **Raw Apple Pencil Data Collection**
+
+- 🎯 **Direct Hardware Access**: Raw, unprocessed Apple Pencil data straight from sensors
+- 📈 **Complete Touch Data**: Position, pressure, tilt, azimuth, timestamp, and touch phases
+- 🔄 **Real-time Events**: Live touch began, moved, ended, and stroke completed events
+- 🎨 **Notability-Style Drawing**: Create natural, pen-on-paper experiences like professional apps
+- ⚡ **Dual Data Streams**: Access both PencilKit processed data AND raw unprocessed data
+- 🛠️ **Full Control**: Custom smoothing, filtering, and processing algorithms
 
 ### 🔧 **Developer Experience**
 
@@ -322,6 +332,9 @@ interface MunimPencilkitViewProps {
   enableHandwritingRecognition?: boolean; // Toggle Scribble handwriting features
   naturalDrawingMode?: boolean; // Master toggle for natural, unprocessed drawing
 
+  // Raw Apple Pencil Data Collection
+  enableRawPencilData?: boolean; // Enable raw UITouch data collection
+
   // Event Handlers
   onDrawingChanged?: (event) => void;
   onToolChanged?: (event) => void;
@@ -333,6 +346,13 @@ interface MunimPencilkitViewProps {
   onAdvancedLongPress?: (event) => void;
   onScribbleWillBegin?: (event) => void;
   onScribbleDidFinish?: (event) => void;
+
+  // Raw Touch Events
+  onRawTouchBegan?: (event) => void;
+  onRawTouchMoved?: (event) => void;
+  onRawTouchEnded?: (event) => void;
+  onRawTouchCancelled?: (event) => void;
+  onRawStrokeCompleted?: (event) => void;
 }
 ```
 
@@ -370,6 +390,11 @@ await canvasRef.current?.setEnableInkSmoothing(true);
 await canvasRef.current?.setEnableStrokeRefinement(false);
 await canvasRef.current?.setEnableHandwritingRecognition(true);
 await canvasRef.current?.setNaturalDrawingMode(false);
+
+// Raw Apple Pencil Data Collection
+await canvasRef.current?.setEnableRawPencilData(true);
+const rawSamples = await canvasRef.current?.getRawTouchSamples();
+await canvasRef.current?.clearRawTouchSamples();
 
 // Scribble Support
 const isAvailable = await canvasRef.current?.isScribbleAvailable();
@@ -695,6 +720,158 @@ await canvasRef.current?.setEnableHandwritingRecognition(true);
 #### "I want clean text but natural sketches"
 
 - **Solution**: Dynamically toggle settings based on tool selection or user preference
+
+## 📊 Raw Apple Pencil Data Collection
+
+Access **raw, unprocessed Apple Pencil data** just like Notability, Procreate, and other professional drawing apps. This gives you complete control over how strokes are processed and rendered.
+
+### What's the Difference?
+
+| **PencilKit (Processed)**    | **Raw UITouch (Unprocessed)** |
+| ---------------------------- | ----------------------------- |
+| Smoothed, polished strokes   | Raw, natural imperfections    |
+| Apple's filtering algorithms | No processing applied         |
+| Consistent appearance        | Variable, organic feel        |
+| Easy to use                  | Full control                  |
+
+### Key Data Available
+
+```typescript
+interface RawTouchSample {
+  location: { x: number; y: number }; // Position
+  force: number; // Pressure (0.0 - 1.0)
+  altitudeAngle: number; // Tilt angle
+  azimuthAngle: number; // Rotation angle
+  timestamp: number; // High-resolution timestamp
+  size: { width: number; height: number }; // Touch size
+  type: "pencil" | "direct" | "indirect"; // Input type
+  phase: "began" | "moved" | "ended"; // Touch phase
+  estimatedProperties: string[]; // Apple's predictions
+  estimatedPropertiesExpectingUpdates: string[]; // Pending updates
+}
+```
+
+### Basic Usage
+
+```typescript
+import React, { useRef } from 'react';
+import { View } from 'react-native';
+import { MunimPencilkitView, MunimPencilkitViewRef } from 'munim-pencilkit';
+
+export default function RawDataApp() {
+  const canvasRef = useRef<MunimPencilkitViewRef>(null);
+
+  return (
+    <View style={{ flex: 1 }}>
+      <MunimPencilkitView
+        ref={canvasRef}
+        style={{ flex: 1, backgroundColor: 'white' }}
+        enableRawPencilData={true}
+        onRawTouchBegan={(event) => {
+          console.log('Touch started:', event.nativeEvent.force);
+        }}
+        onRawTouchMoved={(event) => {
+          console.log('Touch moved:', event.nativeEvent.location);
+        }}
+        onRawTouchEnded={(event) => {
+          console.log('Touch ended:', event.nativeEvent);
+        }}
+        onRawStrokeCompleted={(event) => {
+          console.log('Complete stroke:', event.nativeEvent.samples);
+        }}
+      />
+    </View>
+  );
+}
+```
+
+### Advanced Raw Data Processing
+
+```typescript
+// Get all collected raw touch samples
+const samples = await canvasRef.current?.getRawTouchSamples();
+
+// Clear collected samples
+await canvasRef.current?.clearRawTouchSamples();
+
+// Compare with PencilKit data
+const pkStrokes = await canvasRef.current?.getAllStrokes();
+const rawSamples = await canvasRef.current?.getRawTouchSamples();
+
+console.log("PencilKit points:", pkStrokes[0]?.path?.points?.length);
+console.log("Raw samples:", rawSamples.length);
+```
+
+### Real-World Applications
+
+#### Natural Drawing Apps (Notability-style)
+
+```typescript
+// Minimal smoothing for natural feel
+const processRawStroke = (samples: RawTouchSample[]) => {
+  return samples.map((sample) => ({
+    ...sample,
+    // Apply only light jitter reduction
+    location: applyLightSmoothing(sample.location, previousLocation),
+  }));
+};
+```
+
+#### Pressure-Sensitive Brushes
+
+```typescript
+// Use raw pressure data for brush dynamics
+const createPressureBrush = (samples: RawTouchSample[]) => {
+  return samples.map((sample) => ({
+    ...sample,
+    brushSize: sample.force * maxBrushSize,
+    opacity: sample.force * maxOpacity,
+  }));
+};
+```
+
+#### Tilt-Based Effects
+
+```typescript
+// Use tilt angles for shading effects
+const createTiltShading = (samples: RawTouchSample[]) => {
+  return samples.map((sample) => ({
+    ...sample,
+    shadingIntensity: Math.sin(sample.altitudeAngle) * maxShading,
+  }));
+};
+```
+
+### Event Types
+
+- `onRawTouchBegan` - Touch started
+- `onRawTouchMoved` - Touch moved
+- `onRawTouchEnded` - Touch ended
+- `onRawTouchCancelled` - Touch cancelled
+- `onRawStrokeCompleted` - Complete stroke with all samples
+
+### Performance Considerations
+
+```typescript
+// Clear samples periodically to prevent memory buildup
+useEffect(() => {
+  const interval = setInterval(async () => {
+    if (rawSamples.length > 1000) {
+      await canvasRef.current?.clearRawTouchSamples();
+    }
+  }, 5000);
+
+  return () => clearInterval(interval);
+}, [rawSamples.length]);
+```
+
+### Best Practices
+
+1. **Enable only when needed** - Raw data collection has overhead
+2. **Process samples efficiently** - Use appropriate algorithms for your use case
+3. **Manage memory** - Clear samples periodically
+4. **Test on device** - Raw data behavior varies by device
+5. **Combine with PencilKit** - Use both for maximum flexibility
 
 ## 📖 Usage Examples
 
@@ -1091,6 +1268,9 @@ For a complete guide to all advanced features, see our [Advanced Features Docume
 10. **Serialization methods failing**: Version 1.2.17+ uses direct PencilKit API access with comprehensive debugging via `debugDrawingState()` method.
 11. **Drawing not being detected**: Use the new `debugDrawingState()` method to inspect canvas state and verify proper setup.
 12. **Complex timing issues**: Version 1.2.17+ removes all complex timing logic and uses PencilKit exactly as Apple intended.
+13. **Raw data not appearing**: Ensure `enableRawPencilData={true}` is set and Apple Pencil is connected
+14. **Raw data performance issues**: Clear samples periodically and implement sample filtering
+15. **Raw data inconsistencies**: Raw data includes all touch phases; PencilKit only shows final processed strokes
 
 ### iOS-Specific Issues
 

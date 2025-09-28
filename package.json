@@ -1,7 +1,7 @@
 {
   "name": "munim-pencilkit",
-  "version": "1.2.24",
-  "description": "Complete Apple PencilKit implementation for React Native and Expo with 100% feature coverage including advanced stroke analysis, Scribble support, and professional drawing tools",
+  "version": "1.3.0",
+  "description": "Complete Apple PencilKit implementation for React Native and Expo with 100% feature coverage including advanced stroke analysis, Scribble support, raw Apple Pencil data collection, and professional drawing tools",
   "main": "build/index.js",
   "types": "build/index.d.ts",
   "scripts": {
@@ -32,6 +32,10 @@
     "stroke-analysis",
     "digital-art",
     "note-taking",
+    "raw-touch-data",
+    "apple-pencil-raw",
+    "notability-style",
+    "procreate-style",
     "munim-pencilkit",
     "typescript"
   ],
