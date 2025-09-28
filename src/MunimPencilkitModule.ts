@@ -21,19 +21,22 @@ declare class MunimPencilkitModule extends NativeModule<MunimPencilkitModuleEven
 let MunimPencilkitModuleInstance: MunimPencilkitModule;
 
 try {
-  MunimPencilkitModuleInstance = requireNativeModule<MunimPencilkitModule>("MunimPencilkit");
+  MunimPencilkitModuleInstance =
+    requireNativeModule<MunimPencilkitModule>("MunimPencilkit");
 } catch (error) {
   console.warn(
     "[MunimPencilkit] Native module not found. This usually means:\n" +
-    "1. You need to rebuild your Expo development build\n" +
-    "2. The native module isn't properly linked\n" +
-    "3. You're running in a web environment\n" +
-    "Error:", error
+      "1. You need to rebuild your Expo development build\n" +
+      "2. The native module isn't properly linked\n" +
+      "3. You're running in a web environment\n" +
+      "Error:",
+    error
   );
-  
+
   // Create a fallback module for development
   MunimPencilkitModuleInstance = {
-    testNativeModule: () => "Native module not available - please rebuild your development build",
+    testNativeModule: () =>
+      "Native module not available - please rebuild your development build",
     getAvailableTools: () => ({}),
     getInkTypes: () => ({}),
     exportDrawingAsImage: async () => null,

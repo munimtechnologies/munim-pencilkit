@@ -18,36 +18,44 @@ try {
 } catch (error) {
   console.warn(
     "[MunimPencilkit] Native view not found. This usually means:\n" +
-    "1. You need to rebuild your Expo development build\n" +
-    "2. The native module isn't properly linked\n" +
-    "3. You're running in a web environment\n" +
-    "Error:", error
+      "1. You need to rebuild your Expo development build\n" +
+      "2. The native module isn't properly linked\n" +
+      "3. You're running in a web environment\n" +
+      "Error:",
+    error
   );
-  
+
   // Create a fallback view for development
-  NativeView = ({ style, children, ...props }: any) => (
-    <div 
-      style={{
-        ...style,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#f0f0f0',
-        border: '2px dashed #ccc',
-        borderRadius: '8px',
-        padding: '20px',
-        textAlign: 'center',
-        color: '#666',
-        fontFamily: 'system-ui, sans-serif'
-      }}
-    >
-      <div>
-        <h3>MunimPencilkit Native View Not Available</h3>
-        <p>Please rebuild your Expo development build to include the native module.</p>
-        <p>Run: <code>npx expo run:ios</code> or <code>npx expo run:android</code></p>
+  NativeView = ({ style, children, ...props }: any) =>
+    (
+      <div
+        style={{
+          ...style,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: "#f0f0f0",
+          border: "2px dashed #ccc",
+          borderRadius: "8px",
+          padding: "20px",
+          textAlign: "center",
+          color: "#666",
+          fontFamily: "system-ui, sans-serif",
+        }}
+      >
+        <div>
+          <h3>MunimPencilkit Native View Not Available</h3>
+          <p>
+            Please rebuild your Expo development build to include the native
+            module.
+          </p>
+          <p>
+            Run: <code>npx expo run:ios</code> or{" "}
+            <code>npx expo run:android</code>
+          </p>
+        </div>
       </div>
-    </div>
-  ) as any;
+    ) as any;
 }
 
 // Forward ref interface for imperative methods
