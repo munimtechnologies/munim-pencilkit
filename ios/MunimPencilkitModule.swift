@@ -17,6 +17,8 @@ public class MunimPencilkitModule: Module {
       "onRawTouchEnded",
       "onRawTouchCancelled",
       "onRawStrokeCompleted",
+      "onRawTouchHovered",
+      "onRawTouchEstimatedPropertiesUpdate",
       "onPencilDoubleTap",
       "onPencilSqueeze"
     )
@@ -166,6 +168,10 @@ public class MunimPencilkitModule: Module {
       // Raw Apple Pencil data props
       Prop("enableRawPencilData") { (view: MunimPencilkitView, enable: Bool) in
         view.setEnableRawPencilData(enable)
+      }
+      
+      Prop("enableHoverDetection") { (view: MunimPencilkitView, enable: Bool) in
+        view.setEnableHoverDetection(enable)
       }
       
       Prop("enablePencilGestures") { (view: MunimPencilkitView, enable: Bool) in
@@ -382,6 +388,20 @@ public class MunimPencilkitModule: Module {
         view.clearRawTouchSamples()
       }
       
+      // MARK: - Hover Detection Methods
+      
+      AsyncFunction("setEnableHoverDetection") { (view: MunimPencilkitView, enable: Bool) in
+        view.setEnableHoverDetection(enable)
+      }
+      
+      AsyncFunction("getHoverSamples") { (view: MunimPencilkitView) -> [[String: Any]] in
+        return view.getHoverSamples()
+      }
+      
+      AsyncFunction("clearHoverSamples") { (view: MunimPencilkitView) in
+        view.clearHoverSamples()
+      }
+      
       // MARK: - Apple Pencil Gesture Methods
       
       AsyncFunction("setEnablePencilGestures") { (view: MunimPencilkitView, enable: Bool) in
@@ -436,6 +456,8 @@ public class MunimPencilkitModule: Module {
         "onRawTouchEnded",
         "onRawTouchCancelled",
         "onRawStrokeCompleted",
+        "onRawTouchHovered",
+        "onRawTouchEstimatedPropertiesUpdate",
         "onPencilDoubleTap",
         "onPencilSqueeze"
       )

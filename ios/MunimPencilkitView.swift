@@ -2,33 +2,118 @@ import ExpoModulesCore
 import PencilKit
 import UIKit
 
-// MARK: - Raw Apple Pencil Data Structures
+// MARK: - Complete Apple Pencil Raw Data Structures
 
 struct RawTouchSample {
+  // Basic touch properties
   let location: CGPoint
+  let previousLocation: CGPoint
+  let timestamp: TimeInterval
+  let phase: UITouch.Phase
+  let type: UITouch.TouchType
+  
+  // Force and pressure
   let force: CGFloat
+  let maximumPossibleForce: CGFloat
+  
+  // Size and radius
+  let majorRadius: CGFloat
+  let majorRadiusTolerance: CGFloat
+  let minorRadius: CGFloat
+  let minorRadiusTolerance: CGFloat
+  
+  // Angles and orientation
   let altitudeAngle: CGFloat
   let azimuthAngle: CGFloat
-  let timestamp: TimeInterval
-  let size: CGSize
-  let type: UITouch.TouchType
-  let phase: UITouch.Phase
+  let azimuthUnitVector: CGVector
+  
+  // Estimated and predicted properties
   let estimatedProperties: UITouch.Properties
   let estimatedPropertiesExpectingUpdates: UITouch.Properties
+  let estimatedRestingForce: CGFloat
+  let estimatedRestingForceTolerance: CGFloat
+  
+  // Hover and pre-touch data (iOS 13.4+)
+  let isHovering: Bool
+  let hoverDistance: CGFloat?
+  let hoverAltitude: CGFloat?
+  let hoverAzimuth: CGFloat?
+  
+  // Gesture and interaction data
+  let tapCount: Int
+  let gestureView: UIView?
+  let window: UIWindow?
+  let view: UIView?
+  
+  // Advanced properties
+  let coalescedTouches: [UITouch]?
+  let predictedTouches: [UITouch]?
+  let preciseLocation: CGPoint
+  let precisePreviousLocation: CGPoint
   
   func toDictionary() -> [String: Any] {
-    return [
-      "location": ["x": location.x, "y": location.y],
-      "force": force,
-      "altitudeAngle": altitudeAngle,
-      "azimuthAngle": azimuthAngle,
-      "timestamp": timestamp,
-      "size": ["width": size.width, "height": size.height],
-      "type": touchTypeToString(type),
-      "phase": touchPhaseToString(phase),
-      "estimatedProperties": propertiesToString(estimatedProperties),
-      "estimatedPropertiesExpectingUpdates": propertiesToString(estimatedPropertiesExpectingUpdates)
-    ]
+    var dict: [String: Any] = [:]
+    
+    // Basic properties
+    dict["location"] = ["x": location.x, "y": location.y]
+    dict["previousLocation"] = ["x": previousLocation.x, "y": previousLocation.y]
+    dict["preciseLocation"] = ["x": preciseLocation.x, "y": preciseLocation.y]
+    dict["precisePreviousLocation"] = ["x": precisePreviousLocation.x, "y": precisePreviousLocation.y]
+    dict["timestamp"] = timestamp
+    dict["phase"] = touchPhaseToString(phase)
+    dict["type"] = touchTypeToString(type)
+    
+    // Force data
+    dict["force"] = force
+    dict["maximumPossibleForce"] = maximumPossibleForce
+    dict["forcePercentage"] = maximumPossibleForce > 0 ? force / maximumPossibleForce : 0
+    
+    // Size and radius data
+    dict["majorRadius"] = majorRadius
+    dict["majorRadiusTolerance"] = majorRadiusTolerance
+    dict["minorRadius"] = minorRadius
+    dict["minorRadiusTolerance"] = minorRadiusTolerance
+    dict["size"] = ["width": majorRadius * 2, "height": minorRadius * 2]
+    dict["aspectRatio"] = majorRadius > 0 ? minorRadius / majorRadius : 1.0
+    
+    // Angle data
+    dict["altitudeAngle"] = altitudeAngle
+    dict["azimuthAngle"] = azimuthAngle
+    dict["azimuthUnitVector"] = ["x": azimuthUnitVector.dx, "y": azimuthUnitVector.dy]
+    
+    // Estimated properties
+    dict["estimatedProperties"] = propertiesToString(estimatedProperties)
+    dict["estimatedPropertiesExpectingUpdates"] = propertiesToString(estimatedPropertiesExpectingUpdates)
+    dict["estimatedRestingForce"] = estimatedRestingForce
+    dict["estimatedRestingForceTolerance"] = estimatedRestingForceTolerance
+    
+    // Hover data
+    dict["isHovering"] = isHovering
+    if let hoverDistance = hoverDistance {
+      dict["hoverDistance"] = hoverDistance
+    }
+    if let hoverAltitude = hoverAltitude {
+      dict["hoverAltitude"] = hoverAltitude
+    }
+    if let hoverAzimuth = hoverAzimuth {
+      dict["hoverAzimuth"] = hoverAzimuth
+    }
+    
+    // Gesture data
+    dict["tapCount"] = tapCount
+    dict["gestureView"] = gestureView?.description ?? "unknown"
+    dict["window"] = window?.description ?? "unknown"
+    dict["view"] = view?.description ?? "unknown"
+    
+    // Coalesced and predicted touches
+    if let coalescedTouches = coalescedTouches {
+      dict["coalescedTouches"] = coalescedTouches.map { $0.toRawTouchSample().toDictionary() }
+    }
+    if let predictedTouches = predictedTouches {
+      dict["predictedTouches"] = predictedTouches.map { $0.toRawTouchSample().toDictionary() }
+    }
+    
+    return dict
   }
   
   private func touchTypeToString(_ type: UITouch.TouchType) -> String {
@@ -58,7 +143,63 @@ struct RawTouchSample {
     if properties.contains(.azimuth) { result.append("azimuth") }
     if properties.contains(.altitude) { result.append("altitude") }
     if properties.contains(.location) { result.append("location") }
+    if properties.contains(.estimatedProperties) { result.append("estimatedProperties") }
+    if properties.contains(.restingForce) { result.append("restingForce") }
     return result
+  }
+}
+
+// MARK: - UITouch Extension for Complete Data Extraction
+
+extension UITouch {
+  func toRawTouchSample() -> RawTouchSample {
+    return RawTouchSample(
+      // Basic properties
+      location: location(in: nil),
+      previousLocation: previousLocation(in: nil),
+      timestamp: timestamp,
+      phase: phase,
+      type: type,
+      
+      // Force data
+      force: force,
+      maximumPossibleForce: maximumPossibleForce,
+      
+      // Size and radius
+      majorRadius: majorRadius,
+      majorRadiusTolerance: majorRadiusTolerance,
+      minorRadius: minorRadius,
+      minorRadiusTolerance: minorRadiusTolerance,
+      
+      // Angles
+      altitudeAngle: altitudeAngle,
+      azimuthAngle: azimuthAngle(in: nil),
+      azimuthUnitVector: azimuthUnitVector(in: nil),
+      
+      // Estimated properties
+      estimatedProperties: estimatedProperties,
+      estimatedPropertiesExpectingUpdates: estimatedPropertiesExpectingUpdates,
+      estimatedRestingForce: estimatedRestingForce,
+      estimatedRestingForceTolerance: estimatedRestingForceTolerance,
+      
+      // Hover data (iOS 13.4+)
+      isHovering: isHovering,
+      hoverDistance: hoverDistance,
+      hoverAltitude: hoverAltitude,
+      hoverAzimuth: hoverAzimuth,
+      
+      // Gesture data
+      tapCount: tapCount,
+      gestureView: gestureView,
+      window: window,
+      view: view,
+      
+      // Advanced properties
+      coalescedTouches: coalescedTouches,
+      predictedTouches: predictedTouches,
+      preciseLocation: preciseLocation(in: nil),
+      precisePreviousLocation: precisePreviousLocation(in: nil)
+    )
   }
 }
 
@@ -205,6 +346,10 @@ class MunimPencilkitView: ExpoView {
   let onRawTouchCancelled = EventDispatcher()
   let onRawStrokeCompleted = EventDispatcher()
   
+  // Hover detection event dispatchers
+  let onRawTouchHovered = EventDispatcher()
+  let onRawTouchEstimatedPropertiesUpdate = EventDispatcher()
+  
   // Apple Pencil gesture event dispatchers
   let onPencilDoubleTap = EventDispatcher()
   let onPencilSqueeze = EventDispatcher()
@@ -230,6 +375,10 @@ class MunimPencilkitView: ExpoView {
   private var _enableRawPencilData: Bool = false
   private var _rawTouchSamples: [RawTouchSample] = []
   private var _isCollectingRawData: Bool = false
+  
+  // Hover detection
+  private var _enableHoverDetection: Bool = false
+  private var _hoverSamples: [RawTouchSample] = []
   
   // Apple Pencil gesture detection
   private var _enablePencilGestures: Bool = false
@@ -367,6 +516,33 @@ class MunimPencilkitView: ExpoView {
   
   func clearRawTouchSamples() {
     _rawTouchSamples.removeAll()
+  }
+  
+  // MARK: - Hover Detection
+  
+  func setEnableHoverDetection(_ enable: Bool) {
+    _enableHoverDetection = enable
+    if enable {
+      setupHoverDetection()
+    } else {
+      _hoverSamples.removeAll()
+    }
+  }
+  
+  private func setupHoverDetection() {
+    // Enable hover detection for Apple Pencil
+    if #available(iOS 13.4, *) {
+      // Hover detection is automatically enabled when using Apple Pencil
+      print("🔧 [Hover] Hover detection enabled for Apple Pencil")
+    }
+  }
+  
+  func getHoverSamples() -> [[String: Any]] {
+    return _hoverSamples.map { $0.toDictionary() }
+  }
+  
+  func clearHoverSamples() {
+    _hoverSamples.removeAll()
   }
   
   // MARK: - Apple Pencil Gesture Detection
@@ -1137,29 +1313,41 @@ class MunimPencilkitView: ExpoView {
     }
   }
   
-  private func createRawTouchSample(from touch: UITouch, phase: UITouch.Phase) -> RawTouchSample {
-    let location = touch.location(in: self)
-    let force = touch.force
-    let altitudeAngle = touch.altitudeAngle
-    let azimuthAngle = touch.azimuthAngle(in: self)
-    let timestamp = touch.timestamp
-    let size = touch.majorRadius > 0 ? CGSize(width: touch.majorRadius * 2, height: touch.majorRadius * 2) : CGSize(width: 1, height: 1)
-    let type = touch.type
-    let estimatedProperties = touch.estimatedProperties
-    let estimatedPropertiesExpectingUpdates = touch.estimatedPropertiesExpectingUpdates
+  // MARK: - Hover Touch Event Handling
+  
+  override func touchesHovered(_ touches: Set<UITouch>, with event: UIEvent?) {
+    super.touchesHovered(touches, with: event)
     
-    return RawTouchSample(
-      location: location,
-      force: force,
-      altitudeAngle: altitudeAngle,
-      azimuthAngle: azimuthAngle,
-      timestamp: timestamp,
-      size: size,
-      type: type,
-      phase: phase,
-      estimatedProperties: estimatedProperties,
-      estimatedPropertiesExpectingUpdates: estimatedPropertiesExpectingUpdates
-    )
+    if _enableHoverDetection {
+      for touch in touches {
+        if touch.type == .pencil {
+          let sample = createRawTouchSample(from: touch, phase: .moved)
+          _hoverSamples.append(sample)
+          
+          print("🔧 [Hover] Hover detected: \(sample.toDictionary())")
+          onRawTouchHovered(sample.toDictionary())
+        }
+      }
+    }
+  }
+  
+  override func touchesEstimatedPropertiesUpdate(_ touches: Set<UITouch>) {
+    super.touchesEstimatedPropertiesUpdate(touches)
+    
+    if _enableRawPencilData {
+      for touch in touches {
+        if touch.type == .pencil {
+          let sample = createRawTouchSample(from: touch, phase: touch.phase)
+          
+          print("🔧 [RawTouch] Estimated properties update: \(sample.toDictionary())")
+          onRawTouchEstimatedPropertiesUpdate(sample.toDictionary())
+        }
+      }
+    }
+  }
+  
+  private func createRawTouchSample(from touch: UITouch, phase: UITouch.Phase) -> RawTouchSample {
+    return touch.toRawTouchSample()
   }
 }
 
