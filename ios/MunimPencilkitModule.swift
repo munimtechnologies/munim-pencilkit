@@ -19,6 +19,8 @@ public class MunimPencilkitModule: Module {
       "onRawStrokeCompleted",
       "onRawTouchHovered",
       "onRawTouchEstimatedPropertiesUpdate",
+      "onPencilProximityChanged",
+      "onPencilAirMovement",
       "onPencilDoubleTap",
       "onPencilSqueeze"
     )
@@ -402,6 +404,18 @@ public class MunimPencilkitModule: Module {
         view.clearHoverSamples()
       }
       
+      AsyncFunction("getProximitySamples") { (view: MunimPencilkitView) -> [[String: Any]] in
+        return view.getProximitySamples()
+      }
+      
+      AsyncFunction("clearProximitySamples") { (view: MunimPencilkitView) in
+        view.clearProximitySamples()
+      }
+      
+      AsyncFunction("isPencilNearby") { (view: MunimPencilkitView) -> Bool in
+        return view.isPencilNearby()
+      }
+      
       // MARK: - Apple Pencil Gesture Methods
       
       AsyncFunction("setEnablePencilGestures") { (view: MunimPencilkitView, enable: Bool) in
@@ -458,6 +472,8 @@ public class MunimPencilkitModule: Module {
         "onRawStrokeCompleted",
         "onRawTouchHovered",
         "onRawTouchEstimatedPropertiesUpdate",
+        "onPencilProximityChanged",
+        "onPencilAirMovement",
         "onPencilDoubleTap",
         "onPencilSqueeze"
       )
