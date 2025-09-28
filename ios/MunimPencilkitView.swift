@@ -58,9 +58,6 @@ struct RawTouchSample {
     if properties.contains(.azimuth) { result.append("azimuth") }
     if properties.contains(.altitude) { result.append("altitude") }
     if properties.contains(.location) { result.append("location") }
-    if properties.contains(.normalizedPosition) { result.append("normalizedPosition") }
-    if properties.contains(.estimatedProperties) { result.append("estimatedProperties") }
-    if properties.contains(.estimatedPropertiesExpectingUpdates) { result.append("estimatedPropertiesExpectingUpdates") }
     return result
   }
 }
@@ -391,7 +388,10 @@ class MunimPencilkitView: ExpoView {
   
   func isPencilGesturesAvailable() -> Bool {
     if #available(iOS 12.1, *) {
-      return UIPencilInteraction.isSupported
+      // UIPencilInteraction is available on iOS 12.1+
+      // Double-tap is supported on Apple Pencil (2nd gen) and Pro
+      // Squeeze is supported on Apple Pencil Pro only (iOS 16.4+)
+      return true
     }
     return false
   }
