@@ -121,6 +121,10 @@ export type MunimPencilkitModuleEvents = {
   onRawTouchEnded: (params: RawTouchEventPayload) => void;
   onRawTouchCancelled: (params: RawTouchEventPayload) => void;
   onRawStrokeCompleted: (params: RawStrokeCompletedEventPayload) => void;
+  onRawTouchHovered: (params: RawTouchEventPayload) => void;
+  onRawTouchEstimatedPropertiesUpdate: (params: RawTouchEventPayload) => void;
+  onPencilProximityChanged: (params: PencilProximityEventPayload) => void;
+  onPencilAirMovement: (params: PencilAirMovementEventPayload) => void;
   onPencilDoubleTap: (params: PencilGestureEventPayload) => void;
   onPencilSqueeze: (params: PencilGestureEventPayload) => void;
 };
@@ -180,6 +184,10 @@ export interface MunimPencilkitViewProps {
   onRawStrokeCompleted?: (event: {
     nativeEvent: RawStrokeCompletedEventPayload;
   }) => void;
+  onRawTouchHovered?: (event: { nativeEvent: RawTouchEventPayload }) => void;
+  onRawTouchEstimatedPropertiesUpdate?: (event: { nativeEvent: RawTouchEventPayload }) => void;
+  onPencilProximityChanged?: (event: { nativeEvent: PencilProximityEventPayload }) => void;
+  onPencilAirMovement?: (event: { nativeEvent: PencilAirMovementEventPayload }) => void;
   onPencilDoubleTap?: (event: {
     nativeEvent: PencilGestureEventPayload;
   }) => void;
@@ -226,6 +234,14 @@ export interface MunimPencilkitViewMethods {
   setEnableRawPencilData(enable: boolean): Promise<void>;
   getRawTouchSamples(): Promise<RawTouchSample[]>;
   clearRawTouchSamples(): Promise<void>;
+
+  // MARK: - Hover Detection
+  setEnableHoverDetection(enable: boolean): Promise<void>;
+  getHoverSamples(): Promise<RawTouchSample[]>;
+  clearHoverSamples(): Promise<void>;
+  getProximitySamples(): Promise<RawTouchSample[]>;
+  clearProximitySamples(): Promise<void>;
+  isPencilNearby(): Promise<boolean>;
 
   // MARK: - Apple Pencil Gesture Detection
   setEnablePencilGestures(enable: boolean): Promise<void>;
@@ -528,6 +544,19 @@ export interface PencilGestureEventPayload {
   type: "doubleTap" | "squeeze";
   timestamp: number;
   location: { x: number; y: number };
+}
+
+// MARK: - Hover and Proximity Types
+
+export interface PencilProximityEventPayload {
+  isNearby: boolean;
+  timestamp: number;
+}
+
+export interface PencilAirMovementEventPayload {
+  movement: number;
+  location: { x: number; y: number };
+  timestamp: number;
 }
 
 // MARK: - Accessibility Types

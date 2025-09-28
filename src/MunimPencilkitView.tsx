@@ -163,6 +163,31 @@ const MunimPencilkitView = React.forwardRef<
       return nativeViewRef.current?.clearRawTouchSamples?.();
     },
 
+    // MARK: - Hover Detection
+    async setEnableHoverDetection(enable: boolean): Promise<void> {
+      return nativeViewRef.current?.setEnableHoverDetection?.(enable);
+    },
+
+    async getHoverSamples(): Promise<any[]> {
+      return nativeViewRef.current?.getHoverSamples() || [];
+    },
+
+    async clearHoverSamples(): Promise<void> {
+      return nativeViewRef.current?.clearHoverSamples?.();
+    },
+
+    async getProximitySamples(): Promise<any[]> {
+      return nativeViewRef.current?.getProximitySamples() || [];
+    },
+
+    async clearProximitySamples(): Promise<void> {
+      return nativeViewRef.current?.clearProximitySamples?.();
+    },
+
+    async isPencilNearby(): Promise<boolean> {
+      return nativeViewRef.current?.isPencilNearby?.() || false;
+    },
+
     // MARK: - Apple Pencil Gesture Detection
     async setEnablePencilGestures(enable: boolean): Promise<void> {
       return nativeViewRef.current?.setEnablePencilGestures?.(enable);
