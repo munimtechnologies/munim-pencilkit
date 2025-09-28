@@ -1246,6 +1246,13 @@ class MunimPencilkitView: ExpoView {
           _rawTouchSamples.append(sample)
           _isCollectingRawData = true
           
+          // Check for hover detection
+          if _enableHoverDetection && sample.isHovering {
+            _hoverSamples.append(sample)
+            print("🔧 [Hover] Hover detected in touchesBegan: \(sample.toDictionary())")
+            onRawTouchHovered(sample.toDictionary())
+          }
+          
           print("🔧 [RawTouch] Dispatching onRawTouchBegan")
           onRawTouchBegan(sample.toDictionary())
         }
@@ -1261,6 +1268,19 @@ class MunimPencilkitView: ExpoView {
         if touch.type == .pencil {
           let sample = createRawTouchSample(from: touch, phase: .moved)
           _rawTouchSamples.append(sample)
+          
+          // Check for hover detection
+          if _enableHoverDetection && sample.isHovering {
+            _hoverSamples.append(sample)
+            print("🔧 [Hover] Hover detected in touchesMoved: \(sample.toDictionary())")
+            onRawTouchHovered(sample.toDictionary())
+          }
+          
+          // Check for estimated properties updates
+          if !sample.estimatedProperties.isEmpty || !sample.estimatedPropertiesExpectingUpdates.isEmpty {
+            print("🔧 [RawTouch] Estimated properties update in touchesMoved: \(sample.toDictionary())")
+            onRawTouchEstimatedPropertiesUpdate(sample.toDictionary())
+          }
           
           onRawTouchMoved(sample.toDictionary())
         }
@@ -1315,36 +1335,11 @@ class MunimPencilkitView: ExpoView {
   
   // MARK: - Hover Touch Event Handling
   
-  override func touchesHovered(_ touches: Set<UITouch>, with event: UIEvent?) {
-    super.touchesHovered(touches, with: event)
-    
-    if _enableHoverDetection {
-      for touch in touches {
-        if touch.type == .pencil {
-          let sample = createRawTouchSample(from: touch, phase: .moved)
-          _hoverSamples.append(sample)
-          
-          print("🔧 [Hover] Hover detected: \(sample.toDictionary())")
-          onRawTouchHovered(sample.toDictionary())
-        }
-      }
-    }
-  }
+  // Note: touchesHovered is not available in UIView, it's a UIResponder method
+  // We'll handle hover detection through the regular touch events and check isHovering property
   
-  override func touchesEstimatedPropertiesUpdate(_ touches: Set<UITouch>) {
-    super.touchesEstimatedPropertiesUpdate(touches)
-    
-    if _enableRawPencilData {
-      for touch in touches {
-        if touch.type == .pencil {
-          let sample = createRawTouchSample(from: touch, phase: touch.phase)
-          
-          print("🔧 [RawTouch] Estimated properties update: \(sample.toDictionary())")
-          onRawTouchEstimatedPropertiesUpdate(sample.toDictionary())
-        }
-      }
-    }
-  }
+  // Note: touchesEstimatedPropertiesUpdate is not available in UIView, it's a UIResponder method
+  // We'll handle estimated properties updates through the regular touch events
   
   private func createRawTouchSample(from touch: UITouch, phase: UITouch.Phase) -> RawTouchSample {
     return touch.toRawTouchSample()
