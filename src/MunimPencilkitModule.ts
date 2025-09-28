@@ -17,4 +17,29 @@ declare class MunimPencilkitModule extends NativeModule<MunimPencilkitModuleEven
 }
 
 // This call loads the native module object from the JSI.
-export default requireNativeModule<MunimPencilkitModule>("MunimPencilkit");
+// Add error handling for cases where the native module isn't available
+let MunimPencilkitModuleInstance: MunimPencilkitModule;
+
+try {
+  MunimPencilkitModuleInstance = requireNativeModule<MunimPencilkitModule>("MunimPencilkit");
+} catch (error) {
+  console.warn(
+    "[MunimPencilkit] Native module not found. This usually means:\n" +
+    "1. You need to rebuild your Expo development build\n" +
+    "2. The native module isn't properly linked\n" +
+    "3. You're running in a web environment\n" +
+    "Error:", error
+  );
+  
+  // Create a fallback module for development
+  MunimPencilkitModuleInstance = {
+    testNativeModule: () => "Native module not available - please rebuild your development build",
+    getAvailableTools: () => ({}),
+    getInkTypes: () => ({}),
+    exportDrawingAsImage: async () => null,
+    exportDrawingAsData: async () => null,
+    exportDrawingAsPDF: async () => null,
+  } as any;
+}
+
+export default MunimPencilkitModuleInstance;
