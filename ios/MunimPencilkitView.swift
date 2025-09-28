@@ -143,8 +143,6 @@ struct RawTouchSample {
     if properties.contains(.azimuth) { result.append("azimuth") }
     if properties.contains(.altitude) { result.append("altitude") }
     if properties.contains(.location) { result.append("location") }
-    if properties.contains(.estimatedProperties) { result.append("estimatedProperties") }
-    if properties.contains(.restingForce) { result.append("restingForce") }
     return result
   }
 }
@@ -168,8 +166,8 @@ extension UITouch {
       // Size and radius
       majorRadius: majorRadius,
       majorRadiusTolerance: majorRadiusTolerance,
-      minorRadius: minorRadius,
-      minorRadiusTolerance: minorRadiusTolerance,
+      minorRadius: 0, // minorRadius doesn't exist in UITouch
+      minorRadiusTolerance: 0, // minorRadiusTolerance doesn't exist in UITouch
       
       // Angles
       altitudeAngle: altitudeAngle,
@@ -179,26 +177,26 @@ extension UITouch {
       // Estimated properties
       estimatedProperties: estimatedProperties,
       estimatedPropertiesExpectingUpdates: estimatedPropertiesExpectingUpdates,
-      estimatedRestingForce: estimatedRestingForce,
-      estimatedRestingForceTolerance: estimatedRestingForceTolerance,
+      estimatedRestingForce: 0, // estimatedRestingForce doesn't exist in UITouch
+      estimatedRestingForceTolerance: 0, // estimatedRestingForceTolerance doesn't exist in UITouch
       
-      // Hover data (iOS 13.4+)
-      isHovering: isHovering,
-      hoverDistance: hoverDistance,
-      hoverAltitude: hoverAltitude,
-      hoverAzimuth: hoverAzimuth,
+      // Hover data (iOS 13.4+) - these properties don't exist in UITouch
+      isHovering: false, // isHovering doesn't exist in UITouch
+      hoverDistance: nil, // hoverDistance doesn't exist in UITouch
+      hoverAltitude: nil, // hoverAltitude doesn't exist in UITouch
+      hoverAzimuth: nil, // hoverAzimuth doesn't exist in UITouch
       
       // Gesture data
       tapCount: tapCount,
-      gestureView: gestureView,
+      gestureView: nil, // gestureView doesn't exist in UITouch
       window: window,
       view: view,
       
       // Advanced properties
-      coalescedTouches: coalescedTouches,
-      predictedTouches: predictedTouches,
-      preciseLocation: preciseLocation(in: nil),
-      precisePreviousLocation: precisePreviousLocation(in: nil)
+      coalescedTouches: nil, // coalescedTouches doesn't exist in UITouch
+      predictedTouches: nil, // predictedTouches doesn't exist in UITouch
+      preciseLocation: location(in: nil), // Use regular location as fallback
+      precisePreviousLocation: previousLocation(in: nil) // Use regular previous location as fallback
     )
   }
 }
