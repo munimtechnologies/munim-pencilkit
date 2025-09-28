@@ -7,7 +7,19 @@ public class MunimPencilkitModule: Module {
     Name("MunimPencilkit")
 
     // Defines event names that the module can send to JavaScript.
-    Events("onDrawingChanged", "onToolChanged", "onDrawingStarted", "onDrawingEnded")
+    Events(
+      "onDrawingChanged", 
+      "onToolChanged", 
+      "onDrawingStarted", 
+      "onDrawingEnded",
+      "onRawTouchBegan",
+      "onRawTouchMoved", 
+      "onRawTouchEnded",
+      "onRawTouchCancelled",
+      "onRawStrokeCompleted",
+      "onPencilDoubleTap",
+      "onPencilSqueeze"
+    )
 
     // MARK: - Test Functions
     
@@ -149,6 +161,15 @@ public class MunimPencilkitModule: Module {
       // Drawing data props
       Prop("drawingData") { (view: MunimPencilkitView, data: Data) in
         view.loadDrawingData(data)
+      }
+      
+      // Raw Apple Pencil data props
+      Prop("enableRawPencilData") { (view: MunimPencilkitView, enable: Bool) in
+        view.setEnableRawPencilData(enable)
+      }
+      
+      Prop("enablePencilGestures") { (view: MunimPencilkitView, enable: Bool) in
+        view.setEnablePencilGestures(enable)
       }
 
       // MARK: - View Methods
@@ -347,6 +368,30 @@ public class MunimPencilkitModule: Module {
         view.handleAdvancedTouchEvents(enabled)
       }
       
+      // MARK: - Raw Apple Pencil Data Methods
+      
+      AsyncFunction("setEnableRawPencilData") { (view: MunimPencilkitView, enable: Bool) in
+        view.setEnableRawPencilData(enable)
+      }
+      
+      AsyncFunction("getRawTouchSamples") { (view: MunimPencilkitView) -> [[String: Any]] in
+        return view.getRawTouchSamples()
+      }
+      
+      AsyncFunction("clearRawTouchSamples") { (view: MunimPencilkitView) in
+        view.clearRawTouchSamples()
+      }
+      
+      // MARK: - Apple Pencil Gesture Methods
+      
+      AsyncFunction("setEnablePencilGestures") { (view: MunimPencilkitView, enable: Bool) in
+        view.setEnablePencilGestures(enable)
+      }
+      
+      AsyncFunction("isPencilGesturesAvailable") { (view: MunimPencilkitView) -> Bool in
+        return view.isPencilGesturesAvailable()
+      }
+      
       // MARK: - Advanced Drawing Features
       
       AsyncFunction("createStrokeFromPoints") { (view: MunimPencilkitView, points: [[String: Any]], inkType: String, color: String, width: Double) -> Bool in
@@ -385,7 +430,14 @@ public class MunimPencilkitModule: Module {
         "onAdvancedTap",
         "onAdvancedLongPress",
         "onScribbleWillBegin",
-        "onScribbleDidFinish"
+        "onScribbleDidFinish",
+        "onRawTouchBegan",
+        "onRawTouchMoved", 
+        "onRawTouchEnded",
+        "onRawTouchCancelled",
+        "onRawStrokeCompleted",
+        "onPencilDoubleTap",
+        "onPencilSqueeze"
       )
     }
   }

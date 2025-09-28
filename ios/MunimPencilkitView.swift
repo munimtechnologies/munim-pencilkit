@@ -334,20 +334,31 @@ class MunimPencilkitView: ExpoView {
   // MARK: - Raw Apple Pencil Data Collection
   
   func setEnableRawPencilData(_ enable: Bool) {
+    print("🔧 [RawTouch] setEnableRawPencilData: \(enable)")
     _enableRawPencilData = enable
     if enable {
       // Enable raw touch data collection
       setupRawTouchHandling()
+      print("🔧 [RawTouch] Raw touch handling setup complete")
     } else {
       // Disable raw touch data collection
       _rawTouchSamples.removeAll()
       _isCollectingRawData = false
+      print("🔧 [RawTouch] Raw touch data collection disabled")
     }
   }
   
   private func setupRawTouchHandling() {
-    // Override touch handling to capture raw data
-    // This will be implemented in the touch event overrides
+    // Ensure the view can become first responder for touch events
+    if canBecomeFirstResponder {
+      becomeFirstResponder()
+    }
+    
+    // Enable user interaction if not already enabled
+    isUserInteractionEnabled = true
+    
+    // Ensure the canvas view is also properly configured
+    canvasView.isUserInteractionEnabled = true
   }
   
   func getRawTouchSamples() -> [[String: Any]] {
@@ -1049,13 +1060,17 @@ class MunimPencilkitView: ExpoView {
   override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
     super.touchesBegan(touches, with: event)
     
+    print("🔧 [RawTouch] touchesBegan - enabled: \(_enableRawPencilData), touches: \(touches.count)")
+    
     if _enableRawPencilData {
       for touch in touches {
+        print("🔧 [RawTouch] Touch type: \(touch.type.rawValue), phase: began")
         if touch.type == .pencil {
           let sample = createRawTouchSample(from: touch, phase: .began)
           _rawTouchSamples.append(sample)
           _isCollectingRawData = true
           
+          print("🔧 [RawTouch] Dispatching onRawTouchBegan")
           onRawTouchBegan(sample.toDictionary())
         }
       }
@@ -1080,6 +1095,8 @@ class MunimPencilkitView: ExpoView {
   override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
     super.touchesEnded(touches, with: event)
     
+    print("🔧 [RawTouch] touchesEnded - enabled: \(_enableRawPencilData), collecting: \(_isCollectingRawData)")
+    
     if _enableRawPencilData && _isCollectingRawData {
       for touch in touches {
         if touch.type == .pencil {
@@ -1087,6 +1104,7 @@ class MunimPencilkitView: ExpoView {
           _rawTouchSamples.append(sample)
           _isCollectingRawData = false
           
+          print("🔧 [RawTouch] Dispatching onRawTouchEnded")
           onRawTouchEnded(sample.toDictionary())
           
           // Dispatch completed stroke with all samples
@@ -1096,6 +1114,7 @@ class MunimPencilkitView: ExpoView {
             "duration": _rawTouchSamples.last?.timestamp ?? 0 - (_rawTouchSamples.first?.timestamp ?? 0),
             "timestamp": Date().timeIntervalSince1970
           ]
+          print("🔧 [RawTouch] Dispatching onRawStrokeCompleted with \(_rawTouchSamples.count) samples")
           onRawStrokeCompleted(strokeData)
         }
       }
