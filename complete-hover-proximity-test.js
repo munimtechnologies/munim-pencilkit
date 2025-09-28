@@ -95,7 +95,8 @@ const CompleteHoverProximityTest = () => {
     try {
       const samples = await pencilKitRef.current?.getRawTouchSamples();
       const hoverSamples = await pencilKitRef.current?.getHoverSamples();
-      const proximitySamples = await pencilKitRef.current?.getProximitySamples();
+      const proximitySamples =
+        await pencilKitRef.current?.getProximitySamples();
       const nearby = await pencilKitRef.current?.isPencilNearby();
       addToLog(
         `Data: Raw=${samples?.length || 0}, Hover=${hoverSamples?.length || 0}, Proximity=${proximitySamples?.length || 0}, Nearby=${nearby}`,
@@ -195,7 +196,9 @@ const CompleteHoverProximityTest = () => {
         </Text>
         <Text style={styles.statusText}>Touch Events: {touchCount}</Text>
         <Text style={styles.statusText}>Hover Events: {hoverCount}</Text>
-        <Text style={styles.statusText}>Proximity Events: {proximityCount}</Text>
+        <Text style={styles.statusText}>
+          Proximity Events: {proximityCount}
+        </Text>
         <Text style={styles.statusText}>Air Movement: {airMovementCount}</Text>
       </View>
 
@@ -209,7 +212,6 @@ const CompleteHoverProximityTest = () => {
           enablePencilGestures={gesturesEnabled}
           drawingPolicy="pencilOnly"
           allowsFingerDrawing={false}
-          
           // Raw touch events
           onRawTouchBegan={(event) => {
             setTouchCount((prev) => prev + 1);
@@ -242,7 +244,6 @@ const CompleteHoverProximityTest = () => {
               "stroke"
             );
           }}
-          
           // Hover events
           onRawTouchHovered={(event) => {
             setHoverCount((prev) => prev + 1);
@@ -257,7 +258,6 @@ const CompleteHoverProximityTest = () => {
               "prediction"
             );
           }}
-          
           // Proximity events
           onPencilProximityChanged={(event) => {
             setProximityCount((prev) => prev + 1);
@@ -273,7 +273,6 @@ const CompleteHoverProximityTest = () => {
               "air"
             );
           }}
-          
           // Gesture events
           onPencilDoubleTap={(event) => {
             addToLog(
@@ -287,7 +286,6 @@ const CompleteHoverProximityTest = () => {
               "gesture"
             );
           }}
-          
           // Drawing events
           onDrawingChanged={(event) => {
             addToLog(
@@ -309,7 +307,8 @@ const CompleteHoverProximityTest = () => {
         <Text style={styles.logTitle}>Complete Event Log</Text>
         {eventLog.length === 0 ? (
           <Text style={styles.emptyLog}>
-            No events yet. Enable features and move Apple Pencil near the screen!
+            No events yet. Enable features and move Apple Pencil near the
+            screen!
           </Text>
         ) : (
           eventLog.map((log) => (
@@ -331,7 +330,9 @@ const CompleteHoverProximityTest = () => {
 
       {/* Instructions */}
       <View style={styles.instructionsContainer}>
-        <Text style={styles.instructionTitle}>Complete Hover & Proximity Test</Text>
+        <Text style={styles.instructionTitle}>
+          Complete Hover & Proximity Test
+        </Text>
         <Text style={styles.instructionText}>
           • Enable hover detection and move Apple Pencil near the screen
         </Text>
