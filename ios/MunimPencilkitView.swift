@@ -383,6 +383,7 @@ class MunimPencilkitView: ExpoView {
   private var _proximitySamples: [RawTouchSample] = []
   private var _isPencilNearby: Bool = false
   private var _lastHoverLocation: CGPoint = .zero
+  private var _hoverGestureRecognizer: UIHoverGestureRecognizer?
   
   // Apple Pencil gesture detection
   private var _enablePencilGestures: Bool = false
@@ -530,21 +531,23 @@ class MunimPencilkitView: ExpoView {
     if enable {
       setupHoverDetection()
     } else {
+      // Clean up hover gesture recognizer
+      if let hoverGesture = _hoverGestureRecognizer {
+        removeGestureRecognizer(hoverGesture)
+        _hoverGestureRecognizer = nil
+      }
       _hoverSamples.removeAll()
     }
   }
   
   private func setupHoverDetection() {
-    // Enable hover detection for Apple Pencil
+    // Enable hover detection for Apple Pencil using UIHoverGestureRecognizer
     if #available(iOS 13.4, *) {
       // Set up proximity detection timer
       setupProximityDetection()
       
-      // Enable hover detection by making the view a responder
-      becomeFirstResponder()
-      
-      // Set up hover detection using a different approach
-      setupHoverDetectionAlternative()
+      // Set up real hover detection using UIHoverGestureRecognizer
+      setupRealHoverDetection()
       
       print("🔧 [Hover] REAL hover detection enabled for Apple Pencil")
     } else {
@@ -552,63 +555,79 @@ class MunimPencilkitView: ExpoView {
     }
   }
   
-  private func setupHoverDetectionAlternative() {
-    // Use a timer to simulate hover detection by checking for pencil proximity
-    Timer.scheduledTimer(withTimeInterval: 0.016, repeats: true) { [weak self] timer in
-      guard let self = self else {
-        timer.invalidate()
-        return
+  private func setupRealHoverDetection() {
+    // Create hover gesture recognizer for real hover detection
+    _hoverGestureRecognizer = UIHoverGestureRecognizer(target: self, action: #selector(handleHover(_:)))
+    
+    if let hoverGesture = _hoverGestureRecognizer {
+      addGestureRecognizer(hoverGesture)
+      print("🔧 [Hover] UIHoverGestureRecognizer added for real hover detection")
+    }
+  }
+  
+  @objc private func handleHover(_ recognizer: UIHoverGestureRecognizer) {
+    guard _enableHoverDetection else { return }
+    
+    let location = recognizer.location(in: self)
+    
+    switch recognizer.state {
+    case .began, .changed:
+      // Create hover sample
+      let hoverSample = RawTouchSample(
+        location: ["x": location.x, "y": location.y],
+        force: 0.0, // Hover has no force
+        altitudeAngle: 0.0, // Will be updated if we can get from touch
+        azimuthAngle: 0.0, // Will be updated if we can get from touch
+        timestamp: Date().timeIntervalSince1970,
+        phase: recognizer.state == .began ? .began : .moved,
+        type: .pencil,
+        estimatedProperties: [:],
+        estimatedPropertiesExpectingUpdates: [],
+        isHovering: true,
+        hoverDistance: 5.0, // Estimate 5mm hover distance
+        minorRadius: 0.0,
+        majorRadius: 0.0,
+        estimatedRestingForce: 0.0,
+        coalescedTouches: [],
+        predictedTouches: [],
+        preciseLocation: ["x": location.x, "y": location.y],
+        gestureView: nil
+      )
+      
+      _hoverSamples.append(hoverSample)
+      
+      if !_isPencilNearby {
+        _isPencilNearby = true
+        print("🔧 [Proximity] Pencil came nearby (REAL HOVER)")
+        onPencilProximityChanged([
+          "isNearby": true,
+          "timestamp": hoverSample.timestamp
+        ])
       }
       
-      if !self._enableHoverDetection {
-        timer.invalidate()
-        return
+      // Detect air movement
+      let movement = sqrt(pow(location.x - _lastHoverLocation.x, 2) + 
+                         pow(location.y - _lastHoverLocation.y, 2))
+      
+      if movement > 5.0 { // Threshold for air movement
+        print("🔧 [Air] Pencil air movement detected (REAL): \(movement) points")
+        onPencilAirMovement([
+          "movement": movement,
+          "location": ["x": location.x, "y": location.y],
+          "timestamp": hoverSample.timestamp
+        ])
       }
       
-      // Check if pencil is nearby by looking for recent touch events
-      let timeSinceLastTouch = Date().timeIntervalSince1970 - (self._rawTouchSamples.last?.timestamp ?? 0)
-      let timeSinceLastHover = Date().timeIntervalSince1970 - (self._hoverSamples.last?.timestamp ?? 0)
+      _lastHoverLocation = location
       
-      // If we have recent touch events but no recent hover, simulate hover
-      if timeSinceLastTouch < 0.1 && timeSinceLastHover > 0.1 {
-        // Simulate hover detection based on recent touch data
-        if let lastTouch = self._rawTouchSamples.last {
-          let hoverSample = RawTouchSample(
-            location: lastTouch.location,
-            force: 0.0, // Hover has no force
-            altitudeAngle: lastTouch.altitudeAngle,
-            azimuthAngle: lastTouch.azimuthAngle,
-            timestamp: Date().timeIntervalSince1970,
-            phase: .began, // Simulate hover as began phase
-            type: .pencil,
-            estimatedProperties: lastTouch.estimatedProperties,
-            estimatedPropertiesExpectingUpdates: lastTouch.estimatedPropertiesExpectingUpdates,
-            isHovering: true, // Mark as hovering
-            hoverDistance: 5.0, // Simulate 5mm hover distance
-            minorRadius: lastTouch.minorRadius,
-            majorRadius: lastTouch.majorRadius,
-            estimatedRestingForce: 0.0,
-            coalescedTouches: [],
-            predictedTouches: [],
-            preciseLocation: lastTouch.preciseLocation,
-            gestureView: nil
-          )
-          
-          self._hoverSamples.append(hoverSample)
-          
-          if !self._isPencilNearby {
-            self._isPencilNearby = true
-            print("🔧 [Proximity] Pencil came nearby (SIMULATED HOVER)")
-            self.onPencilProximityChanged([
-              "isNearby": true,
-              "timestamp": hoverSample.timestamp
-            ])
-          }
-          
-          print("🔧 [Hover] Simulated hover detected: \(hoverSample.toDictionary())")
-          self.onRawTouchHovered(hoverSample.toDictionary())
-        }
-      }
+      print("🔧 [Hover] REAL hover detected: \(hoverSample.toDictionary())")
+      onRawTouchHovered(hoverSample.toDictionary())
+      
+    case .ended, .cancelled:
+      print("🔧 [Hover] Hover ended")
+      
+    default:
+      break
     }
   }
   
