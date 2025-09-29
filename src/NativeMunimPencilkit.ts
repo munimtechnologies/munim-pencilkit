@@ -8,7 +8,7 @@ export interface ApplePencilData {
   force: number; // 0.0 to 1.0
   maximumPossibleForce: number;
   perpendicularForce: number; // Computed perpendicular force
-  rollAngle: number; // Barrel roll angle (Apple Pencil Pro)
+  // Note: rollAngle may not be available on all iOS versions
   timestamp: number;
   location: {
     x: number;

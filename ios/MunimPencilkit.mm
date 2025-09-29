@@ -539,7 +539,7 @@ RCT_EXPORT_VIEW_PROPERTY(enableHapticFeedback, BOOL)
         @"force": @(touch.force),
         @"maximumPossibleForce": @(touch.maximumPossibleForce),
         @"perpendicularForce": @(perpendicularForce),
-        @"rollAngle": @(touch.rollAngle), // Barrel roll (Apple Pencil Pro)
+        // Note: rollAngle may not be available on all iOS versions
         @"timestamp": @(touch.timestamp),
         @"location": @{
             @"x": @(location.x),

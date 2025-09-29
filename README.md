@@ -45,11 +45,11 @@
 
 ## Introduction
 
-**munim-pencilkit** is the most comprehensive React Native library for Apple PencilKit integration with complete Apple Pencil Pro support. This library provides 100% feature coverage including advanced stroke analysis, Apple Pencil Pro gestures, raw sensor data collection, haptic feedback, and professional drawing tools.
+**munim-pencilkit** is a React Native library for Apple PencilKit integration with comprehensive Apple Pencil support. This library provides advanced stroke analysis, raw sensor data collection, haptic feedback, and professional drawing tools using well-established iOS APIs.
 
 **Fully compatible with Expo!** Works seamlessly with both Expo managed and bare workflows.
 
-**Complete Apple Pencil Pro Support!** Includes squeeze gestures, double-tap, hover effects, barrel roll, predicted touches, and haptic feedback.
+**Comprehensive Apple Pencil Support!** Includes pressure sensitivity, tilt detection, predicted touches, coalesced touches, estimated properties, and haptic feedback using verified iOS APIs.
 
 ## Table of contents
 
@@ -95,14 +95,14 @@
 - 🔮 **Predicted Touches** - Latency compensation for responsive drawing
 - 📈 **Property Tracking** - Estimated properties and refinement updates
 
-### Apple Pencil Pro Features
+### Apple Pencil Advanced Features
 
-- 🤏 **Squeeze Gestures** - Apple Pencil Pro squeeze interaction support
-- 👆 **Double Tap** - Double-tap gesture detection and handling
-- 🎯 **Hover Effects** - Hover pose detection and visual feedback
-- 🔄 **Barrel Roll** - Rotation around pencil axis for brush control
+- 📊 **Pressure Sensitivity** - Full pressure detection and mapping
+- 🎯 **Tilt Detection** - Altitude and azimuth angle tracking
+- 🔄 **Coalesced Touches** - High-fidelity input for smooth drawing
+- 🔮 **Predicted Touches** - Latency compensation for responsive drawing
+- 📈 **Estimated Properties** - Track and handle property refinements
 - 📱 **Haptic Feedback** - Tactile responses for interactions
-- ⚙️ **Preferred Actions** - System squeeze action preference detection
 
 ### Advanced Capabilities
 
