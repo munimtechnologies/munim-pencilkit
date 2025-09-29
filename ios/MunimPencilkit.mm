@@ -72,7 +72,7 @@ RCT_EXPORT_MODULE()
     });
 }
 
-- (void)destroyPencilKitView:(double)viewId reject:(RCTPromiseRejectBlock)reject {
+- (void)destroyPencilKitView:(double)viewId resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
     dispatch_async(dispatch_get_main_queue(), ^{
         NSNumber *viewIdNumber = @((NSInteger)viewId);
         PencilKitView *pencilKitView = pencilKitViews[viewIdNumber];
@@ -80,15 +80,21 @@ RCT_EXPORT_MODULE()
         if (pencilKitView) {
             [pencilKitView removeFromSuperview];
             [pencilKitViews removeObjectForKey:viewIdNumber];
+            if (resolve) { resolve(nil); }
+        } else {
+            if (reject) { reject(@"VIEW_NOT_FOUND", @"PencilKit view not found", nil); }
         }
     });
 }
 
-- (void)setPencilKitConfig:(double)viewId config:(NSDictionary *)config reject:(RCTPromiseRejectBlock)reject {
+- (void)setPencilKitConfig:(double)viewId config:(NSDictionary *)config resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
     dispatch_async(dispatch_get_main_queue(), ^{
         PencilKitView *pencilKitView = pencilKitViews[@((NSInteger)viewId)];
         if (pencilKitView) {
             [pencilKitView updateConfig:config];
+            if (resolve) { resolve(nil); }
+        } else {
+            if (reject) { reject(@"VIEW_NOT_FOUND", @"PencilKit view not found", nil); }
         }
     });
 }
@@ -105,22 +111,26 @@ RCT_EXPORT_MODULE()
     });
 }
 
-- (void)setPencilKitDrawing:(double)viewId drawing:(NSDictionary *)drawing reject:(RCTPromiseRejectBlock)reject {
+- (void)setPencilKitDrawing:(double)viewId drawing:(NSDictionary *)drawing resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
     dispatch_async(dispatch_get_main_queue(), ^{
         PencilKitView *pencilKitView = pencilKitViews[@((NSInteger)viewId)];
         if (pencilKitView) {
             [pencilKitView setDrawingData:drawing];
+            if (resolve) { resolve(nil); }
         } else {
-            reject(@"VIEW_NOT_FOUND", @"PencilKit view not found", nil);
+            if (reject) { reject(@"VIEW_NOT_FOUND", @"PencilKit view not found", nil); }
         }
     });
 }
 
-- (void)clearPencilKitDrawing:(double)viewId reject:(RCTPromiseRejectBlock)reject {
+- (void)clearPencilKitDrawing:(double)viewId resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
     dispatch_async(dispatch_get_main_queue(), ^{
         PencilKitView *pencilKitView = pencilKitViews[@((NSInteger)viewId)];
         if (pencilKitView) {
             [pencilKitView clearDrawing];
+            if (resolve) { resolve(nil); }
+        } else {
+            if (reject) { reject(@"VIEW_NOT_FOUND", @"PencilKit view not found", nil); }
         }
     });
 }
@@ -174,20 +184,26 @@ RCT_EXPORT_MODULE()
 }
 
 // Apple Pencil Data Capture
-- (void)startApplePencilDataCapture:(double)viewId reject:(RCTPromiseRejectBlock)reject {
+- (void)startApplePencilDataCapture:(double)viewId resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
     dispatch_async(dispatch_get_main_queue(), ^{
         PencilKitView *pencilKitView = pencilKitViews[@((NSInteger)viewId)];
         if (pencilKitView) {
             [pencilKitView startApplePencilDataCapture];
+            if (resolve) { resolve(nil); }
+        } else {
+            if (reject) { reject(@"VIEW_NOT_FOUND", @"PencilKit view not found", nil); }
         }
     });
 }
 
-- (void)stopApplePencilDataCapture:(double)viewId reject:(RCTPromiseRejectBlock)reject {
+- (void)stopApplePencilDataCapture:(double)viewId resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
     dispatch_async(dispatch_get_main_queue(), ^{
         PencilKitView *pencilKitView = pencilKitViews[@((NSInteger)viewId)];
         if (pencilKitView) {
             [pencilKitView stopApplePencilDataCapture];
+            if (resolve) { resolve(nil); }
+        } else {
+            if (reject) { reject(@"VIEW_NOT_FOUND", @"PencilKit view not found", nil); }
         }
     });
 }
