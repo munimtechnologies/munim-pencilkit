@@ -20,6 +20,38 @@ export interface ApplePencilData {
   phase: 'began' | 'moved' | 'ended' | 'cancelled';
 }
 
+export interface ApplePencilSqueezeData {
+  viewId: number;
+  phase: 'began' | 'changed' | 'ended';
+  value: number;
+  timestamp: number;
+  isActive: boolean;
+}
+
+export interface ApplePencilDoubleTapData {
+  viewId: number;
+  phase: 'began' | 'changed' | 'ended';
+  timestamp: number;
+  isActive: boolean;
+}
+
+export interface ApplePencilHoverData {
+  viewId: number;
+  location: {
+    x: number;
+    y: number;
+  };
+  altitude: number;
+  azimuth: number;
+  timestamp: number;
+}
+
+export interface ApplePencilCoalescedTouchesData {
+  viewId: number;
+  touches: ApplePencilData[];
+  timestamp: number;
+}
+
 // PencilKit drawing data
 export interface PencilKitDrawingData {
   strokes: PencilKitStroke[];
@@ -61,6 +93,12 @@ export interface PencilKitConfig {
   allowsPencilOnlyDrawing: boolean;
   isRulerActive: boolean;
   drawingPolicy: 'default' | 'anyInput' | 'pencilOnly';
+  enableApplePencilData?: boolean;
+  enableToolPicker?: boolean;
+  enableSqueezeInteraction?: boolean;
+  enableDoubleTapInteraction?: boolean;
+  enableHoverSupport?: boolean;
+  enableHapticFeedback?: boolean;
 }
 
 export interface Spec extends TurboModule {

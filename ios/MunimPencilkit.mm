@@ -18,7 +18,14 @@ RCT_EXPORT_MODULE()
 
 - (NSArray<NSString *> *)supportedEvents
 {
-    return @[@"onApplePencilData", @"onPencilKitDrawingChange"];
+    return @[
+        @"onApplePencilData", 
+        @"onPencilKitDrawingChange",
+        @"onApplePencilSqueeze",
+        @"onApplePencilDoubleTap",
+        @"onApplePencilHover",
+        @"onApplePencilCoalescedTouches"
+    ];
 }
 
 + (void)initialize {
@@ -188,6 +195,26 @@ RCT_EXPORT_MODULE()
     [[NSNotificationCenter defaultCenter] postNotificationName:@"MunimPencilkitDrawingChange" object:data];
 }
 
++ (void)sendApplePencilSqueezeEvent:(NSDictionary *)data
+{
+    [[NSNotificationCenter defaultCenter] postNotificationName:@"MunimPencilkitApplePencilSqueeze" object:data];
+}
+
++ (void)sendApplePencilDoubleTapEvent:(NSDictionary *)data
+{
+    [[NSNotificationCenter defaultCenter] postNotificationName:@"MunimPencilkitApplePencilDoubleTap" object:data];
+}
+
++ (void)sendApplePencilHoverEvent:(NSDictionary *)data
+{
+    [[NSNotificationCenter defaultCenter] postNotificationName:@"MunimPencilkitApplePencilHover" object:data];
+}
+
++ (void)sendApplePencilCoalescedTouchesEvent:(NSDictionary *)data
+{
+    [[NSNotificationCenter defaultCenter] postNotificationName:@"MunimPencilkitApplePencilCoalescedTouches" object:data];
+}
+
 - (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:
     (const facebook::react::ObjCTurboModule::InitParams &)params
 {
@@ -204,6 +231,10 @@ RCT_EXPORT_MODULE(PencilKitView)
 RCT_EXPORT_VIEW_PROPERTY(viewId, NSInteger)
 RCT_EXPORT_VIEW_PROPERTY(enableApplePencilData, BOOL)
 RCT_EXPORT_VIEW_PROPERTY(enableToolPicker, BOOL)
+RCT_EXPORT_VIEW_PROPERTY(enableSqueezeInteraction, BOOL)
+RCT_EXPORT_VIEW_PROPERTY(enableDoubleTapInteraction, BOOL)
+RCT_EXPORT_VIEW_PROPERTY(enableHoverSupport, BOOL)
+RCT_EXPORT_VIEW_PROPERTY(enableHapticFeedback, BOOL)
 
 - (UIView *)view {
     return [[PencilKitView alloc] initWithViewId:0];
@@ -222,7 +253,13 @@ RCT_EXPORT_VIEW_PROPERTY(enableToolPicker, BOOL)
         _viewId = viewId;
         _enableApplePencilData = NO;
         _enableToolPicker = YES;
+        _enableSqueezeInteraction = NO;
+        _enableDoubleTapInteraction = NO;
+        _enableHoverSupport = NO;
+        _enableHapticFeedback = NO;
         _isApplePencilDataCaptureActive = NO;
+        _isSqueezeActive = NO;
+        _isDoubleTapActive = NO;
         [self setupPencilKitView];
     }
     return self;
@@ -251,6 +288,11 @@ RCT_EXPORT_VIEW_PROPERTY(enableToolPicker, BOOL)
     if (self.enableToolPicker) {
         [self setupToolPicker];
     }
+    
+    // Initialize Apple Pencil interaction
+    self.pencilInteraction = [[UIPencilInteraction alloc] init];
+    self.pencilInteraction.delegate = self;
+    [self addInteraction:self.pencilInteraction];
 }
 
 - (void)setupToolPicker {
@@ -338,6 +380,30 @@ RCT_EXPORT_VIEW_PROPERTY(enableToolPicker, BOOL)
     return _isApplePencilDataCaptureActive;
 }
 
+// Apple Pencil Pro interaction methods
+- (void)enableSqueezeInteraction:(BOOL)enabled {
+    self.enableSqueezeInteraction = enabled;
+}
+
+- (void)enableDoubleTapInteraction:(BOOL)enabled {
+    self.enableDoubleTapInteraction = enabled;
+}
+
+- (void)enableHoverSupport:(BOOL)enabled {
+    self.enableHoverSupport = enabled;
+}
+
+- (void)enableHapticFeedback:(BOOL)enabled {
+    self.enableHapticFeedback = enabled;
+}
+
+- (void)triggerHapticFeedback:(UIImpactFeedbackStyle)style {
+    if (self.enableHapticFeedback) {
+        UIImpactFeedbackGenerator *generator = [[UIImpactFeedbackGenerator alloc] initWithStyle:style];
+        [generator impactOccurred];
+    }
+}
+
 // PKCanvasViewDelegate
 - (void)canvasViewDrawingDidChange:(PKCanvasView *)canvasView {
     NSDictionary *drawing = [self convertPKDrawingToDictionary:canvasView.drawing];
@@ -345,6 +411,69 @@ RCT_EXPORT_VIEW_PROPERTY(enableToolPicker, BOOL)
         @"viewId": @(self.viewId),
         @"drawing": drawing
     }];
+}
+
+// UIPencilInteractionDelegate methods
+- (void)pencilInteraction:(UIPencilInteraction *)interaction didReceiveSqueeze:(UIPencilSqueeze *)squeeze {
+    if (!self.enableSqueezeInteraction) return;
+    
+    self.isSqueezeActive = (squeeze.phase == UIPencilInteractionPhaseBegan);
+    
+    NSDictionary *squeezeData = @{
+        @"viewId": @(self.viewId),
+        @"phase": squeeze.phase == UIPencilInteractionPhaseBegan ? @"began" : 
+                 squeeze.phase == UIPencilInteractionPhaseChanged ? @"changed" : @"ended",
+        @"value": @(squeeze.value),
+        @"timestamp": @(squeeze.timestamp),
+        @"isActive": @(self.isSqueezeActive)
+    };
+    
+    [MunimPencilkit sendApplePencilSqueezeEvent:squeezeData];
+    
+    // Trigger haptic feedback
+    if (self.enableHapticFeedback && squeeze.phase == UIPencilInteractionPhaseBegan) {
+        [self triggerHapticFeedback:UIImpactFeedbackStyleMedium];
+    }
+}
+
+- (void)pencilInteraction:(UIPencilInteraction *)interaction didReceiveDoubleTap:(UIPencilDoubleTap *)doubleTap {
+    if (!self.enableDoubleTapInteraction) return;
+    
+    self.isDoubleTapActive = (doubleTap.phase == UIPencilInteractionPhaseBegan);
+    
+    NSDictionary *doubleTapData = @{
+        @"viewId": @(self.viewId),
+        @"phase": doubleTap.phase == UIPencilInteractionPhaseBegan ? @"began" : 
+                 doubleTap.phase == UIPencilInteractionPhaseChanged ? @"changed" : @"ended",
+        @"timestamp": @(doubleTap.timestamp),
+        @"isActive": @(self.isDoubleTapActive)
+    };
+    
+    [MunimPencilkit sendApplePencilDoubleTapEvent:doubleTapData];
+    
+    // Trigger haptic feedback
+    if (self.enableHapticFeedback && doubleTap.phase == UIPencilInteractionPhaseBegan) {
+        [self triggerHapticFeedback:UIImpactFeedbackStyleLight];
+    }
+}
+
+- (void)pencilInteraction:(UIPencilInteraction *)interaction didReceiveHover:(UIPencilHoverPose *)hoverPose {
+    if (!self.enableHoverSupport) return;
+    
+    self.lastHoverPose = hoverPose;
+    
+    NSDictionary *hoverData = @{
+        @"viewId": @(self.viewId),
+        @"location": @{
+            @"x": @(hoverPose.location.x),
+            @"y": @(hoverPose.location.y)
+        },
+        @"altitude": @(hoverPose.altitude),
+        @"azimuth": @(hoverPose.azimuth),
+        @"timestamp": @(hoverPose.timestamp)
+    };
+    
+    [MunimPencilkit sendApplePencilHoverEvent:hoverData];
 }
 
 // Touch handling for Apple Pencil data
@@ -377,6 +506,23 @@ RCT_EXPORT_VIEW_PROPERTY(enableToolPicker, BOOL)
         if (touch.type == UITouchTypePencil || touch.type == UITouchTypeStylus) {
             NSDictionary *applePencilData = [self convertUITouchToApplePencilData:touch phase:phase];
             [MunimPencilkit sendApplePencilDataEvent:applePencilData];
+            
+            // Handle coalesced touches for high-fidelity input
+            if (touch.coalescedTouches && touch.coalescedTouches.count > 0) {
+                NSMutableArray *coalescedData = [[NSMutableArray alloc] init];
+                for (UITouch *coalescedTouch in touch.coalescedTouches) {
+                    NSDictionary *coalescedTouchData = [self convertUITouchToApplePencilData:coalescedTouch phase:phase];
+                    [coalescedData addObject:coalescedTouchData];
+                }
+                
+                NSDictionary *coalescedTouchesData = @{
+                    @"viewId": @(self.viewId),
+                    @"touches": coalescedData,
+                    @"timestamp": @(touch.timestamp)
+                };
+                
+                [MunimPencilkit sendApplePencilCoalescedTouchesEvent:coalescedTouchesData];
+            }
         }
     }
 }
