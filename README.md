@@ -45,11 +45,11 @@
 
 ## Introduction
 
-**munim-pencilkit** is a React Native library for complete Apple PencilKit integration with Turbo modules. This library provides 100% feature coverage including advanced stroke analysis, Scribble support, raw Apple Pencil data collection, gesture detection, and professional drawing tools.
+**munim-pencilkit** is the most comprehensive React Native library for Apple PencilKit integration with complete Apple Pencil Pro support. This library provides 100% feature coverage including advanced stroke analysis, Apple Pencil Pro gestures, raw sensor data collection, haptic feedback, and professional drawing tools.
 
 **Fully compatible with Expo!** Works seamlessly with both Expo managed and bare workflows.
 
-**Note**: This library focuses on reliability and platform compatibility. It provides complete Apple PencilKit framework support with optimal performance through Turbo modules, rather than attempting to support all possible drawing features which may not work reliably.
+**Complete Apple Pencil Pro Support!** Includes squeeze gestures, double-tap, hover effects, barrel roll, predicted touches, and haptic feedback.
 
 ## Table of contents
 
@@ -59,6 +59,7 @@
 - [⚡ Quick Start](#-quick-start)
 - [🔧 API Reference](#-api-reference)
 - [📖 Usage Examples](#-usage-examples)
+- [🎨 Apple Pencil Pro Features](#-apple-pencil-pro-features)
 - [🔍 Troubleshooting](#-troubleshooting)
 - [👏 Contributing](#-contributing)
 - [📄 License](#-license)
@@ -70,21 +71,42 @@
 - [Getting Started](#-installation)
 - [API Reference](#-api-reference)
 - [Usage Examples](#-usage-examples)
+- [Apple Pencil Pro Features](#-apple-pencil-pro-features)
 - [Troubleshooting](#-troubleshooting)
 
 ## 🚀 Features
 
-- 🎨 **Full PencilKit Integration** - Complete Apple PencilKit framework support
-- ✏️ **Apple Pencil Data Capture** - Raw pressure, tilt, azimuth, and force data
-- 🛠️ **Professional Drawing Tools** - Pen, pencil, marker, eraser, and lasso tools
+### Core PencilKit Integration
+- 🎨 **Full PencilKit Framework** - Complete Apple PencilKit framework support
+- ✏️ **Professional Drawing Tools** - Pen, pencil, marker, eraser, and lasso tools
 - 📱 **Native Performance** - Built with Turbo modules for optimal performance
 - 🎯 **TypeScript Support** - Full TypeScript definitions included
 - 🔄 **Undo/Redo Support** - Built-in drawing history management
-- 📊 **Real-time Data** - Live Apple Pencil data streaming
 - 🎛️ **Configurable** - Customizable drawing policies and tool settings
 - 🚀 **Expo Compatible** - Works seamlessly with Expo managed and bare workflows
-- ✅ **Platform-Supported Drawing** - Support for core PencilKit features that work reliably on iOS
-- 🔧 **Dynamic Updates** - Update drawing configuration while drawing is active
+
+### Apple Pencil Data Capture
+- 📊 **Raw Sensor Data** - Pressure, tilt, azimuth, force, and location data
+- 🎯 **Precise Location** - High-precision touch coordinates
+- ⚡ **Real-time Streaming** - Live Apple Pencil data streaming
+- 🔄 **Coalesced Touches** - High-fidelity input for smooth drawing
+- 🔮 **Predicted Touches** - Latency compensation for responsive drawing
+- 📈 **Property Tracking** - Estimated properties and refinement updates
+
+### Apple Pencil Pro Features
+- 🤏 **Squeeze Gestures** - Apple Pencil Pro squeeze interaction support
+- 👆 **Double Tap** - Double-tap gesture detection and handling
+- 🎯 **Hover Effects** - Hover pose detection and visual feedback
+- 🔄 **Barrel Roll** - Rotation around pencil axis for brush control
+- 📱 **Haptic Feedback** - Tactile responses for interactions
+- ⚙️ **Preferred Actions** - System squeeze action preference detection
+
+### Advanced Capabilities
+- 🧮 **Perpendicular Force** - Computed perpendicular force for accurate pressure
+- 📊 **Estimated Properties** - Track and handle property refinements
+- 🎨 **Custom Brush Logic** - Advanced brush behavior based on sensor data
+- 🔧 **Dynamic Updates** - Update drawing configuration while active
+- 📱 **Cross-Platform** - Works on all iOS devices with Apple Pencil support
 
 ## 📦 Installation
 
@@ -175,73 +197,180 @@ const styles = StyleSheet.create({
 });
 ```
 
-### Advanced Usage with Apple Pencil Data
+### Apple Pencil Pro Advanced Usage
 
 ```tsx
-import { PencilKitUtils, type ApplePencilData } from 'munim-pencilkit';
+import React, { useRef } from 'react';
+import { View, StyleSheet } from 'react-native';
+import { 
+  PencilKitView, 
+  type PencilKitConfig,
+  type ApplePencilData,
+  type ApplePencilSqueezeData,
+  type ApplePencilDoubleTapData,
+  type ApplePencilHoverData
+} from 'munim-pencilkit';
 
-// Start capturing Apple Pencil data
-await PencilKitUtils.startApplePencilCapture(viewId);
+export default function AdvancedDrawingScreen() {
+  const pencilKitRef = useRef<any>(null);
 
-// Listen for Apple Pencil data
-PencilKitUtils.addApplePencilListener((data: ApplePencilData) => {
-  console.log('Pressure:', data.pressure);
-  console.log('Tilt:', data.altitude);
-  console.log('Azimuth:', data.azimuth);
-  console.log('Force:', data.force);
-  console.log('Location:', data.location);
-  console.log('Is Apple Pencil:', data.isApplePencil);
-});
+  const config: PencilKitConfig = {
+    allowsFingerDrawing: true,
+    allowsPencilOnlyDrawing: false,
+    isRulerActive: false,
+    drawingPolicy: 'default',
+    enableSqueezeInteraction: true,
+    enableDoubleTapInteraction: true,
+    enableHoverSupport: true,
+    enableHapticFeedback: true,
+  };
 
-// Drawing operations
-const drawing = await pencilKitRef.current.getDrawing();
-await pencilKitRef.current.setDrawing(drawingData);
-await pencilKitRef.current.clearDrawing();
-await pencilKitRef.current.undo();
-await pencilKitRef.current.redo();
+  return (
+    <View style={styles.container}>
+      <PencilKitView
+        ref={pencilKitRef}
+        style={styles.canvas}
+        config={config}
+        enableApplePencilData={true}
+        enableToolPicker={true}
+        enableSqueezeInteraction={true}
+        enableDoubleTapInteraction={true}
+        enableHoverSupport={true}
+        enableHapticFeedback={true}
+        onApplePencilData={(data: ApplePencilData) => {
+          console.log('Advanced Apple Pencil Data:', {
+            pressure: data.pressure,
+            perpendicularForce: data.perpendicularForce,
+            rollAngle: data.rollAngle,
+            preciseLocation: data.preciseLocation,
+            estimatedProperties: data.estimatedProperties,
+          });
+        }}
+        onApplePencilSqueeze={(data: ApplePencilSqueezeData) => {
+          console.log('Squeeze detected:', data.phase, data.value);
+          // Handle squeeze - show palette, switch tools, etc.
+        }}
+        onApplePencilDoubleTap={(data: ApplePencilDoubleTapData) => {
+          console.log('Double tap detected:', data.phase);
+          // Handle double tap - undo, redo, etc.
+        }}
+        onApplePencilHover={(data: ApplePencilHoverData) => {
+          console.log('Hover at:', data.location, 'altitude:', data.altitude);
+          // Handle hover - show preview, adjust cursor, etc.
+        }}
+        onApplePencilCoalescedTouches={(data) => {
+          console.log('Coalesced touches:', data.touches.length);
+          // Handle high-fidelity input for smooth drawing
+        }}
+        onApplePencilPredictedTouches={(data) => {
+          console.log('Predicted touches:', data.touches.length);
+          // Handle predicted touches for latency compensation
+        }}
+        onDrawingChange={(drawing) => {
+          console.log('Drawing changed:', drawing);
+        }}
+      />
+    </View>
+  );
+}
 ```
 
 ## 🔧 API Reference
 
-### Functions
+### PencilKitView Component
 
-#### `PencilKitView`
-
-Main React Native component for PencilKit integration.
+Main React Native component for PencilKit integration with full Apple Pencil Pro support.
 
 **Props:**
 
+#### Basic Props
 - `config` (PencilKitConfig): PencilKit configuration
-- `enableApplePencilData` (boolean): Enable Apple Pencil data capture
-- `enableToolPicker` (boolean): Show tool picker
-- `onApplePencilData` (function): Apple Pencil data callback
-- `onDrawingChange` (function): Drawing change callback
+- `style` (ViewStyle): Component styling
 - `onViewReady` (function): View ready callback
 
-#### `PencilKitUtils`
+#### Apple Pencil Data Props
+- `enableApplePencilData` (boolean): Enable Apple Pencil data capture
+- `onApplePencilData` (function): Apple Pencil data callback
+- `onApplePencilCoalescedTouches` (function): Coalesced touches callback
+- `onApplePencilPredictedTouches` (function): Predicted touches callback
+- `onApplePencilEstimatedProperties` (function): Estimated properties callback
+
+#### Apple Pencil Pro Props
+- `enableSqueezeInteraction` (boolean): Enable squeeze gesture detection
+- `enableDoubleTapInteraction` (boolean): Enable double-tap detection
+- `enableHoverSupport` (boolean): Enable hover pose detection
+- `enableHapticFeedback` (boolean): Enable haptic feedback
+- `onApplePencilSqueeze` (function): Squeeze gesture callback
+- `onApplePencilDoubleTap` (function): Double-tap callback
+- `onApplePencilHover` (function): Hover pose callback
+- `onApplePencilPreferredSqueezeAction` (function): Preferred squeeze action callback
+
+#### Drawing Props
+- `enableToolPicker` (boolean): Show tool picker
+- `onDrawingChange` (function): Drawing change callback
+
+### PencilKitUtils
 
 Utility functions for advanced PencilKit operations.
 
 **Methods:**
 
+#### View Management
+- `createView()`: Create a new PencilKit view
+- `destroyView(viewId)`: Destroy a PencilKit view
+- `setConfig(viewId, config)`: Configure PencilKit view
+
+#### Drawing Operations
+- `getDrawing(viewId)`: Get current drawing data
+- `setDrawing(viewId, drawing)`: Set drawing data
+- `clearDrawing(viewId)`: Clear the drawing
+- `undo(viewId)`: Undo last action
+- `redo(viewId)`: Redo last action
+- `canUndo(viewId)`: Check if undo is available
+- `canRedo(viewId)`: Check if redo is available
+
+#### Apple Pencil Data Capture
 - `startApplePencilCapture(viewId)`: Start capturing Apple Pencil data
+- `stopApplePencilCapture(viewId)`: Stop capturing Apple Pencil data
+- `isApplePencilCaptureActive(viewId)`: Check if capture is active
+
+#### Event Listeners
 - `addApplePencilListener(callback)`: Add Apple Pencil data listener
-- `removeApplePencilListener(callback)`: Remove Apple Pencil data listener
+- `removeApplePencilListener()`: Remove Apple Pencil data listener
+- `addDrawingChangeListener(callback)`: Add drawing change listener
+- `removeDrawingChangeListener()`: Remove drawing change listener
+- `addApplePencilSqueezeListener(callback)`: Add squeeze listener
+- `removeApplePencilSqueezeListener()`: Remove squeeze listener
+- `addApplePencilDoubleTapListener(callback)`: Add double-tap listener
+- `removeApplePencilDoubleTapListener()`: Remove double-tap listener
+- `addApplePencilHoverListener(callback)`: Add hover listener
+- `removeApplePencilHoverListener()`: Remove hover listener
+- `addApplePencilCoalescedTouchesListener(callback)`: Add coalesced touches listener
+- `removeApplePencilCoalescedTouchesListener()`: Remove coalesced touches listener
+- `addApplePencilPredictedTouchesListener(callback)`: Add predicted touches listener
+- `removeApplePencilPredictedTouchesListener()`: Remove predicted touches listener
+- `addApplePencilEstimatedPropertiesListener(callback)`: Add estimated properties listener
+- `removeApplePencilEstimatedPropertiesListener()`: Remove estimated properties listener
+- `addApplePencilPreferredSqueezeActionListener(callback)`: Add preferred squeeze action listener
+- `removeApplePencilPreferredSqueezeActionListener()`: Remove preferred squeeze action listener
 
 ### Types
 
-#### `ApplePencilData`
+#### ApplePencilData
 
-Interface for Apple Pencil data:
+Enhanced interface for Apple Pencil data with all advanced properties:
 
 ```typescript
 interface ApplePencilData {
+  // Basic properties
   pressure: number; // 0.0 to 1.0
   altitude: number; // 0.0 to 1.0
   azimuth: number; // 0.0 to 2π radians
   force: number; // 0.0 to 1.0
   maximumPossibleForce: number;
   timestamp: number;
+  
+  // Location data
   location: {
     x: number;
     y: number;
@@ -250,27 +379,105 @@ interface ApplePencilData {
     x: number;
     y: number;
   };
+  preciseLocation: {
+    x: number;
+    y: number;
+  };
+  
+  // Apple Pencil Pro properties
+  perpendicularForce: number; // Computed perpendicular force
+  rollAngle: number; // Barrel roll angle (Apple Pencil Pro)
+  
+  // Touch properties
   isApplePencil: boolean;
   phase: 'began' | 'moved' | 'ended' | 'cancelled';
+  hasPreciseLocation: boolean;
+  
+  // Advanced properties
+  estimatedProperties: string[];
+  estimatedPropertiesExpectingUpdates: string[];
 }
 ```
 
-#### `PencilKitConfig`
+#### Apple Pencil Pro Event Types
+
+```typescript
+interface ApplePencilSqueezeData {
+  viewId: number;
+  phase: 'began' | 'changed' | 'ended';
+  value: number;
+  timestamp: number;
+  isActive: boolean;
+  preferredAction: 'ignore' | 'showContextualPalette' | 'switchPrevious' | 'runShortcut';
+}
+
+interface ApplePencilDoubleTapData {
+  viewId: number;
+  phase: 'began' | 'changed' | 'ended';
+  timestamp: number;
+  isActive: boolean;
+}
+
+interface ApplePencilHoverData {
+  viewId: number;
+  location: {
+    x: number;
+    y: number;
+  };
+  altitude: number;
+  azimuth: number;
+  timestamp: number;
+}
+
+interface ApplePencilCoalescedTouchesData {
+  viewId: number;
+  touches: ApplePencilData[];
+  timestamp: number;
+}
+
+interface ApplePencilPredictedTouchesData {
+  viewId: number;
+  touches: ApplePencilData[];
+  timestamp: number;
+}
+
+interface ApplePencilEstimatedPropertiesData {
+  viewId: number;
+  touchId: number;
+  updatedProperties: string[];
+  newData: ApplePencilData;
+  timestamp: number;
+}
+
+interface ApplePencilPreferredSqueezeActionData {
+  preferredAction: 'ignore' | 'showContextualPalette' | 'switchPrevious' | 'runShortcut';
+  customAction?: string;
+}
+```
+
+#### PencilKitConfig
 
 Configuration interface for PencilKit:
 
 ```typescript
 interface PencilKitConfig {
+  // Basic configuration
   allowsFingerDrawing: boolean;
   allowsPencilOnlyDrawing: boolean;
   isRulerActive: boolean;
   drawingPolicy: 'default' | 'anyInput' | 'pencilOnly';
+  
+  // Apple Pencil Pro configuration
+  enableApplePencilData?: boolean;
+  enableToolPicker?: boolean;
+  enableSqueezeInteraction?: boolean;
+  enableDoubleTapInteraction?: boolean;
+  enableHoverSupport?: boolean;
+  enableHapticFeedback?: boolean;
 }
 ```
 
-#### `PencilKitDrawingData`
-
-Drawing data interface:
+#### Drawing Data Types
 
 ```typescript
 interface PencilKitDrawingData {
@@ -310,31 +517,63 @@ interface PencilKitTool {
 
 ## 📖 Usage Examples
 
-### Professional Drawing App
+### Professional Drawing App with Apple Pencil Pro
 
 ```tsx
 import React, { useRef, useState } from 'react';
-import { View, StyleSheet, Button } from 'react-native';
-import { PencilKitView, PencilKitUtils } from 'munim-pencilkit';
+import { View, StyleSheet, Button, Text } from 'react-native';
+import { 
+  PencilKitView, 
+  PencilKitUtils,
+  type ApplePencilData,
+  type ApplePencilSqueezeData
+} from 'munim-pencilkit';
 
 const ProfessionalDrawingApp = () => {
   const pencilKitRef = useRef<any>(null);
   const [isDrawing, setIsDrawing] = useState(false);
+  const [brushSize, setBrushSize] = useState(5);
 
   const config = {
     allowsFingerDrawing: false,
     allowsPencilOnlyDrawing: true,
     isRulerActive: true,
     drawingPolicy: 'pencilOnly',
+    enableSqueezeInteraction: true,
+    enableDoubleTapInteraction: true,
+    enableHoverSupport: true,
+    enableHapticFeedback: true,
+  };
+
+  const handleApplePencilData = (data: ApplePencilData) => {
+    // Use advanced properties for sophisticated brush behavior
+    const newBrushSize = data.perpendicularForce * 20;
+    setBrushSize(newBrushSize);
+    
+    // Use roll angle for brush orientation
+    const brushAngle = data.rollAngle;
+    
+    // Use precise location if available
+    const location = data.hasPreciseLocation ? data.preciseLocation : data.location;
+    
+    console.log('Advanced brush data:', {
+      size: newBrushSize,
+      angle: brushAngle,
+      location,
+      pressure: data.pressure,
+    });
+  };
+
+  const handleSqueeze = (data: ApplePencilSqueezeData) => {
+    if (data.phase === 'ended') {
+      // Show contextual palette on squeeze
+      console.log('Showing contextual palette');
+    }
   };
 
   const handleSave = async () => {
     const drawing = await pencilKitRef.current.getDrawing();
     console.log('Saving drawing:', drawing);
-  };
-
-  const handleClear = async () => {
-    await pencilKitRef.current.clearDrawing();
   };
 
   return (
@@ -345,162 +584,212 @@ const ProfessionalDrawingApp = () => {
         config={config}
         enableApplePencilData={true}
         enableToolPicker={true}
-        onApplePencilData={(data) => {
-          console.log('Apple Pencil Data:', data);
+        enableSqueezeInteraction={true}
+        enableDoubleTapInteraction={true}
+        enableHoverSupport={true}
+        enableHapticFeedback={true}
+        onApplePencilData={handleApplePencilData}
+        onApplePencilSqueeze={handleSqueeze}
+        onApplePencilDoubleTap={(data) => {
+          // Toggle between pen and eraser on double tap
+          console.log('Double tap - switching tool');
+        }}
+        onApplePencilHover={(data) => {
+          // Show brush preview on hover
+          console.log('Hover preview at:', data.location);
         }}
         onDrawingChange={(drawing) => {
           console.log('Drawing changed:', drawing);
         }}
       />
       <View style={styles.controls}>
+        <Text>Brush Size: {brushSize.toFixed(1)}</Text>
         <Button title="Save" onPress={handleSave} />
-        <Button title="Clear" onPress={handleClear} />
       </View>
     </View>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  canvas: {
-    flex: 1,
-  },
-  controls: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    padding: 20,
-  },
-});
 ```
 
-### Real-time Data Collection
+### Real-time Data Collection with Advanced Features
 
 ```tsx
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { PencilKitUtils, type ApplePencilData } from 'munim-pencilkit';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { 
+  PencilKitUtils, 
+  type ApplePencilData,
+  type ApplePencilPredictedTouchesData,
+  type ApplePencilEstimatedPropertiesData
+} from 'munim-pencilkit';
 
-const DataCollectionApp = () => {
+const AdvancedDataCollectionApp = () => {
   const [pencilData, setPencilData] = useState<ApplePencilData | null>(null);
+  const [predictedTouches, setPredictedTouches] = useState<ApplePencilPredictedTouchesData | null>(null);
+  const [estimatedProperties, setEstimatedProperties] = useState<ApplePencilEstimatedPropertiesData | null>(null);
 
   useEffect(() => {
+    // Apple Pencil data listener
     const handlePencilData = (data: ApplePencilData) => {
       setPencilData(data);
     };
 
+    // Predicted touches listener
+    const handlePredictedTouches = (data: ApplePencilPredictedTouchesData) => {
+      setPredictedTouches(data);
+    };
+
+    // Estimated properties listener
+    const handleEstimatedProperties = (data: ApplePencilEstimatedPropertiesData) => {
+      setEstimatedProperties(data);
+    };
+
     PencilKitUtils.addApplePencilListener(handlePencilData);
+    PencilKitUtils.addApplePencilPredictedTouchesListener(handlePredictedTouches);
+    PencilKitUtils.addApplePencilEstimatedPropertiesListener(handleEstimatedProperties);
 
     return () => {
       PencilKitUtils.removeApplePencilListener(handlePencilData);
+      PencilKitUtils.removeApplePencilPredictedTouchesListener(handlePredictedTouches);
+      PencilKitUtils.removeApplePencilEstimatedPropertiesListener(handleEstimatedProperties);
     };
   }, []);
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Apple Pencil Data</Text>
+    <ScrollView style={styles.container}>
+      <Text style={styles.title}>Advanced Apple Pencil Data</Text>
+      
       {pencilData && (
         <View style={styles.dataContainer}>
+          <Text style={styles.sectionTitle}>Basic Data</Text>
           <Text>Pressure: {pencilData.pressure.toFixed(3)}</Text>
           <Text>Altitude: {pencilData.altitude.toFixed(3)}</Text>
           <Text>Azimuth: {pencilData.azimuth.toFixed(3)}</Text>
           <Text>Force: {pencilData.force.toFixed(3)}</Text>
-          <Text>
-            Location: ({pencilData.location.x.toFixed(1)},{' '}
-            {pencilData.location.y.toFixed(1)})
-          </Text>
-          <Text>
-            Is Apple Pencil: {pencilData.isApplePencil ? 'Yes' : 'No'}
-          </Text>
-          <Text>Phase: {pencilData.phase}</Text>
+          
+          <Text style={styles.sectionTitle}>Apple Pencil Pro Data</Text>
+          <Text>Perpendicular Force: {pencilData.perpendicularForce.toFixed(3)}</Text>
+          <Text>Roll Angle: {pencilData.rollAngle.toFixed(3)}</Text>
+          <Text>Has Precise Location: {pencilData.hasPreciseLocation ? 'Yes' : 'No'}</Text>
+          
+          <Text style={styles.sectionTitle}>Location Data</Text>
+          <Text>Location: ({pencilData.location.x.toFixed(1)}, {pencilData.location.y.toFixed(1)})</Text>
+          <Text>Precise: ({pencilData.preciseLocation.x.toFixed(1)}, {pencilData.preciseLocation.y.toFixed(1)})</Text>
+          
+          <Text style={styles.sectionTitle}>Advanced Properties</Text>
+          <Text>Estimated: {pencilData.estimatedProperties.join(', ')}</Text>
+          <Text>Expecting Updates: {pencilData.estimatedPropertiesExpectingUpdates.join(', ')}</Text>
         </View>
       )}
-    </View>
+
+      {predictedTouches && (
+        <View style={styles.dataContainer}>
+          <Text style={styles.sectionTitle}>Predicted Touches</Text>
+          <Text>Count: {predictedTouches.touches.length}</Text>
+          <Text>Timestamp: {predictedTouches.timestamp}</Text>
+        </View>
+      )}
+
+      {estimatedProperties && (
+        <View style={styles.dataContainer}>
+          <Text style={styles.sectionTitle}>Estimated Properties Update</Text>
+          <Text>Touch ID: {estimatedProperties.touchId}</Text>
+          <Text>Updated: {estimatedProperties.updatedProperties.join(', ')}</Text>
+          <Text>Timestamp: {estimatedProperties.timestamp}</Text>
+        </View>
+      )}
+    </ScrollView>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-  },
-  dataContainer: {
-    backgroundColor: '#f0f0f0',
-    padding: 15,
-    borderRadius: 8,
-  },
-});
 ```
 
-### Custom Drawing Tools
+## 🎨 Apple Pencil Pro Features
+
+### Squeeze Gestures
+
+Apple Pencil Pro squeeze gestures allow users to perform actions by squeezing the pencil:
 
 ```tsx
-import React, { useRef } from 'react';
-import { View, StyleSheet, Button } from 'react-native';
-import { PencilKitView } from 'munim-pencilkit';
-
-const CustomToolsApp = () => {
-  const pencilKitRef = useRef<any>(null);
-
-  const config = {
-    allowsFingerDrawing: true,
-    allowsPencilOnlyDrawing: false,
-    isRulerActive: false,
-    drawingPolicy: 'anyInput',
-  };
-
-  const handleUndo = async () => {
-    const canUndo = await pencilKitRef.current.canUndo();
-    if (canUndo) {
-      await pencilKitRef.current.undo();
+<PencilKitView
+  enableSqueezeInteraction={true}
+  onApplePencilSqueeze={(data) => {
+    if (data.phase === 'ended') {
+      // Show contextual palette
+      showContextualPalette(data.preferredAction);
     }
-  };
+  }}
+/>
+```
 
-  const handleRedo = async () => {
-    const canRedo = await pencilKitRef.current.canRedo();
-    if (canRedo) {
-      await pencilKitRef.current.redo();
+### Double Tap Gestures
+
+Double-tap gestures for quick tool switching:
+
+```tsx
+<PencilKitView
+  enableDoubleTapInteraction={true}
+  onApplePencilDoubleTap={(data) => {
+    if (data.phase === 'ended') {
+      // Toggle between pen and eraser
+      toggleTool();
     }
-  };
+  }}
+/>
+```
 
-  return (
-    <View style={styles.container}>
-      <PencilKitView
-        ref={pencilKitRef}
-        style={styles.canvas}
-        config={config}
-        enableToolPicker={true}
-        onDrawingChange={(drawing) => {
-          console.log('Drawing changed:', drawing);
-        }}
-      />
-      <View style={styles.toolbar}>
-        <Button title="Undo" onPress={handleUndo} />
-        <Button title="Redo" onPress={handleRedo} />
-      </View>
-    </View>
-  );
-};
+### Hover Effects
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  canvas: {
-    flex: 1,
-  },
-  toolbar: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    padding: 20,
-  },
-});
+Hover pose detection for previews and visual feedback:
+
+```tsx
+<PencilKitView
+  enableHoverSupport={true}
+  onApplePencilHover={(data) => {
+    // Show brush preview at hover location
+    showBrushPreview(data.location, data.altitude);
+  }}
+/>
+```
+
+### Barrel Roll Support
+
+Use barrel roll for brush angle control:
+
+```tsx
+<PencilKitView
+  onApplePencilData={(data) => {
+    // Use roll angle for brush orientation
+    const brushAngle = data.rollAngle;
+    updateBrushOrientation(brushAngle);
+  }}
+/>
+```
+
+### Predicted Touches
+
+Use predicted touches for latency compensation:
+
+```tsx
+<PencilKitView
+  onApplePencilPredictedTouches={(data) => {
+    // Pre-render predicted strokes for smoothness
+    preRenderStrokes(data.touches);
+  }}
+/>
+```
+
+### Haptic Feedback
+
+Enable haptic feedback for interactions:
+
+```tsx
+<PencilKitView
+  enableHapticFeedback={true}
+  onApplePencilSqueeze={(data) => {
+    // Haptic feedback is automatically triggered
+    console.log('Squeeze with haptic feedback');
+  }}
+/>
 ```
 
 ## 🔍 Troubleshooting
@@ -510,12 +799,19 @@ const styles = StyleSheet.create({
 1. **PencilKit Not Loading**: Ensure PencilKit.framework is properly linked in your iOS project
 2. **Apple Pencil Data Not Captured**: Check that `enableApplePencilData` is set to true
 3. **Drawing Not Appearing**: Verify that the PencilKitView has proper dimensions and styling
+4. **Apple Pencil Pro Features Not Working**: Ensure you're using Apple Pencil Pro and iOS 13.0+
 
 ### Expo-Specific Issues
 
 1. **Development Build Required**: This library requires a development build in Expo. Use `npx expo run:ios`
 2. **Framework Not Found**: Ensure you're using Expo SDK 50+ and have the latest Expo CLI
 3. **Build Errors**: Make sure PencilKit.framework is available in your iOS project
+
+### Apple Pencil Pro Issues
+
+1. **Squeeze Not Working**: Ensure `enableSqueezeInteraction` is true and using Apple Pencil Pro
+2. **Hover Not Detected**: Check that `enableHoverSupport` is true and pencil is hovering
+3. **Haptic Feedback Missing**: Verify `enableHapticFeedback` is true and device supports haptics
 
 ### Debug Mode
 
@@ -531,6 +827,7 @@ export REACT_NATIVE_PENCILKIT_DEBUG=1
 - React Native 0.60+
 - Xcode 11+
 - Apple Pencil (for full functionality)
+- Apple Pencil Pro (for advanced features)
 - Expo SDK 50+ (for Expo projects)
 
 ## 👏 Contributing
