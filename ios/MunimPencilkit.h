@@ -16,24 +16,18 @@
 
 @end
 
-// PencilKit Native View with Apple Pencil Pro support
-@interface PencilKitView : UIView <PKCanvasViewDelegate, UIPencilInteractionDelegate>
+// PencilKit Native View with Apple Pencil support
+@interface PencilKitView : UIView <PKCanvasViewDelegate>
 
 @property (nonatomic, assign) NSInteger viewId;
 @property (nonatomic, assign) BOOL enableApplePencilData;
 @property (nonatomic, assign) BOOL enableToolPicker;
-@property (nonatomic, assign) BOOL enableSqueezeInteraction;
-@property (nonatomic, assign) BOOL enableDoubleTapInteraction;
-@property (nonatomic, assign) BOOL enableHoverSupport;
 @property (nonatomic, assign) BOOL enableHapticFeedback;
 @property (nonatomic, strong) PKCanvasView *canvasView;
 @property (nonatomic, strong) PKToolPicker *toolPicker;
-@property (nonatomic, strong) UIPencilInteraction *pencilInteraction;
 
-// Apple Pencil Pro interaction state
-@property (nonatomic, assign) BOOL isSqueezeActive;
-@property (nonatomic, assign) BOOL isDoubleTapActive;
-@property (nonatomic, strong) UIPencilHoverPose *lastHoverPose;
+// Apple Pencil interaction state
+@property (nonatomic, assign) BOOL isApplePencilActive;
 
 - (instancetype)initWithViewId:(NSInteger)viewId;
 - (void)updateConfig:(NSDictionary *)config;
@@ -48,10 +42,7 @@
 - (void)stopApplePencilDataCapture;
 - (BOOL)isApplePencilDataCaptureActive;
 
-// Apple Pencil Pro methods
-- (void)enableSqueezeInteraction:(BOOL)enabled;
-- (void)enableDoubleTapInteraction:(BOOL)enabled;
-- (void)enableHoverSupport:(BOOL)enabled;
+// Apple Pencil methods
 - (void)enableHapticFeedback:(BOOL)enabled;
 - (void)triggerHapticFeedback:(UIImpactFeedbackStyle)style;
 

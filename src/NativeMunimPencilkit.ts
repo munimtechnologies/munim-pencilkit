@@ -29,31 +29,6 @@ export interface ApplePencilData {
   estimatedPropertiesExpectingUpdates: string[];
 }
 
-export interface ApplePencilSqueezeData {
-  viewId: number;
-  phase: 'began' | 'changed' | 'ended';
-  value: number;
-  timestamp: number;
-  isActive: boolean;
-}
-
-export interface ApplePencilDoubleTapData {
-  viewId: number;
-  phase: 'began' | 'changed' | 'ended';
-  timestamp: number;
-  isActive: boolean;
-}
-
-export interface ApplePencilHoverData {
-  viewId: number;
-  location: {
-    x: number;
-    y: number;
-  };
-  altitude: number;
-  azimuth: number;
-  timestamp: number;
-}
 
 export interface ApplePencilCoalescedTouchesData {
   viewId: number;
@@ -75,14 +50,6 @@ export interface ApplePencilEstimatedPropertiesData {
   timestamp: number;
 }
 
-export interface ApplePencilPreferredSqueezeActionData {
-  preferredAction:
-    | 'ignore'
-    | 'showContextualPalette'
-    | 'switchPrevious'
-    | 'runShortcut';
-  customAction?: string;
-}
 
 // PencilKit drawing data
 export interface PencilKitDrawingData {
@@ -127,9 +94,6 @@ export interface PencilKitConfig {
   drawingPolicy: 'default' | 'anyInput' | 'pencilOnly';
   enableApplePencilData?: boolean;
   enableToolPicker?: boolean;
-  enableSqueezeInteraction?: boolean;
-  enableDoubleTapInteraction?: boolean;
-  enableHoverSupport?: boolean;
   enableHapticFeedback?: boolean;
 }
 

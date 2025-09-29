@@ -5,13 +5,9 @@ import type {
   ApplePencilData,
   PencilKitDrawingData,
   PencilKitConfig,
-  ApplePencilSqueezeData,
-  ApplePencilDoubleTapData,
-  ApplePencilHoverData,
   ApplePencilCoalescedTouchesData,
   ApplePencilPredictedTouchesData,
   ApplePencilEstimatedPropertiesData,
-  ApplePencilPreferredSqueezeActionData,
 } from './NativeMunimPencilkit';
 
 // Create event emitter for the native module
@@ -25,13 +21,9 @@ export type {
   PencilKitPoint,
   PencilKitTool,
   PencilKitConfig,
-  ApplePencilSqueezeData,
-  ApplePencilDoubleTapData,
-  ApplePencilHoverData,
   ApplePencilCoalescedTouchesData,
   ApplePencilPredictedTouchesData,
   ApplePencilEstimatedPropertiesData,
-  ApplePencilPreferredSqueezeActionData,
 } from './NativeMunimPencilkit';
 
 // Export the PencilKit view component
@@ -91,31 +83,6 @@ export const PencilKitUtils = {
   removeDrawingChangeListener: () =>
     eventEmitter.removeAllListeners('onPencilKitDrawingChange'),
 
-  // Apple Pencil Pro event listeners
-  addApplePencilSqueezeListener: (
-    callback: (data: ApplePencilSqueezeData) => void
-  ) =>
-    eventEmitter.addListener('onApplePencilSqueeze', (data: any) =>
-      callback(data as ApplePencilSqueezeData)
-    ),
-  removeApplePencilSqueezeListener: () =>
-    eventEmitter.removeAllListeners('onApplePencilSqueeze'),
-  addApplePencilDoubleTapListener: (
-    callback: (data: ApplePencilDoubleTapData) => void
-  ) =>
-    eventEmitter.addListener('onApplePencilDoubleTap', (data: any) =>
-      callback(data as ApplePencilDoubleTapData)
-    ),
-  removeApplePencilDoubleTapListener: () =>
-    eventEmitter.removeAllListeners('onApplePencilDoubleTap'),
-  addApplePencilHoverListener: (
-    callback: (data: ApplePencilHoverData) => void
-  ) =>
-    eventEmitter.addListener('onApplePencilHover', (data: any) =>
-      callback(data as ApplePencilHoverData)
-    ),
-  removeApplePencilHoverListener: () =>
-    eventEmitter.removeAllListeners('onApplePencilHover'),
   addApplePencilCoalescedTouchesListener: (
     callback: (data: ApplePencilCoalescedTouchesData) => void
   ) =>
@@ -140,15 +107,6 @@ export const PencilKitUtils = {
     ),
   removeApplePencilEstimatedPropertiesListener: () =>
     eventEmitter.removeAllListeners('onApplePencilEstimatedProperties'),
-  addApplePencilPreferredSqueezeActionListener: (
-    callback: (data: ApplePencilPreferredSqueezeActionData) => void
-  ) =>
-    eventEmitter.addListener(
-      'onApplePencilPreferredSqueezeAction',
-      (data: any) => callback(data as ApplePencilPreferredSqueezeActionData)
-    ),
-  removeApplePencilPreferredSqueezeActionListener: () =>
-    eventEmitter.removeAllListeners('onApplePencilPreferredSqueezeAction'),
 };
 
 // Default export

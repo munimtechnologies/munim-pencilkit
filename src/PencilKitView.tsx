@@ -16,13 +16,9 @@ import type {
   ApplePencilData,
   PencilKitDrawingData,
   PencilKitConfig,
-  ApplePencilSqueezeData,
-  ApplePencilDoubleTapData,
-  ApplePencilHoverData,
   ApplePencilCoalescedTouchesData,
   ApplePencilPredictedTouchesData,
   ApplePencilEstimatedPropertiesData,
-  ApplePencilPreferredSqueezeActionData,
 } from './NativeMunimPencilkit';
 
 // Create event emitter for the native module
@@ -36,9 +32,6 @@ interface PencilKitNativeViewProps {
   viewId: number;
   enableApplePencilData: boolean;
   enableToolPicker: boolean;
-  enableSqueezeInteraction: boolean;
-  enableDoubleTapInteraction: boolean;
-  enableHoverSupport: boolean;
   enableHapticFeedback: boolean;
 }
 
@@ -51,9 +44,6 @@ export interface PencilKitViewProps {
   config?: PencilKitConfig;
   onApplePencilData?: (data: ApplePencilData) => void;
   onDrawingChange?: (drawing: PencilKitDrawingData) => void;
-  onApplePencilSqueeze?: (data: ApplePencilSqueezeData) => void;
-  onApplePencilDoubleTap?: (data: ApplePencilDoubleTapData) => void;
-  onApplePencilHover?: (data: ApplePencilHoverData) => void;
   onApplePencilCoalescedTouches?: (
     data: ApplePencilCoalescedTouchesData
   ) => void;
@@ -63,15 +53,9 @@ export interface PencilKitViewProps {
   onApplePencilEstimatedProperties?: (
     data: ApplePencilEstimatedPropertiesData
   ) => void;
-  onApplePencilPreferredSqueezeAction?: (
-    data: ApplePencilPreferredSqueezeActionData
-  ) => void;
   onViewReady?: (viewId: number) => void;
   enableApplePencilData?: boolean;
   enableToolPicker?: boolean;
-  enableSqueezeInteraction?: boolean;
-  enableDoubleTapInteraction?: boolean;
-  enableHoverSupport?: boolean;
   enableHapticFeedback?: boolean;
 }
 
@@ -95,19 +79,12 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
       config,
       onApplePencilData,
       onDrawingChange,
-      onApplePencilSqueeze,
-      onApplePencilDoubleTap,
-      onApplePencilHover,
       onApplePencilCoalescedTouches,
       onApplePencilPredictedTouches,
       onApplePencilEstimatedProperties,
-      onApplePencilPreferredSqueezeAction,
       onViewReady,
       enableApplePencilData = false,
       enableToolPicker = true,
-      enableSqueezeInteraction = false,
-      enableDoubleTapInteraction = false,
-      enableHoverSupport = false,
       enableHapticFeedback = false,
     },
     ref
@@ -115,13 +92,9 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
     const [viewId, setViewId] = useState<number | null>(null);
     const applePencilListenerRef = useRef<any>(null);
     const drawingChangeListenerRef = useRef<any>(null);
-    const squeezeListenerRef = useRef<any>(null);
-    const doubleTapListenerRef = useRef<any>(null);
-    const hoverListenerRef = useRef<any>(null);
     const coalescedTouchesListenerRef = useRef<any>(null);
     const predictedTouchesListenerRef = useRef<any>(null);
     const estimatedPropertiesListenerRef = useRef<any>(null);
-    const preferredSqueezeActionListenerRef = useRef<any>(null);
 
     // Initialize the PencilKit view
     useEffect(() => {
@@ -179,30 +152,6 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
         );
       }
 
-      // Apple Pencil Pro squeeze listener
-      if (onApplePencilSqueeze && enableSqueezeInteraction) {
-        squeezeListenerRef.current = eventEmitter.addListener(
-          'onApplePencilSqueeze',
-          (data: any) => onApplePencilSqueeze(data as ApplePencilSqueezeData)
-        );
-      }
-
-      // Apple Pencil Pro double tap listener
-      if (onApplePencilDoubleTap && enableDoubleTapInteraction) {
-        doubleTapListenerRef.current = eventEmitter.addListener(
-          'onApplePencilDoubleTap',
-          (data: any) =>
-            onApplePencilDoubleTap(data as ApplePencilDoubleTapData)
-        );
-      }
-
-      // Apple Pencil Pro hover listener
-      if (onApplePencilHover && enableHoverSupport) {
-        hoverListenerRef.current = eventEmitter.addListener(
-          'onApplePencilHover',
-          (data: any) => onApplePencilHover(data as ApplePencilHoverData)
-        );
-      }
 
       // Apple Pencil Pro coalesced touches listener
       if (onApplePencilCoalescedTouches && enableApplePencilData) {
@@ -237,43 +186,22 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
         );
       }
 
-      // Apple Pencil Pro preferred squeeze action listener
-      if (onApplePencilPreferredSqueezeAction && enableSqueezeInteraction) {
-        preferredSqueezeActionListenerRef.current = eventEmitter.addListener(
-          'onApplePencilPreferredSqueezeAction',
-          (data: any) =>
-            onApplePencilPreferredSqueezeAction(
-              data as ApplePencilPreferredSqueezeActionData
-            )
-        );
-      }
 
       return () => {
         applePencilListenerRef.current?.remove();
         drawingChangeListenerRef.current?.remove();
-        squeezeListenerRef.current?.remove();
-        doubleTapListenerRef.current?.remove();
-        hoverListenerRef.current?.remove();
         coalescedTouchesListenerRef.current?.remove();
         predictedTouchesListenerRef.current?.remove();
         estimatedPropertiesListenerRef.current?.remove();
-        preferredSqueezeActionListenerRef.current?.remove();
       };
     }, [
       viewId,
       onApplePencilData,
       onDrawingChange,
-      onApplePencilSqueeze,
-      onApplePencilDoubleTap,
-      onApplePencilHover,
       onApplePencilCoalescedTouches,
       onApplePencilPredictedTouches,
       onApplePencilEstimatedProperties,
-      onApplePencilPreferredSqueezeAction,
       enableApplePencilData,
-      enableSqueezeInteraction,
-      enableDoubleTapInteraction,
-      enableHoverSupport,
       enableHapticFeedback,
       config,
       onViewReady,
@@ -344,9 +272,6 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
         viewId={viewId}
         enableApplePencilData={enableApplePencilData}
         enableToolPicker={enableToolPicker}
-        enableSqueezeInteraction={enableSqueezeInteraction}
-        enableDoubleTapInteraction={enableDoubleTapInteraction}
-        enableHoverSupport={enableHoverSupport}
         enableHapticFeedback={enableHapticFeedback}
       />
     );
