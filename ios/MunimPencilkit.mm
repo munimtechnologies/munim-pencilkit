@@ -23,7 +23,8 @@ RCT_EXPORT_MODULE()
         @"onPencilKitDrawingChange",
         @"onApplePencilCoalescedTouches",
         @"onApplePencilPredictedTouches",
-        @"onApplePencilEstimatedProperties"
+        @"onApplePencilEstimatedProperties",
+        @"onApplePencilMotion"
     ];
 }
 
@@ -210,6 +211,11 @@ RCT_EXPORT_MODULE()
     [[NSNotificationCenter defaultCenter] postNotificationName:@"MunimPencilkitApplePencilEstimatedProperties" object:data];
 }
 
++ (void)sendApplePencilMotionEvent:(NSDictionary *)data
+{
+    [[NSNotificationCenter defaultCenter] postNotificationName:@"MunimPencilkitApplePencilMotion" object:data];
+}
+
 
 - (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:
     (const facebook::react::ObjCTurboModule::InitParams &)params
@@ -228,6 +234,7 @@ RCT_EXPORT_VIEW_PROPERTY(viewId, NSInteger)
 RCT_EXPORT_VIEW_PROPERTY(enableApplePencilData, BOOL)
 RCT_EXPORT_VIEW_PROPERTY(enableToolPicker, BOOL)
 RCT_EXPORT_VIEW_PROPERTY(enableHapticFeedback, BOOL)
+RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
 
 - (UIView *)view {
     return [[PencilKitView alloc] initWithViewId:0];
@@ -247,8 +254,12 @@ RCT_EXPORT_VIEW_PROPERTY(enableHapticFeedback, BOOL)
         _enableApplePencilData = NO;
         _enableToolPicker = YES;
         _enableHapticFeedback = NO;
+        _enableMotionTracking = NO;
         _isApplePencilDataCaptureActive = NO;
         _isApplePencilActive = NO;
+        _lastRollAngle = 0.0;
+        _lastPitchAngle = 0.0;
+        _lastYawAngle = 0.0;
         [self setupPencilKitView];
     }
     return self;
@@ -375,6 +386,53 @@ RCT_EXPORT_VIEW_PROPERTY(enableHapticFeedback, BOOL)
     if (self.enableHapticFeedback) {
         UIImpactFeedbackGenerator *generator = [[UIImpactFeedbackGenerator alloc] initWithStyle:style];
         [generator impactOccurred];
+    }
+}
+
+- (void)enableMotionTracking:(BOOL)enabled {
+    self.enableMotionTracking = enabled;
+    if (enabled) {
+        [self startMotionTracking];
+    } else {
+        [self stopMotionTracking];
+    }
+}
+
+- (void)startMotionTracking {
+    if (!self.motionManager) {
+        self.motionManager = [[CMMotionManager alloc] init];
+    }
+    
+    if (self.motionManager.isDeviceMotionAvailable) {
+        self.motionManager.deviceMotionUpdateInterval = 0.1; // 10 Hz
+        [self.motionManager startDeviceMotionUpdatesToQueue:[NSOperationQueue mainQueue]
+                                                withHandler:^(CMDeviceMotion *motion, NSError *error) {
+            if (error) {
+                NSLog(@"Motion tracking error: %@", error.localizedDescription);
+                return;
+            }
+            
+            // Update motion data
+            self.lastRollAngle = motion.attitude.roll;
+            self.lastPitchAngle = motion.attitude.pitch;
+            self.lastYawAngle = motion.attitude.yaw;
+            
+            // Send motion data event
+            NSDictionary *motionData = @{
+                @"viewId": @(self.viewId),
+                @"rollAngle": @(motion.attitude.roll),
+                @"pitchAngle": @(motion.attitude.pitch),
+                @"yawAngle": @(motion.attitude.yaw),
+                @"timestamp": @([[NSDate date] timeIntervalSince1970])
+            };
+            [MunimPencilkit sendApplePencilMotionEvent:motionData];
+        }];
+    }
+}
+
+- (void)stopMotionTracking {
+    if (self.motionManager && self.motionManager.isDeviceMotionActive) {
+        [self.motionManager stopDeviceMotionUpdates];
     }
 }
 
@@ -535,7 +593,7 @@ RCT_EXPORT_VIEW_PROPERTY(enableHapticFeedback, BOOL)
     return @{
         @"pressure": @(touch.force / touch.maximumPossibleForce),
         @"altitude": @(touch.altitudeAngle / (M_PI / 2)),
-        @"azimuth": @(0.0), // Azimuth not available on UITouch
+        @"azimuth": @([touch azimuthAngleInView:self]), // Azimuth angle in view
         @"force": @(touch.force),
         @"maximumPossibleForce": @(touch.maximumPossibleForce),
         @"perpendicularForce": @(perpendicularForce),

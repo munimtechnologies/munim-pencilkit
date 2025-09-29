@@ -29,7 +29,6 @@ export interface ApplePencilData {
   estimatedPropertiesExpectingUpdates: string[];
 }
 
-
 export interface ApplePencilCoalescedTouchesData {
   viewId: number;
   touches: ApplePencilData[];
@@ -50,6 +49,13 @@ export interface ApplePencilEstimatedPropertiesData {
   timestamp: number;
 }
 
+export interface ApplePencilMotionData {
+  viewId: number;
+  rollAngle: number;
+  pitchAngle: number;
+  yawAngle: number;
+  timestamp: number;
+}
 
 // PencilKit drawing data
 export interface PencilKitDrawingData {

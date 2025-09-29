@@ -19,6 +19,7 @@ import type {
   ApplePencilCoalescedTouchesData,
   ApplePencilPredictedTouchesData,
   ApplePencilEstimatedPropertiesData,
+  ApplePencilMotionData,
 } from './NativeMunimPencilkit';
 
 // Create event emitter for the native module
@@ -33,6 +34,7 @@ interface PencilKitNativeViewProps {
   enableApplePencilData: boolean;
   enableToolPicker: boolean;
   enableHapticFeedback: boolean;
+  enableMotionTracking: boolean;
 }
 
 // Native component
@@ -53,10 +55,12 @@ export interface PencilKitViewProps {
   onApplePencilEstimatedProperties?: (
     data: ApplePencilEstimatedPropertiesData
   ) => void;
+  onApplePencilMotion?: (data: ApplePencilMotionData) => void;
   onViewReady?: (viewId: number) => void;
   enableApplePencilData?: boolean;
   enableToolPicker?: boolean;
   enableHapticFeedback?: boolean;
+  enableMotionTracking?: boolean;
 }
 
 export interface PencilKitViewRef {
@@ -82,10 +86,12 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
       onApplePencilCoalescedTouches,
       onApplePencilPredictedTouches,
       onApplePencilEstimatedProperties,
+      onApplePencilMotion,
       onViewReady,
       enableApplePencilData = false,
       enableToolPicker = true,
       enableHapticFeedback = false,
+      enableMotionTracking = false,
     },
     ref
   ) => {
@@ -95,6 +101,7 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
     const coalescedTouchesListenerRef = useRef<any>(null);
     const predictedTouchesListenerRef = useRef<any>(null);
     const estimatedPropertiesListenerRef = useRef<any>(null);
+    const motionListenerRef = useRef<any>(null);
 
     // Initialize the PencilKit view
     useEffect(() => {
@@ -185,12 +192,21 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
         );
       }
 
+      // Apple Pencil motion tracking listener
+      if (onApplePencilMotion && enableMotionTracking) {
+        motionListenerRef.current = eventEmitter.addListener(
+          'onApplePencilMotion',
+          (data: any) => onApplePencilMotion(data as ApplePencilMotionData)
+        );
+      }
+
       return () => {
         applePencilListenerRef.current?.remove();
         drawingChangeListenerRef.current?.remove();
         coalescedTouchesListenerRef.current?.remove();
         predictedTouchesListenerRef.current?.remove();
         estimatedPropertiesListenerRef.current?.remove();
+        motionListenerRef.current?.remove();
       };
     }, [
       viewId,
@@ -199,8 +215,10 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
       onApplePencilCoalescedTouches,
       onApplePencilPredictedTouches,
       onApplePencilEstimatedProperties,
+      onApplePencilMotion,
       enableApplePencilData,
       enableHapticFeedback,
+      enableMotionTracking,
       config,
       onViewReady,
     ]);
@@ -271,6 +289,7 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
         enableApplePencilData={enableApplePencilData}
         enableToolPicker={enableToolPicker}
         enableHapticFeedback={enableHapticFeedback}
+        enableMotionTracking={enableMotionTracking}
       />
     );
   }

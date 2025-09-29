@@ -103,6 +103,8 @@
 - 🔮 **Predicted Touches** - Latency compensation for responsive drawing
 - 📈 **Estimated Properties** - Track and handle property refinements
 - 📱 **Haptic Feedback** - Tactile responses for interactions
+- 🎢 **Motion Tracking** - Core Motion gyroscope data for barrel roll detection
+- 🧭 **Device Orientation** - Roll, pitch, and yaw angle tracking
 
 ### Advanced Capabilities
 
@@ -201,7 +203,7 @@ const styles = StyleSheet.create({
 });
 ```
 
-### Apple Pencil Pro Advanced Usage
+### Apple Pencil Advanced Usage
 
 ```tsx
 import React, { useRef } from 'react';
@@ -210,9 +212,7 @@ import {
   PencilKitView,
   type PencilKitConfig,
   type ApplePencilData,
-  type ApplePencilSqueezeData,
-  type ApplePencilDoubleTapData,
-  type ApplePencilHoverData,
+  type ApplePencilMotionData,
 } from 'munim-pencilkit';
 
 export default function AdvancedDrawingScreen() {
@@ -223,9 +223,6 @@ export default function AdvancedDrawingScreen() {
     allowsPencilOnlyDrawing: false,
     isRulerActive: false,
     drawingPolicy: 'default',
-    enableSqueezeInteraction: true,
-    enableDoubleTapInteraction: true,
-    enableHoverSupport: true,
     enableHapticFeedback: true,
   };
 
@@ -237,10 +234,8 @@ export default function AdvancedDrawingScreen() {
         config={config}
         enableApplePencilData={true}
         enableToolPicker={true}
-        enableSqueezeInteraction={true}
-        enableDoubleTapInteraction={true}
-        enableHoverSupport={true}
         enableHapticFeedback={true}
+        enableMotionTracking={true}
         onApplePencilData={(data: ApplePencilData) => {
           console.log('Advanced Apple Pencil Data:', {
             pressure: data.pressure,
@@ -250,17 +245,13 @@ export default function AdvancedDrawingScreen() {
             estimatedProperties: data.estimatedProperties,
           });
         }}
-        onApplePencilSqueeze={(data: ApplePencilSqueezeData) => {
-          console.log('Squeeze detected:', data.phase, data.value);
-          // Handle squeeze - show palette, switch tools, etc.
-        }}
-        onApplePencilDoubleTap={(data: ApplePencilDoubleTapData) => {
-          console.log('Double tap detected:', data.phase);
-          // Handle double tap - undo, redo, etc.
-        }}
-        onApplePencilHover={(data: ApplePencilHoverData) => {
-          console.log('Hover at:', data.location, 'altitude:', data.altitude);
-          // Handle hover - show preview, adjust cursor, etc.
+        onApplePencilMotion={(data: ApplePencilMotionData) => {
+          console.log('Motion data:', {
+            rollAngle: data.rollAngle,
+            pitchAngle: data.pitchAngle,
+            yawAngle: data.yawAngle,
+          });
+          // Handle motion - adjust brush orientation, barrel roll effects
         }}
         onApplePencilCoalescedTouches={(data) => {
           console.log('Coalesced touches:', data.touches.length);
