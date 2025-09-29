@@ -124,16 +124,29 @@ export const PencilKitUtils = {
     ),
   removeApplePencilCoalescedTouchesListener: () =>
     eventEmitter.removeAllListeners('onApplePencilCoalescedTouches'),
-  addApplePencilPredictedTouchesListener: (callback: (data: ApplePencilPredictedTouchesData) => void) =>
-    eventEmitter.addListener('onApplePencilPredictedTouches', (data: any) => callback(data as ApplePencilPredictedTouchesData)),
+  addApplePencilPredictedTouchesListener: (
+    callback: (data: ApplePencilPredictedTouchesData) => void
+  ) =>
+    eventEmitter.addListener('onApplePencilPredictedTouches', (data: any) =>
+      callback(data as ApplePencilPredictedTouchesData)
+    ),
   removeApplePencilPredictedTouchesListener: () =>
     eventEmitter.removeAllListeners('onApplePencilPredictedTouches'),
-  addApplePencilEstimatedPropertiesListener: (callback: (data: ApplePencilEstimatedPropertiesData) => void) =>
-    eventEmitter.addListener('onApplePencilEstimatedProperties', (data: any) => callback(data as ApplePencilEstimatedPropertiesData)),
+  addApplePencilEstimatedPropertiesListener: (
+    callback: (data: ApplePencilEstimatedPropertiesData) => void
+  ) =>
+    eventEmitter.addListener('onApplePencilEstimatedProperties', (data: any) =>
+      callback(data as ApplePencilEstimatedPropertiesData)
+    ),
   removeApplePencilEstimatedPropertiesListener: () =>
     eventEmitter.removeAllListeners('onApplePencilEstimatedProperties'),
-  addApplePencilPreferredSqueezeActionListener: (callback: (data: ApplePencilPreferredSqueezeActionData) => void) =>
-    eventEmitter.addListener('onApplePencilPreferredSqueezeAction', (data: any) => callback(data as ApplePencilPreferredSqueezeActionData)),
+  addApplePencilPreferredSqueezeActionListener: (
+    callback: (data: ApplePencilPreferredSqueezeActionData) => void
+  ) =>
+    eventEmitter.addListener(
+      'onApplePencilPreferredSqueezeAction',
+      (data: any) => callback(data as ApplePencilPreferredSqueezeActionData)
+    ),
   removeApplePencilPreferredSqueezeActionListener: () =>
     eventEmitter.removeAllListeners('onApplePencilPreferredSqueezeAction'),
 };

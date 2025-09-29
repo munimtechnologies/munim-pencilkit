@@ -76,7 +76,11 @@ export interface ApplePencilEstimatedPropertiesData {
 }
 
 export interface ApplePencilPreferredSqueezeActionData {
-  preferredAction: 'ignore' | 'showContextualPalette' | 'switchPrevious' | 'runShortcut';
+  preferredAction:
+    | 'ignore'
+    | 'showContextualPalette'
+    | 'switchPrevious'
+    | 'runShortcut';
   customAction?: string;
 }
 

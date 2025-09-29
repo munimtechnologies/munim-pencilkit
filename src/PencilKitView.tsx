@@ -57,9 +57,15 @@ export interface PencilKitViewProps {
   onApplePencilCoalescedTouches?: (
     data: ApplePencilCoalescedTouchesData
   ) => void;
-  onApplePencilPredictedTouches?: (data: ApplePencilPredictedTouchesData) => void;
-  onApplePencilEstimatedProperties?: (data: ApplePencilEstimatedPropertiesData) => void;
-  onApplePencilPreferredSqueezeAction?: (data: ApplePencilPreferredSqueezeActionData) => void;
+  onApplePencilPredictedTouches?: (
+    data: ApplePencilPredictedTouchesData
+  ) => void;
+  onApplePencilEstimatedProperties?: (
+    data: ApplePencilEstimatedPropertiesData
+  ) => void;
+  onApplePencilPreferredSqueezeAction?: (
+    data: ApplePencilPreferredSqueezeActionData
+  ) => void;
   onViewReady?: (viewId: number) => void;
   enableApplePencilData?: boolean;
   enableToolPicker?: boolean;
@@ -213,7 +219,10 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
       if (onApplePencilPredictedTouches && enableApplePencilData) {
         predictedTouchesListenerRef.current = eventEmitter.addListener(
           'onApplePencilPredictedTouches',
-          (data: any) => onApplePencilPredictedTouches(data as ApplePencilPredictedTouchesData)
+          (data: any) =>
+            onApplePencilPredictedTouches(
+              data as ApplePencilPredictedTouchesData
+            )
         );
       }
 
@@ -221,7 +230,10 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
       if (onApplePencilEstimatedProperties && enableApplePencilData) {
         estimatedPropertiesListenerRef.current = eventEmitter.addListener(
           'onApplePencilEstimatedProperties',
-          (data: any) => onApplePencilEstimatedProperties(data as ApplePencilEstimatedPropertiesData)
+          (data: any) =>
+            onApplePencilEstimatedProperties(
+              data as ApplePencilEstimatedPropertiesData
+            )
         );
       }
 
@@ -229,7 +241,10 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
       if (onApplePencilPreferredSqueezeAction && enableSqueezeInteraction) {
         preferredSqueezeActionListenerRef.current = eventEmitter.addListener(
           'onApplePencilPreferredSqueezeAction',
-          (data: any) => onApplePencilPreferredSqueezeAction(data as ApplePencilPreferredSqueezeActionData)
+          (data: any) =>
+            onApplePencilPreferredSqueezeAction(
+              data as ApplePencilPreferredSqueezeActionData
+            )
         );
       }
 

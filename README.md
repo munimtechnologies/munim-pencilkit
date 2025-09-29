@@ -77,6 +77,7 @@
 ## 🚀 Features
 
 ### Core PencilKit Integration
+
 - 🎨 **Full PencilKit Framework** - Complete Apple PencilKit framework support
 - ✏️ **Professional Drawing Tools** - Pen, pencil, marker, eraser, and lasso tools
 - 📱 **Native Performance** - Built with Turbo modules for optimal performance
@@ -86,6 +87,7 @@
 - 🚀 **Expo Compatible** - Works seamlessly with Expo managed and bare workflows
 
 ### Apple Pencil Data Capture
+
 - 📊 **Raw Sensor Data** - Pressure, tilt, azimuth, force, and location data
 - 🎯 **Precise Location** - High-precision touch coordinates
 - ⚡ **Real-time Streaming** - Live Apple Pencil data streaming
@@ -94,6 +96,7 @@
 - 📈 **Property Tracking** - Estimated properties and refinement updates
 
 ### Apple Pencil Pro Features
+
 - 🤏 **Squeeze Gestures** - Apple Pencil Pro squeeze interaction support
 - 👆 **Double Tap** - Double-tap gesture detection and handling
 - 🎯 **Hover Effects** - Hover pose detection and visual feedback
@@ -102,6 +105,7 @@
 - ⚙️ **Preferred Actions** - System squeeze action preference detection
 
 ### Advanced Capabilities
+
 - 🧮 **Perpendicular Force** - Computed perpendicular force for accurate pressure
 - 📊 **Estimated Properties** - Track and handle property refinements
 - 🎨 **Custom Brush Logic** - Advanced brush behavior based on sensor data
@@ -202,13 +206,13 @@ const styles = StyleSheet.create({
 ```tsx
 import React, { useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { 
-  PencilKitView, 
+import {
+  PencilKitView,
   type PencilKitConfig,
   type ApplePencilData,
   type ApplePencilSqueezeData,
   type ApplePencilDoubleTapData,
-  type ApplePencilHoverData
+  type ApplePencilHoverData,
 } from 'munim-pencilkit';
 
 export default function AdvancedDrawingScreen() {
@@ -284,11 +288,13 @@ Main React Native component for PencilKit integration with full Apple Pencil Pro
 **Props:**
 
 #### Basic Props
+
 - `config` (PencilKitConfig): PencilKit configuration
 - `style` (ViewStyle): Component styling
 - `onViewReady` (function): View ready callback
 
 #### Apple Pencil Data Props
+
 - `enableApplePencilData` (boolean): Enable Apple Pencil data capture
 - `onApplePencilData` (function): Apple Pencil data callback
 - `onApplePencilCoalescedTouches` (function): Coalesced touches callback
@@ -296,6 +302,7 @@ Main React Native component for PencilKit integration with full Apple Pencil Pro
 - `onApplePencilEstimatedProperties` (function): Estimated properties callback
 
 #### Apple Pencil Pro Props
+
 - `enableSqueezeInteraction` (boolean): Enable squeeze gesture detection
 - `enableDoubleTapInteraction` (boolean): Enable double-tap detection
 - `enableHoverSupport` (boolean): Enable hover pose detection
@@ -306,6 +313,7 @@ Main React Native component for PencilKit integration with full Apple Pencil Pro
 - `onApplePencilPreferredSqueezeAction` (function): Preferred squeeze action callback
 
 #### Drawing Props
+
 - `enableToolPicker` (boolean): Show tool picker
 - `onDrawingChange` (function): Drawing change callback
 
@@ -316,11 +324,13 @@ Utility functions for advanced PencilKit operations.
 **Methods:**
 
 #### View Management
+
 - `createView()`: Create a new PencilKit view
 - `destroyView(viewId)`: Destroy a PencilKit view
 - `setConfig(viewId, config)`: Configure PencilKit view
 
 #### Drawing Operations
+
 - `getDrawing(viewId)`: Get current drawing data
 - `setDrawing(viewId, drawing)`: Set drawing data
 - `clearDrawing(viewId)`: Clear the drawing
@@ -330,11 +340,13 @@ Utility functions for advanced PencilKit operations.
 - `canRedo(viewId)`: Check if redo is available
 
 #### Apple Pencil Data Capture
+
 - `startApplePencilCapture(viewId)`: Start capturing Apple Pencil data
 - `stopApplePencilCapture(viewId)`: Stop capturing Apple Pencil data
 - `isApplePencilCaptureActive(viewId)`: Check if capture is active
 
 #### Event Listeners
+
 - `addApplePencilListener(callback)`: Add Apple Pencil data listener
 - `removeApplePencilListener()`: Remove Apple Pencil data listener
 - `addDrawingChangeListener(callback)`: Add drawing change listener
@@ -369,7 +381,7 @@ interface ApplePencilData {
   force: number; // 0.0 to 1.0
   maximumPossibleForce: number;
   timestamp: number;
-  
+
   // Location data
   location: {
     x: number;
@@ -383,16 +395,16 @@ interface ApplePencilData {
     x: number;
     y: number;
   };
-  
+
   // Apple Pencil Pro properties
   perpendicularForce: number; // Computed perpendicular force
   rollAngle: number; // Barrel roll angle (Apple Pencil Pro)
-  
+
   // Touch properties
   isApplePencil: boolean;
   phase: 'began' | 'moved' | 'ended' | 'cancelled';
   hasPreciseLocation: boolean;
-  
+
   // Advanced properties
   estimatedProperties: string[];
   estimatedPropertiesExpectingUpdates: string[];
@@ -408,7 +420,11 @@ interface ApplePencilSqueezeData {
   value: number;
   timestamp: number;
   isActive: boolean;
-  preferredAction: 'ignore' | 'showContextualPalette' | 'switchPrevious' | 'runShortcut';
+  preferredAction:
+    | 'ignore'
+    | 'showContextualPalette'
+    | 'switchPrevious'
+    | 'runShortcut';
 }
 
 interface ApplePencilDoubleTapData {
@@ -450,7 +466,11 @@ interface ApplePencilEstimatedPropertiesData {
 }
 
 interface ApplePencilPreferredSqueezeActionData {
-  preferredAction: 'ignore' | 'showContextualPalette' | 'switchPrevious' | 'runShortcut';
+  preferredAction:
+    | 'ignore'
+    | 'showContextualPalette'
+    | 'switchPrevious'
+    | 'runShortcut';
   customAction?: string;
 }
 ```
@@ -466,7 +486,7 @@ interface PencilKitConfig {
   allowsPencilOnlyDrawing: boolean;
   isRulerActive: boolean;
   drawingPolicy: 'default' | 'anyInput' | 'pencilOnly';
-  
+
   // Apple Pencil Pro configuration
   enableApplePencilData?: boolean;
   enableToolPicker?: boolean;
@@ -522,11 +542,11 @@ interface PencilKitTool {
 ```tsx
 import React, { useRef, useState } from 'react';
 import { View, StyleSheet, Button, Text } from 'react-native';
-import { 
-  PencilKitView, 
+import {
+  PencilKitView,
   PencilKitUtils,
   type ApplePencilData,
-  type ApplePencilSqueezeData
+  type ApplePencilSqueezeData,
 } from 'munim-pencilkit';
 
 const ProfessionalDrawingApp = () => {
@@ -549,13 +569,15 @@ const ProfessionalDrawingApp = () => {
     // Use advanced properties for sophisticated brush behavior
     const newBrushSize = data.perpendicularForce * 20;
     setBrushSize(newBrushSize);
-    
+
     // Use roll angle for brush orientation
     const brushAngle = data.rollAngle;
-    
+
     // Use precise location if available
-    const location = data.hasPreciseLocation ? data.preciseLocation : data.location;
-    
+    const location = data.hasPreciseLocation
+      ? data.preciseLocation
+      : data.location;
+
     console.log('Advanced brush data:', {
       size: newBrushSize,
       angle: brushAngle,
@@ -616,17 +638,19 @@ const ProfessionalDrawingApp = () => {
 ```tsx
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { 
-  PencilKitUtils, 
+import {
+  PencilKitUtils,
   type ApplePencilData,
   type ApplePencilPredictedTouchesData,
-  type ApplePencilEstimatedPropertiesData
+  type ApplePencilEstimatedPropertiesData,
 } from 'munim-pencilkit';
 
 const AdvancedDataCollectionApp = () => {
   const [pencilData, setPencilData] = useState<ApplePencilData | null>(null);
-  const [predictedTouches, setPredictedTouches] = useState<ApplePencilPredictedTouchesData | null>(null);
-  const [estimatedProperties, setEstimatedProperties] = useState<ApplePencilEstimatedPropertiesData | null>(null);
+  const [predictedTouches, setPredictedTouches] =
+    useState<ApplePencilPredictedTouchesData | null>(null);
+  const [estimatedProperties, setEstimatedProperties] =
+    useState<ApplePencilEstimatedPropertiesData | null>(null);
 
   useEffect(() => {
     // Apple Pencil data listener
@@ -640,25 +664,35 @@ const AdvancedDataCollectionApp = () => {
     };
 
     // Estimated properties listener
-    const handleEstimatedProperties = (data: ApplePencilEstimatedPropertiesData) => {
+    const handleEstimatedProperties = (
+      data: ApplePencilEstimatedPropertiesData
+    ) => {
       setEstimatedProperties(data);
     };
 
     PencilKitUtils.addApplePencilListener(handlePencilData);
-    PencilKitUtils.addApplePencilPredictedTouchesListener(handlePredictedTouches);
-    PencilKitUtils.addApplePencilEstimatedPropertiesListener(handleEstimatedProperties);
+    PencilKitUtils.addApplePencilPredictedTouchesListener(
+      handlePredictedTouches
+    );
+    PencilKitUtils.addApplePencilEstimatedPropertiesListener(
+      handleEstimatedProperties
+    );
 
     return () => {
       PencilKitUtils.removeApplePencilListener(handlePencilData);
-      PencilKitUtils.removeApplePencilPredictedTouchesListener(handlePredictedTouches);
-      PencilKitUtils.removeApplePencilEstimatedPropertiesListener(handleEstimatedProperties);
+      PencilKitUtils.removeApplePencilPredictedTouchesListener(
+        handlePredictedTouches
+      );
+      PencilKitUtils.removeApplePencilEstimatedPropertiesListener(
+        handleEstimatedProperties
+      );
     };
   }, []);
 
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.title}>Advanced Apple Pencil Data</Text>
-      
+
       {pencilData && (
         <View style={styles.dataContainer}>
           <Text style={styles.sectionTitle}>Basic Data</Text>
@@ -666,19 +700,32 @@ const AdvancedDataCollectionApp = () => {
           <Text>Altitude: {pencilData.altitude.toFixed(3)}</Text>
           <Text>Azimuth: {pencilData.azimuth.toFixed(3)}</Text>
           <Text>Force: {pencilData.force.toFixed(3)}</Text>
-          
+
           <Text style={styles.sectionTitle}>Apple Pencil Pro Data</Text>
-          <Text>Perpendicular Force: {pencilData.perpendicularForce.toFixed(3)}</Text>
+          <Text>
+            Perpendicular Force: {pencilData.perpendicularForce.toFixed(3)}
+          </Text>
           <Text>Roll Angle: {pencilData.rollAngle.toFixed(3)}</Text>
-          <Text>Has Precise Location: {pencilData.hasPreciseLocation ? 'Yes' : 'No'}</Text>
-          
+          <Text>
+            Has Precise Location: {pencilData.hasPreciseLocation ? 'Yes' : 'No'}
+          </Text>
+
           <Text style={styles.sectionTitle}>Location Data</Text>
-          <Text>Location: ({pencilData.location.x.toFixed(1)}, {pencilData.location.y.toFixed(1)})</Text>
-          <Text>Precise: ({pencilData.preciseLocation.x.toFixed(1)}, {pencilData.preciseLocation.y.toFixed(1)})</Text>
-          
+          <Text>
+            Location: ({pencilData.location.x.toFixed(1)},{' '}
+            {pencilData.location.y.toFixed(1)})
+          </Text>
+          <Text>
+            Precise: ({pencilData.preciseLocation.x.toFixed(1)},{' '}
+            {pencilData.preciseLocation.y.toFixed(1)})
+          </Text>
+
           <Text style={styles.sectionTitle}>Advanced Properties</Text>
           <Text>Estimated: {pencilData.estimatedProperties.join(', ')}</Text>
-          <Text>Expecting Updates: {pencilData.estimatedPropertiesExpectingUpdates.join(', ')}</Text>
+          <Text>
+            Expecting Updates:{' '}
+            {pencilData.estimatedPropertiesExpectingUpdates.join(', ')}
+          </Text>
         </View>
       )}
 
@@ -694,7 +741,9 @@ const AdvancedDataCollectionApp = () => {
         <View style={styles.dataContainer}>
           <Text style={styles.sectionTitle}>Estimated Properties Update</Text>
           <Text>Touch ID: {estimatedProperties.touchId}</Text>
-          <Text>Updated: {estimatedProperties.updatedProperties.join(', ')}</Text>
+          <Text>
+            Updated: {estimatedProperties.updatedProperties.join(', ')}
+          </Text>
           <Text>Timestamp: {estimatedProperties.timestamp}</Text>
         </View>
       )}
