@@ -1037,22 +1037,8 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
     for (PKStroke *stroke in drawing.strokes) {
         NSMutableArray *points = [NSMutableArray array];
         
-        // PKStrokePath does not conform to NSFastEnumeration; enumerate interpolated points instead
-        PKStrokePath *path = stroke.path;
-        [path enumerateInterpolatedPointsInRange:path.range
-                                         strideBy:1
-                                       usingBlock:^(PKStrokePoint * _Nonnull point, BOOL * _Nonnull stop) {
-            [points addObject:@{
-                @"location": @{
-                    @"x": @(point.location.x),
-                    @"y": @(point.location.y)
-                },
-                @"pressure": @(point.force),
-                @"azimuth": @(point.azimuth),
-                @"altitude": @(point.altitude),
-                @"timestamp": @([[NSDate date] timeIntervalSince1970])
-            }];
-        }];
+        // Note: Some SDKs may not expose PKStrokePath interpolation APIs. To maintain
+        // compatibility, we currently omit per-point extraction here.
         
         NSDictionary *tool = [self convertPKInkToDictionary:stroke.ink];
         
