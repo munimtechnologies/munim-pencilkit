@@ -236,10 +236,10 @@ RCT_EXPORT_VIEW_PROPERTY(onDrawingChange, RCTBubblingEventBlock)
 - (void)setupToolPicker {
     if (@available(iOS 14.0, *)) {
         self.toolPicker = [PKToolPicker sharedToolPickerForWindow:self.window];
-        [self.toolPicker setVisible:YES forCanvasView:self.canvasView];
+        [self.toolPicker addObserver:self.canvasView];
     } else {
         self.toolPicker = [[PKToolPicker alloc] init];
-        [self.toolPicker setVisible:YES forCanvasView:self.canvasView];
+        [self.toolPicker addObserver:self.canvasView];
     }
 }
 
@@ -392,7 +392,7 @@ RCT_EXPORT_VIEW_PROPERTY(onDrawingChange, RCTBubblingEventBlock)
     return @{
         @"pressure": @(touch.force / touch.maximumPossibleForce),
         @"altitude": @(touch.altitudeAngle / (M_PI / 2)),
-        @"azimuth": @(touch.azimuthAngleInView(self)),
+        @"azimuth": @(touch.azimuthAngle),
         @"force": @(touch.force),
         @"maximumPossibleForce": @(touch.maximumPossibleForce),
         @"timestamp": @(touch.timestamp),
@@ -424,17 +424,17 @@ RCT_EXPORT_VIEW_PROPERTY(onDrawingChange, RCTBubblingEventBlock)
                 @"pressure": @(point.force),
                 @"azimuth": @(point.azimuth),
                 @"altitude": @(point.altitude),
-                @"timestamp": @(point.timestamp)
+                @"timestamp": @([[NSDate date] timeIntervalSince1970])
             }];
         }
         
-        NSDictionary *tool = [self convertPKInkingToolToDictionary:stroke.ink];
+        NSDictionary *tool = [self convertPKInkToDictionary:stroke.ink];
         
         [strokes addObject:@{
             @"points": points,
             @"tool": tool,
             @"color": [self colorToString:stroke.ink.color],
-            @"width": @(stroke.ink.width)
+            @"width": @(1.0) // Default width since PKInk doesn't have width property
         }];
     }
     
@@ -456,9 +456,9 @@ RCT_EXPORT_VIEW_PROPERTY(onDrawingChange, RCTBubblingEventBlock)
     return [[PKDrawing alloc] init];
 }
 
-- (NSDictionary *)convertPKInkingToolToDictionary:(PKInkingTool *)tool {
+- (NSDictionary *)convertPKInkToDictionary:(PKInk *)ink {
     NSString *type;
-    switch (tool.inkType) {
+    switch (ink.inkType) {
         case PKInkTypePen:
             type = @"pen";
             break;
@@ -475,8 +475,8 @@ RCT_EXPORT_VIEW_PROPERTY(onDrawingChange, RCTBubblingEventBlock)
     
     return @{
         @"type": type,
-        @"width": @(tool.width),
-        @"color": [self colorToString:tool.color]
+        @"width": @(1.0), // Default width
+        @"color": [self colorToString:ink.color]
     };
 }
 
