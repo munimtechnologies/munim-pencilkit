@@ -116,12 +116,10 @@ export interface Spec extends TurboModule {
   // PencilKit methods
   createPencilKitView(): Promise<number>;
   destroyPencilKitView(viewId: number): Promise<void>;
-  setPencilKitConfig(viewId: number, config: PencilKitConfig): Promise<void>;
-  getPencilKitDrawing(viewId: number): Promise<PencilKitDrawingData>;
-  setPencilKitDrawing(
-    viewId: number,
-    drawing: PencilKitDrawingData
-  ): Promise<void>;
+  // Use generic objects in the codegen spec to ensure NSDictionary* on iOS
+  setPencilKitConfig(viewId: number, config: Object): Promise<void>;
+  getPencilKitDrawing(viewId: number): Promise<Object>;
+  setPencilKitDrawing(viewId: number, drawing: Object): Promise<void>;
   clearPencilKitDrawing(viewId: number): Promise<void>;
   undoPencilKitDrawing(viewId: number): Promise<boolean>;
   redoPencilKitDrawing(viewId: number): Promise<boolean>;
