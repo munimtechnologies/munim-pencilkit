@@ -99,10 +99,7 @@ RCT_EXPORT_MODULE()
     });
 }
 
-// Alias with selector exactly matching RN Codegen expectation (case and labels)
-- (void)setPencilkitConfig:(double)viewId config:(NSDictionary *)config resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject {
-    [self setPencilKitConfig:viewId config:config resolve:resolve reject:reject];
-}
+
 
 - (void)getPencilKitDrawing:(double)viewId resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
     dispatch_async(dispatch_get_main_queue(), ^{
