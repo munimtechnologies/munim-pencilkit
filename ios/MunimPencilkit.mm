@@ -1038,8 +1038,10 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
         NSMutableArray *points = [NSMutableArray array];
         
         // PKStrokePath does not conform to NSFastEnumeration; enumerate interpolated points instead
-        NSArray<PKStrokePoint *> *interpPoints = stroke.path.interpolatedPoints;
-        for (PKStrokePoint *point in interpPoints) {
+        PKStrokePath *path = stroke.path;
+        [path enumerateInterpolatedPointsInRange:path.range
+                                         strideBy:1
+                                       usingBlock:^(PKStrokePoint * _Nonnull point, BOOL * _Nonnull stop) {
             [points addObject:@{
                 @"location": @{
                     @"x": @(point.location.x),
@@ -1050,7 +1052,7 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
                 @"altitude": @(point.altitude),
                 @"timestamp": @([[NSDate date] timeIntervalSince1970])
             }];
-        }
+        }];
         
         NSDictionary *tool = [self convertPKInkToDictionary:stroke.ink];
         
