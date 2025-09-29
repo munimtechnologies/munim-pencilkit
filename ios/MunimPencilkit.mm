@@ -60,7 +60,7 @@ RCT_EXPORT_MODULE()
 }
 
 // PencilKit View Management
-- (void)createPencilKitView:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject {
+- (void)createPencilKitView:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
     dispatch_async(dispatch_get_main_queue(), ^{
         static NSInteger nextViewId = 1;
         NSInteger viewId = nextViewId++;
@@ -72,7 +72,7 @@ RCT_EXPORT_MODULE()
     });
 }
 
-- (void)destroyPencilKitView:(double)viewId rejecter:(RCTPromiseRejectBlock)reject {
+- (void)destroyPencilKitView:(double)viewId reject:(RCTPromiseRejectBlock)reject {
     dispatch_async(dispatch_get_main_queue(), ^{
         NSNumber *viewIdNumber = @((NSInteger)viewId);
         PencilKitView *pencilKitView = pencilKitViews[viewIdNumber];
@@ -84,7 +84,7 @@ RCT_EXPORT_MODULE()
     });
 }
 
-- (void)setPencilKitConfig:(double)viewId config:(NSDictionary *)config rejecter:(RCTPromiseRejectBlock)reject {
+- (void)setPencilKitConfig:(double)viewId config:(NSDictionary *)config reject:(RCTPromiseRejectBlock)reject {
     dispatch_async(dispatch_get_main_queue(), ^{
         PencilKitView *pencilKitView = pencilKitViews[@((NSInteger)viewId)];
         if (pencilKitView) {
@@ -93,7 +93,7 @@ RCT_EXPORT_MODULE()
     });
 }
 
-- (void)getPencilKitDrawing:(double)viewId resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject {
+- (void)getPencilKitDrawing:(double)viewId resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
     dispatch_async(dispatch_get_main_queue(), ^{
         PencilKitView *pencilKitView = pencilKitViews[@((NSInteger)viewId)];
         if (pencilKitView) {
@@ -105,7 +105,7 @@ RCT_EXPORT_MODULE()
     });
 }
 
-- (void)setPencilKitDrawing:(double)viewId drawing:(NSDictionary *)drawing rejecter:(RCTPromiseRejectBlock)reject {
+- (void)setPencilKitDrawing:(double)viewId drawing:(NSDictionary *)drawing reject:(RCTPromiseRejectBlock)reject {
     dispatch_async(dispatch_get_main_queue(), ^{
         PencilKitView *pencilKitView = pencilKitViews[@((NSInteger)viewId)];
         if (pencilKitView) {
@@ -116,7 +116,7 @@ RCT_EXPORT_MODULE()
     });
 }
 
-- (void)clearPencilKitDrawing:(double)viewId rejecter:(RCTPromiseRejectBlock)reject {
+- (void)clearPencilKitDrawing:(double)viewId reject:(RCTPromiseRejectBlock)reject {
     dispatch_async(dispatch_get_main_queue(), ^{
         PencilKitView *pencilKitView = pencilKitViews[@((NSInteger)viewId)];
         if (pencilKitView) {
@@ -125,7 +125,7 @@ RCT_EXPORT_MODULE()
     });
 }
 
-- (void)undoPencilKitDrawing:(double)viewId resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject {
+- (void)undoPencilKitDrawing:(double)viewId resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
     dispatch_async(dispatch_get_main_queue(), ^{
         PencilKitView *pencilKitView = pencilKitViews[@((NSInteger)viewId)];
         if (pencilKitView) {
@@ -137,7 +137,7 @@ RCT_EXPORT_MODULE()
     });
 }
 
-- (void)redoPencilKitDrawing:(double)viewId resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject {
+- (void)redoPencilKitDrawing:(double)viewId resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
     dispatch_async(dispatch_get_main_queue(), ^{
         PencilKitView *pencilKitView = pencilKitViews[@((NSInteger)viewId)];
         if (pencilKitView) {
@@ -149,7 +149,7 @@ RCT_EXPORT_MODULE()
     });
 }
 
-- (void)canUndoPencilKitDrawing:(double)viewId resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject {
+- (void)canUndoPencilKitDrawing:(double)viewId resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
     dispatch_async(dispatch_get_main_queue(), ^{
         PencilKitView *pencilKitView = pencilKitViews[@((NSInteger)viewId)];
         if (pencilKitView) {
@@ -161,7 +161,7 @@ RCT_EXPORT_MODULE()
     });
 }
 
-- (void)canRedoPencilKitDrawing:(double)viewId resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject {
+- (void)canRedoPencilKitDrawing:(double)viewId resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
     dispatch_async(dispatch_get_main_queue(), ^{
         PencilKitView *pencilKitView = pencilKitViews[@((NSInteger)viewId)];
         if (pencilKitView) {
@@ -174,7 +174,7 @@ RCT_EXPORT_MODULE()
 }
 
 // Apple Pencil Data Capture
-- (void)startApplePencilDataCapture:(double)viewId rejecter:(RCTPromiseRejectBlock)reject {
+- (void)startApplePencilDataCapture:(double)viewId reject:(RCTPromiseRejectBlock)reject {
     dispatch_async(dispatch_get_main_queue(), ^{
         PencilKitView *pencilKitView = pencilKitViews[@((NSInteger)viewId)];
         if (pencilKitView) {
@@ -183,7 +183,7 @@ RCT_EXPORT_MODULE()
     });
 }
 
-- (void)stopApplePencilDataCapture:(double)viewId rejecter:(RCTPromiseRejectBlock)reject {
+- (void)stopApplePencilDataCapture:(double)viewId reject:(RCTPromiseRejectBlock)reject {
     dispatch_async(dispatch_get_main_queue(), ^{
         PencilKitView *pencilKitView = pencilKitViews[@((NSInteger)viewId)];
         if (pencilKitView) {
@@ -192,7 +192,7 @@ RCT_EXPORT_MODULE()
     });
 }
 
-- (void)isApplePencilDataCaptureActive:(double)viewId resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject {
+- (void)isApplePencilDataCaptureActive:(double)viewId resolve:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject {
     dispatch_async(dispatch_get_main_queue(), ^{
         PencilKitView *pencilKitView = pencilKitViews[@((NSInteger)viewId)];
         if (pencilKitView) {
