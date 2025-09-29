@@ -10,12 +10,15 @@ Pod::Spec.new do |s|
   s.license      = package["license"]
   s.authors      = package["author"]
 
-  s.platforms    = { :ios => min_ios_version_supported }
+  s.platforms    = { :ios => "13.0" }
   s.source       = { :git => "https://github.com/munimtechnologies/munim-pencilkit.git", :tag => "#{s.version}" }
 
   s.source_files = "ios/**/*.{h,m,mm,cpp}"
   s.private_header_files = "ios/**/*.h"
 
+  # PencilKit framework dependency
+  s.frameworks = "PencilKit"
+  s.ios.framework = "PencilKit"
 
   install_modules_dependencies(s)
 end
