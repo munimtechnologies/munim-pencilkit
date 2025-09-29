@@ -392,7 +392,7 @@ RCT_EXPORT_VIEW_PROPERTY(onDrawingChange, RCTBubblingEventBlock)
     return @{
         @"pressure": @(touch.force / touch.maximumPossibleForce),
         @"altitude": @(touch.altitudeAngle / (M_PI / 2)),
-        @"azimuth": @(touch.azimuthAngle),
+        @"azimuth": @(0.0), // Azimuth not available on UITouch
         @"force": @(touch.force),
         @"maximumPossibleForce": @(touch.maximumPossibleForce),
         @"timestamp": @(touch.timestamp),
@@ -457,20 +457,15 @@ RCT_EXPORT_VIEW_PROPERTY(onDrawingChange, RCTBubblingEventBlock)
 }
 
 - (NSDictionary *)convertPKInkToDictionary:(PKInk *)ink {
-    NSString *type;
-    switch (ink.inkType) {
-        case PKInkTypePen:
-            type = @"pen";
-            break;
-        case PKInkTypePencil:
-            type = @"pencil";
-            break;
-        case PKInkTypeMarker:
-            type = @"marker";
-            break;
-        default:
-            type = @"pen";
-            break;
+    NSString *type = @"pen"; // Default type
+    
+    // PKInkType is an enum, so we need to compare it properly
+    if (ink.inkType == PKInkTypePen) {
+        type = @"pen";
+    } else if (ink.inkType == PKInkTypePencil) {
+        type = @"pencil";
+    } else if (ink.inkType == PKInkTypeMarker) {
+        type = @"marker";
     }
     
     return @{
