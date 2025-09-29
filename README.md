@@ -99,6 +99,7 @@
 
 - 📊 **Pressure Sensitivity** - Full pressure detection with Apple's recommended curves
 - 🎯 **Tilt Detection** - Altitude and azimuth angle tracking
+- 🧭 **Azimuth Unit Vector** - Efficient azimuth direction vector for transforms
 - 🔄 **Coalesced Touches** - Optimized high-fidelity input for smooth drawing
 - 🔮 **Predicted Touches** - Latency compensation for responsive drawing
 - 📈 **Estimated Properties** - Real-time property refinement with `touchesEstimatedPropertiesUpdated`
@@ -245,6 +246,8 @@ export default function AdvancedDrawingScreen() {
           console.log('Advanced Apple Pencil Data:', {
             pressure: data.pressure,
             perpendicularForce: data.perpendicularForce,
+            azimuth: data.azimuth,
+            azimuthUnitVector: data.azimuthUnitVector,
             rollAngle: data.rollAngle,
             preciseLocation: data.preciseLocation,
             estimatedProperties: data.estimatedProperties,
@@ -374,6 +377,10 @@ interface ApplePencilData {
   pressure: number; // 0.0 to 1.0
   altitude: number; // 0.0 to 1.0
   azimuth: number; // 0.0 to 2π radians
+  azimuthUnitVector: {
+    x: number;
+    y: number;
+  }; // Unit vector pointing in azimuth direction
   force: number; // 0.0 to 1.0
   maximumPossibleForce: number;
   timestamp: number;
