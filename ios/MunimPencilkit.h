@@ -8,7 +8,7 @@
 #import <React/RCTUtils.h>
 #import <React/RCTEventEmitter.h>
 
-@interface MunimPencilkit : NSObject <NativeMunimPencilkitSpec>
+@interface MunimPencilkit : RCTEventEmitter <NativeMunimPencilkitSpec>
 
 @end
 

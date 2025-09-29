@@ -7,6 +7,8 @@
 
 // Global dictionary to store PencilKit views
 static NSMutableDictionary<NSNumber *, PencilKitView *> *pencilKitViews = nil;
+// Global reference to the MunimPencilkit instance for event sending
+static MunimPencilkit *munimPencilkitInstance = nil;
 
 @implementation MunimPencilkit
 RCT_EXPORT_MODULE()
@@ -28,10 +30,30 @@ RCT_EXPORT_MODULE()
     ];
 }
 
+- (void)addListener:(NSString *)eventName
+{
+    // RCTEventEmitter handles listener management automatically
+    // This method is called when a listener is added
+}
+
+- (void)removeListeners:(NSInteger)count
+{
+    // RCTEventEmitter handles listener management automatically
+    // This method is called when listeners are removed
+}
+
 + (void)initialize {
     if (self == [MunimPencilkit class]) {
         pencilKitViews = [[NSMutableDictionary alloc] init];
     }
+}
+
+- (instancetype)init {
+    self = [super init];
+    if (self) {
+        munimPencilkitInstance = self;
+    }
+    return self;
 }
 
 - (NSNumber *)multiply:(double)a b:(double)b {
@@ -184,36 +206,78 @@ RCT_EXPORT_MODULE()
     });
 }
 
-// Event sending methods
+// Event sending methods - now instance methods to access RCTEventEmitter
+- (void)sendApplePencilDataEvent:(NSDictionary *)data
+{
+    [self sendEventWithName:@"onApplePencilData" body:data];
+}
+
+- (void)sendDrawingChangeEvent:(NSDictionary *)data
+{
+    [self sendEventWithName:@"onPencilKitDrawingChange" body:data];
+}
+
+- (void)sendApplePencilCoalescedTouchesEvent:(NSDictionary *)data
+{
+    [self sendEventWithName:@"onApplePencilCoalescedTouches" body:data];
+}
+
+- (void)sendApplePencilPredictedTouchesEvent:(NSDictionary *)data
+{
+    [self sendEventWithName:@"onApplePencilPredictedTouches" body:data];
+}
+
+- (void)sendApplePencilEstimatedPropertiesEvent:(NSDictionary *)data
+{
+    [self sendEventWithName:@"onApplePencilEstimatedProperties" body:data];
+}
+
+- (void)sendApplePencilMotionEvent:(NSDictionary *)data
+{
+    [self sendEventWithName:@"onApplePencilMotion" body:data];
+}
+
+// Static methods to send events from PencilKitView
 + (void)sendApplePencilDataEvent:(NSDictionary *)data
 {
-    [[NSNotificationCenter defaultCenter] postNotificationName:@"MunimPencilkitApplePencilData" object:data];
+    if (munimPencilkitInstance) {
+        [munimPencilkitInstance sendApplePencilDataEvent:data];
+    }
 }
 
 + (void)sendDrawingChangeEvent:(NSDictionary *)data
 {
-    [[NSNotificationCenter defaultCenter] postNotificationName:@"MunimPencilkitDrawingChange" object:data];
+    if (munimPencilkitInstance) {
+        [munimPencilkitInstance sendDrawingChangeEvent:data];
+    }
 }
-
 
 + (void)sendApplePencilCoalescedTouchesEvent:(NSDictionary *)data
 {
-    [[NSNotificationCenter defaultCenter] postNotificationName:@"MunimPencilkitApplePencilCoalescedTouches" object:data];
+    if (munimPencilkitInstance) {
+        [munimPencilkitInstance sendApplePencilCoalescedTouchesEvent:data];
+    }
 }
 
 + (void)sendApplePencilPredictedTouchesEvent:(NSDictionary *)data
 {
-    [[NSNotificationCenter defaultCenter] postNotificationName:@"MunimPencilkitApplePencilPredictedTouches" object:data];
+    if (munimPencilkitInstance) {
+        [munimPencilkitInstance sendApplePencilPredictedTouchesEvent:data];
+    }
 }
 
 + (void)sendApplePencilEstimatedPropertiesEvent:(NSDictionary *)data
 {
-    [[NSNotificationCenter defaultCenter] postNotificationName:@"MunimPencilkitApplePencilEstimatedProperties" object:data];
+    if (munimPencilkitInstance) {
+        [munimPencilkitInstance sendApplePencilEstimatedPropertiesEvent:data];
+    }
 }
 
 + (void)sendApplePencilMotionEvent:(NSDictionary *)data
 {
-    [[NSNotificationCenter defaultCenter] postNotificationName:@"MunimPencilkitApplePencilMotion" object:data];
+    if (munimPencilkitInstance) {
+        [munimPencilkitInstance sendApplePencilMotionEvent:data];
+    }
 }
 
 
