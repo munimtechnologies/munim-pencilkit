@@ -20,6 +20,9 @@ import type {
   ApplePencilDoubleTapData,
   ApplePencilHoverData,
   ApplePencilCoalescedTouchesData,
+  ApplePencilPredictedTouchesData,
+  ApplePencilEstimatedPropertiesData,
+  ApplePencilPreferredSqueezeActionData,
 } from './NativeMunimPencilkit';
 
 // Create event emitter for the native module
@@ -51,7 +54,12 @@ export interface PencilKitViewProps {
   onApplePencilSqueeze?: (data: ApplePencilSqueezeData) => void;
   onApplePencilDoubleTap?: (data: ApplePencilDoubleTapData) => void;
   onApplePencilHover?: (data: ApplePencilHoverData) => void;
-  onApplePencilCoalescedTouches?: (data: ApplePencilCoalescedTouchesData) => void;
+  onApplePencilCoalescedTouches?: (
+    data: ApplePencilCoalescedTouchesData
+  ) => void;
+  onApplePencilPredictedTouches?: (data: ApplePencilPredictedTouchesData) => void;
+  onApplePencilEstimatedProperties?: (data: ApplePencilEstimatedPropertiesData) => void;
+  onApplePencilPreferredSqueezeAction?: (data: ApplePencilPreferredSqueezeActionData) => void;
   onViewReady?: (viewId: number) => void;
   enableApplePencilData?: boolean;
   enableToolPicker?: boolean;
@@ -85,6 +93,9 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
       onApplePencilDoubleTap,
       onApplePencilHover,
       onApplePencilCoalescedTouches,
+      onApplePencilPredictedTouches,
+      onApplePencilEstimatedProperties,
+      onApplePencilPreferredSqueezeAction,
       onViewReady,
       enableApplePencilData = false,
       enableToolPicker = true,
@@ -102,6 +113,9 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
     const doubleTapListenerRef = useRef<any>(null);
     const hoverListenerRef = useRef<any>(null);
     const coalescedTouchesListenerRef = useRef<any>(null);
+    const predictedTouchesListenerRef = useRef<any>(null);
+    const estimatedPropertiesListenerRef = useRef<any>(null);
+    const preferredSqueezeActionListenerRef = useRef<any>(null);
 
     // Initialize the PencilKit view
     useEffect(() => {
@@ -139,57 +153,85 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
     useEffect(() => {
       if (!viewId) return;
 
-        // Apple Pencil data listener
-        if (onApplePencilData && enableApplePencilData) {
-          applePencilListenerRef.current = eventEmitter.addListener(
-            'onApplePencilData',
-            (data: any) => onApplePencilData(data as ApplePencilData)
-          );
-        }
+      // Apple Pencil data listener
+      if (onApplePencilData && enableApplePencilData) {
+        applePencilListenerRef.current = eventEmitter.addListener(
+          'onApplePencilData',
+          (data: any) => onApplePencilData(data as ApplePencilData)
+        );
+      }
 
-        // Drawing change listener
-        if (onDrawingChange) {
-          drawingChangeListenerRef.current = eventEmitter.addListener(
-            'onPencilKitDrawingChange',
-            (event: any) => {
-              if (event.viewId === viewId) {
-                onDrawingChange(event.drawing as PencilKitDrawingData);
-              }
+      // Drawing change listener
+      if (onDrawingChange) {
+        drawingChangeListenerRef.current = eventEmitter.addListener(
+          'onPencilKitDrawingChange',
+          (event: any) => {
+            if (event.viewId === viewId) {
+              onDrawingChange(event.drawing as PencilKitDrawingData);
             }
-          );
-        }
+          }
+        );
+      }
 
-        // Apple Pencil Pro squeeze listener
-        if (onApplePencilSqueeze && enableSqueezeInteraction) {
-          squeezeListenerRef.current = eventEmitter.addListener(
-            'onApplePencilSqueeze',
-            (data: any) => onApplePencilSqueeze(data as ApplePencilSqueezeData)
-          );
-        }
+      // Apple Pencil Pro squeeze listener
+      if (onApplePencilSqueeze && enableSqueezeInteraction) {
+        squeezeListenerRef.current = eventEmitter.addListener(
+          'onApplePencilSqueeze',
+          (data: any) => onApplePencilSqueeze(data as ApplePencilSqueezeData)
+        );
+      }
 
-        // Apple Pencil Pro double tap listener
-        if (onApplePencilDoubleTap && enableDoubleTapInteraction) {
-          doubleTapListenerRef.current = eventEmitter.addListener(
-            'onApplePencilDoubleTap',
-            (data: any) => onApplePencilDoubleTap(data as ApplePencilDoubleTapData)
-          );
-        }
+      // Apple Pencil Pro double tap listener
+      if (onApplePencilDoubleTap && enableDoubleTapInteraction) {
+        doubleTapListenerRef.current = eventEmitter.addListener(
+          'onApplePencilDoubleTap',
+          (data: any) =>
+            onApplePencilDoubleTap(data as ApplePencilDoubleTapData)
+        );
+      }
 
-        // Apple Pencil Pro hover listener
-        if (onApplePencilHover && enableHoverSupport) {
-          hoverListenerRef.current = eventEmitter.addListener(
-            'onApplePencilHover',
-            (data: any) => onApplePencilHover(data as ApplePencilHoverData)
-          );
-        }
+      // Apple Pencil Pro hover listener
+      if (onApplePencilHover && enableHoverSupport) {
+        hoverListenerRef.current = eventEmitter.addListener(
+          'onApplePencilHover',
+          (data: any) => onApplePencilHover(data as ApplePencilHoverData)
+        );
+      }
 
-        // Apple Pencil Pro coalesced touches listener
-        if (onApplePencilCoalescedTouches && enableApplePencilData) {
-          coalescedTouchesListenerRef.current = eventEmitter.addListener(
-            'onApplePencilCoalescedTouches',
-            (data: any) => onApplePencilCoalescedTouches(data as ApplePencilCoalescedTouchesData)
-          );
-        }
+      // Apple Pencil Pro coalesced touches listener
+      if (onApplePencilCoalescedTouches && enableApplePencilData) {
+        coalescedTouchesListenerRef.current = eventEmitter.addListener(
+          'onApplePencilCoalescedTouches',
+          (data: any) =>
+            onApplePencilCoalescedTouches(
+              data as ApplePencilCoalescedTouchesData
+            )
+        );
+      }
+
+      // Apple Pencil Pro predicted touches listener
+      if (onApplePencilPredictedTouches && enableApplePencilData) {
+        predictedTouchesListenerRef.current = eventEmitter.addListener(
+          'onApplePencilPredictedTouches',
+          (data: any) => onApplePencilPredictedTouches(data as ApplePencilPredictedTouchesData)
+        );
+      }
+
+      // Apple Pencil Pro estimated properties listener
+      if (onApplePencilEstimatedProperties && enableApplePencilData) {
+        estimatedPropertiesListenerRef.current = eventEmitter.addListener(
+          'onApplePencilEstimatedProperties',
+          (data: any) => onApplePencilEstimatedProperties(data as ApplePencilEstimatedPropertiesData)
+        );
+      }
+
+      // Apple Pencil Pro preferred squeeze action listener
+      if (onApplePencilPreferredSqueezeAction && enableSqueezeInteraction) {
+        preferredSqueezeActionListenerRef.current = eventEmitter.addListener(
+          'onApplePencilPreferredSqueezeAction',
+          (data: any) => onApplePencilPreferredSqueezeAction(data as ApplePencilPreferredSqueezeActionData)
+        );
+      }
 
       return () => {
         applePencilListenerRef.current?.remove();
@@ -198,6 +240,9 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
         doubleTapListenerRef.current?.remove();
         hoverListenerRef.current?.remove();
         coalescedTouchesListenerRef.current?.remove();
+        predictedTouchesListenerRef.current?.remove();
+        estimatedPropertiesListenerRef.current?.remove();
+        preferredSqueezeActionListenerRef.current?.remove();
       };
     }, [
       viewId,
@@ -207,6 +252,9 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
       onApplePencilDoubleTap,
       onApplePencilHover,
       onApplePencilCoalescedTouches,
+      onApplePencilPredictedTouches,
+      onApplePencilEstimatedProperties,
+      onApplePencilPreferredSqueezeAction,
       enableApplePencilData,
       enableSqueezeInteraction,
       enableDoubleTapInteraction,

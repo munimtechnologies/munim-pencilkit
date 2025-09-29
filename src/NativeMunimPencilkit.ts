@@ -7,6 +7,8 @@ export interface ApplePencilData {
   azimuth: number; // 0.0 to 2π radians
   force: number; // 0.0 to 1.0
   maximumPossibleForce: number;
+  perpendicularForce: number; // Computed perpendicular force
+  rollAngle: number; // Barrel roll angle (Apple Pencil Pro)
   timestamp: number;
   location: {
     x: number;
@@ -16,8 +18,15 @@ export interface ApplePencilData {
     x: number;
     y: number;
   };
+  preciseLocation: {
+    x: number;
+    y: number;
+  };
   isApplePencil: boolean;
   phase: 'began' | 'moved' | 'ended' | 'cancelled';
+  hasPreciseLocation: boolean;
+  estimatedProperties: string[];
+  estimatedPropertiesExpectingUpdates: string[];
 }
 
 export interface ApplePencilSqueezeData {
@@ -50,6 +59,25 @@ export interface ApplePencilCoalescedTouchesData {
   viewId: number;
   touches: ApplePencilData[];
   timestamp: number;
+}
+
+export interface ApplePencilPredictedTouchesData {
+  viewId: number;
+  touches: ApplePencilData[];
+  timestamp: number;
+}
+
+export interface ApplePencilEstimatedPropertiesData {
+  viewId: number;
+  touchId: number;
+  updatedProperties: string[];
+  newData: ApplePencilData;
+  timestamp: number;
+}
+
+export interface ApplePencilPreferredSqueezeActionData {
+  preferredAction: 'ignore' | 'showContextualPalette' | 'switchPrevious' | 'runShortcut';
+  customAction?: string;
 }
 
 // PencilKit drawing data

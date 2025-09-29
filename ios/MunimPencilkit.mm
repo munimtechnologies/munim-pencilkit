@@ -24,7 +24,10 @@ RCT_EXPORT_MODULE()
         @"onApplePencilSqueeze",
         @"onApplePencilDoubleTap",
         @"onApplePencilHover",
-        @"onApplePencilCoalescedTouches"
+        @"onApplePencilCoalescedTouches",
+        @"onApplePencilPredictedTouches",
+        @"onApplePencilEstimatedProperties",
+        @"onApplePencilPreferredSqueezeAction"
     ];
 }
 
@@ -213,6 +216,21 @@ RCT_EXPORT_MODULE()
 + (void)sendApplePencilCoalescedTouchesEvent:(NSDictionary *)data
 {
     [[NSNotificationCenter defaultCenter] postNotificationName:@"MunimPencilkitApplePencilCoalescedTouches" object:data];
+}
+
++ (void)sendApplePencilPredictedTouchesEvent:(NSDictionary *)data
+{
+    [[NSNotificationCenter defaultCenter] postNotificationName:@"MunimPencilkitApplePencilPredictedTouches" object:data];
+}
+
++ (void)sendApplePencilEstimatedPropertiesEvent:(NSDictionary *)data
+{
+    [[NSNotificationCenter defaultCenter] postNotificationName:@"MunimPencilkitApplePencilEstimatedProperties" object:data];
+}
+
++ (void)sendApplePencilPreferredSqueezeActionEvent:(NSDictionary *)data
+{
+    [[NSNotificationCenter defaultCenter] postNotificationName:@"MunimPencilkitApplePencilPreferredSqueezeAction" object:data];
 }
 
 - (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:
@@ -419,16 +437,46 @@ RCT_EXPORT_VIEW_PROPERTY(enableHapticFeedback, BOOL)
     
     self.isSqueezeActive = (squeeze.phase == UIPencilInteractionPhaseBegan);
     
+    // Get preferred squeeze action
+    UIPencilPreferredAction preferredAction = interaction.preferredSqueezeAction;
+    NSString *preferredActionString;
+    switch (preferredAction) {
+        case UIPencilPreferredActionIgnore:
+            preferredActionString = @"ignore";
+            break;
+        case UIPencilPreferredActionShowContextualPalette:
+            preferredActionString = @"showContextualPalette";
+            break;
+        case UIPencilPreferredActionSwitchPrevious:
+            preferredActionString = @"switchPrevious";
+            break;
+        case UIPencilPreferredActionRunShortcut:
+            preferredActionString = @"runShortcut";
+            break;
+        default:
+            preferredActionString = @"ignore";
+            break;
+    }
+    
     NSDictionary *squeezeData = @{
         @"viewId": @(self.viewId),
         @"phase": squeeze.phase == UIPencilInteractionPhaseBegan ? @"began" : 
                  squeeze.phase == UIPencilInteractionPhaseChanged ? @"changed" : @"ended",
         @"value": @(squeeze.value),
         @"timestamp": @(squeeze.timestamp),
-        @"isActive": @(self.isSqueezeActive)
+        @"isActive": @(self.isSqueezeActive),
+        @"preferredAction": preferredActionString
     };
     
     [MunimPencilkit sendApplePencilSqueezeEvent:squeezeData];
+    
+    // Send preferred squeeze action event
+    NSDictionary *preferredActionData = @{
+        @"viewId": @(self.viewId),
+        @"preferredAction": preferredActionString,
+        @"timestamp": @(squeeze.timestamp)
+    };
+    [MunimPencilkit sendApplePencilPreferredSqueezeActionEvent:preferredActionData];
     
     // Trigger haptic feedback
     if (self.enableHapticFeedback && squeeze.phase == UIPencilInteractionPhaseBegan) {
@@ -523,6 +571,41 @@ RCT_EXPORT_VIEW_PROPERTY(enableHapticFeedback, BOOL)
                 
                 [MunimPencilkit sendApplePencilCoalescedTouchesEvent:coalescedTouchesData];
             }
+            
+            // Handle predicted touches for latency compensation
+            if (touch.predictedTouches && touch.predictedTouches.count > 0) {
+                NSMutableArray *predictedData = [[NSMutableArray alloc] init];
+                for (UITouch *predictedTouch in touch.predictedTouches) {
+                    NSDictionary *predictedTouchData = [self convertUITouchToApplePencilData:predictedTouch phase:phase];
+                    [predictedData addObject:predictedTouchData];
+                }
+                
+                NSDictionary *predictedTouchesData = @{
+                    @"viewId": @(self.viewId),
+                    @"touches": predictedData,
+                    @"timestamp": @(touch.timestamp)
+                };
+                
+                [MunimPencilkit sendApplePencilPredictedTouchesEvent:predictedTouchesData];
+            }
+            
+            // Handle estimated properties updates
+            if (touch.estimatedPropertiesExpectingUpdates && touch.estimatedPropertiesExpectingUpdates.count > 0) {
+                NSMutableArray *estimatedProperties = [[NSMutableArray alloc] init];
+                for (NSString *property in touch.estimatedPropertiesExpectingUpdates) {
+                    [estimatedProperties addObject:property];
+                }
+                
+                NSDictionary *estimatedPropertiesData = @{
+                    @"viewId": @(self.viewId),
+                    @"touchId": @(touch.hash),
+                    @"updatedProperties": estimatedProperties,
+                    @"newData": applePencilData,
+                    @"timestamp": @(touch.timestamp)
+                };
+                
+                [MunimPencilkit sendApplePencilEstimatedPropertiesEvent:estimatedPropertiesData];
+            }
         }
     }
 }
@@ -531,6 +614,7 @@ RCT_EXPORT_VIEW_PROPERTY(enableHapticFeedback, BOOL)
 - (NSDictionary *)convertUITouchToApplePencilData:(UITouch *)touch phase:(UITouchPhase)phase {
     CGPoint location = [touch locationInView:self];
     CGPoint previousLocation = [touch previousLocationInView:self];
+    CGPoint preciseLocation = [touch preciseLocationInView:self];
     
     NSString *phaseString;
     switch (phase) {
@@ -551,12 +635,47 @@ RCT_EXPORT_VIEW_PROPERTY(enableHapticFeedback, BOOL)
             break;
     }
     
+    // Compute perpendicular force (force * cos(altitudeAngle))
+    double perpendicularForce = touch.force * cos(touch.altitudeAngle);
+    
+    // Get estimated properties
+    NSMutableArray *estimatedProperties = [[NSMutableArray alloc] init];
+    if (touch.estimatedProperties & UITouchPropertyForce) {
+        [estimatedProperties addObject:@"force"];
+    }
+    if (touch.estimatedProperties & UITouchPropertyAzimuth) {
+        [estimatedProperties addObject:@"azimuth"];
+    }
+    if (touch.estimatedProperties & UITouchPropertyAltitude) {
+        [estimatedProperties addObject:@"altitude"];
+    }
+    if (touch.estimatedProperties & UITouchPropertyLocation) {
+        [estimatedProperties addObject:@"location"];
+    }
+    
+    // Get properties expecting updates
+    NSMutableArray *estimatedPropertiesExpectingUpdates = [[NSMutableArray alloc] init];
+    if (touch.estimatedPropertiesExpectingUpdates & UITouchPropertyForce) {
+        [estimatedPropertiesExpectingUpdates addObject:@"force"];
+    }
+    if (touch.estimatedPropertiesExpectingUpdates & UITouchPropertyAzimuth) {
+        [estimatedPropertiesExpectingUpdates addObject:@"azimuth"];
+    }
+    if (touch.estimatedPropertiesExpectingUpdates & UITouchPropertyAltitude) {
+        [estimatedPropertiesExpectingUpdates addObject:@"altitude"];
+    }
+    if (touch.estimatedPropertiesExpectingUpdates & UITouchPropertyLocation) {
+        [estimatedPropertiesExpectingUpdates addObject:@"location"];
+    }
+    
     return @{
         @"pressure": @(touch.force / touch.maximumPossibleForce),
         @"altitude": @(touch.altitudeAngle / (M_PI / 2)),
         @"azimuth": @(0.0), // Azimuth not available on UITouch
         @"force": @(touch.force),
         @"maximumPossibleForce": @(touch.maximumPossibleForce),
+        @"perpendicularForce": @(perpendicularForce),
+        @"rollAngle": @(touch.rollAngle), // Barrel roll (Apple Pencil Pro)
         @"timestamp": @(touch.timestamp),
         @"location": @{
             @"x": @(location.x),
@@ -566,8 +685,15 @@ RCT_EXPORT_VIEW_PROPERTY(enableHapticFeedback, BOOL)
             @"x": @(previousLocation.x),
             @"y": @(previousLocation.y)
         },
+        @"preciseLocation": @{
+            @"x": @(preciseLocation.x),
+            @"y": @(preciseLocation.y)
+        },
         @"isApplePencil": @(touch.type == UITouchTypePencil),
-        @"phase": phaseString
+        @"phase": phaseString,
+        @"hasPreciseLocation": @(touch.hasPreciseLocation),
+        @"estimatedProperties": estimatedProperties,
+        @"estimatedPropertiesExpectingUpdates": estimatedPropertiesExpectingUpdates
     };
 }
 

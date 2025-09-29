@@ -9,6 +9,9 @@ import type {
   ApplePencilDoubleTapData,
   ApplePencilHoverData,
   ApplePencilCoalescedTouchesData,
+  ApplePencilPredictedTouchesData,
+  ApplePencilEstimatedPropertiesData,
+  ApplePencilPreferredSqueezeActionData,
 } from './NativeMunimPencilkit';
 
 // Create event emitter for the native module
@@ -26,6 +29,9 @@ export type {
   ApplePencilDoubleTapData,
   ApplePencilHoverData,
   ApplePencilCoalescedTouchesData,
+  ApplePencilPredictedTouchesData,
+  ApplePencilEstimatedPropertiesData,
+  ApplePencilPreferredSqueezeActionData,
 } from './NativeMunimPencilkit';
 
 // Export the PencilKit view component
@@ -84,24 +90,52 @@ export const PencilKitUtils = {
     }),
   removeDrawingChangeListener: () =>
     eventEmitter.removeAllListeners('onPencilKitDrawingChange'),
-  
+
   // Apple Pencil Pro event listeners
-  addApplePencilSqueezeListener: (callback: (data: ApplePencilSqueezeData) => void) =>
-    eventEmitter.addListener('onApplePencilSqueeze', (data: any) => callback(data as ApplePencilSqueezeData)),
+  addApplePencilSqueezeListener: (
+    callback: (data: ApplePencilSqueezeData) => void
+  ) =>
+    eventEmitter.addListener('onApplePencilSqueeze', (data: any) =>
+      callback(data as ApplePencilSqueezeData)
+    ),
   removeApplePencilSqueezeListener: () =>
     eventEmitter.removeAllListeners('onApplePencilSqueeze'),
-  addApplePencilDoubleTapListener: (callback: (data: ApplePencilDoubleTapData) => void) =>
-    eventEmitter.addListener('onApplePencilDoubleTap', (data: any) => callback(data as ApplePencilDoubleTapData)),
+  addApplePencilDoubleTapListener: (
+    callback: (data: ApplePencilDoubleTapData) => void
+  ) =>
+    eventEmitter.addListener('onApplePencilDoubleTap', (data: any) =>
+      callback(data as ApplePencilDoubleTapData)
+    ),
   removeApplePencilDoubleTapListener: () =>
     eventEmitter.removeAllListeners('onApplePencilDoubleTap'),
-  addApplePencilHoverListener: (callback: (data: ApplePencilHoverData) => void) =>
-    eventEmitter.addListener('onApplePencilHover', (data: any) => callback(data as ApplePencilHoverData)),
+  addApplePencilHoverListener: (
+    callback: (data: ApplePencilHoverData) => void
+  ) =>
+    eventEmitter.addListener('onApplePencilHover', (data: any) =>
+      callback(data as ApplePencilHoverData)
+    ),
   removeApplePencilHoverListener: () =>
     eventEmitter.removeAllListeners('onApplePencilHover'),
-  addApplePencilCoalescedTouchesListener: (callback: (data: ApplePencilCoalescedTouchesData) => void) =>
-    eventEmitter.addListener('onApplePencilCoalescedTouches', (data: any) => callback(data as ApplePencilCoalescedTouchesData)),
+  addApplePencilCoalescedTouchesListener: (
+    callback: (data: ApplePencilCoalescedTouchesData) => void
+  ) =>
+    eventEmitter.addListener('onApplePencilCoalescedTouches', (data: any) =>
+      callback(data as ApplePencilCoalescedTouchesData)
+    ),
   removeApplePencilCoalescedTouchesListener: () =>
     eventEmitter.removeAllListeners('onApplePencilCoalescedTouches'),
+  addApplePencilPredictedTouchesListener: (callback: (data: ApplePencilPredictedTouchesData) => void) =>
+    eventEmitter.addListener('onApplePencilPredictedTouches', (data: any) => callback(data as ApplePencilPredictedTouchesData)),
+  removeApplePencilPredictedTouchesListener: () =>
+    eventEmitter.removeAllListeners('onApplePencilPredictedTouches'),
+  addApplePencilEstimatedPropertiesListener: (callback: (data: ApplePencilEstimatedPropertiesData) => void) =>
+    eventEmitter.addListener('onApplePencilEstimatedProperties', (data: any) => callback(data as ApplePencilEstimatedPropertiesData)),
+  removeApplePencilEstimatedPropertiesListener: () =>
+    eventEmitter.removeAllListeners('onApplePencilEstimatedProperties'),
+  addApplePencilPreferredSqueezeActionListener: (callback: (data: ApplePencilPreferredSqueezeActionData) => void) =>
+    eventEmitter.addListener('onApplePencilPreferredSqueezeAction', (data: any) => callback(data as ApplePencilPreferredSqueezeActionData)),
+  removeApplePencilPreferredSqueezeActionListener: () =>
+    eventEmitter.removeAllListeners('onApplePencilPreferredSqueezeAction'),
 };
 
 // Default export
