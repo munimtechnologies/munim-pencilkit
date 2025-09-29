@@ -152,7 +152,6 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
         );
       }
 
-
       // Apple Pencil Pro coalesced touches listener
       if (onApplePencilCoalescedTouches && enableApplePencilData) {
         coalescedTouchesListenerRef.current = eventEmitter.addListener(
@@ -185,7 +184,6 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
             )
         );
       }
-
 
       return () => {
         applePencilListenerRef.current?.remove();
