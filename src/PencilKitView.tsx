@@ -18,6 +18,9 @@ import type {
   PencilKitConfig,
 } from './NativeMunimPencilkit';
 
+// Create event emitter for the native module
+const eventEmitter = new NativeEventEmitter(NativeModules.MunimPencilkit);
+
 const { MunimPencilkit } = NativeModules;
 
 // Native component interface
@@ -31,9 +34,6 @@ interface PencilKitNativeViewProps {
 // Native component
 const PencilKitNativeView =
   requireNativeComponent<PencilKitNativeViewProps>('PencilKitView');
-
-// Event emitter for native events
-const eventEmitter = new NativeEventEmitter(MunimPencilkit);
 
 export interface PencilKitViewProps {
   style?: ViewStyle;

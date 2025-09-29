@@ -23,8 +23,7 @@
 @property (nonatomic, assign) BOOL enableToolPicker;
 @property (nonatomic, strong) PKCanvasView *canvasView;
 @property (nonatomic, strong) PKToolPicker *toolPicker;
-@property (nonatomic, copy) RCTBubblingEventBlock onApplePencilData;
-@property (nonatomic, copy) RCTBubblingEventBlock onDrawingChange;
+// Remove RCTBubblingEventBlock properties - we'll use NativeEventEmitter instead
 
 - (instancetype)initWithViewId:(NSInteger)viewId;
 - (void)updateConfig:(NSDictionary *)config;

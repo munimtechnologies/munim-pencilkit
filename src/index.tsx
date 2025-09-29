@@ -1,10 +1,14 @@
 import MunimPencilkit from './NativeMunimPencilkit';
 import { PencilKitView } from './PencilKitView';
+import { NativeEventEmitter, NativeModules } from 'react-native';
 import type {
   ApplePencilData,
   PencilKitDrawingData,
   PencilKitConfig,
 } from './NativeMunimPencilkit';
+
+// Create event emitter for the native module
+const eventEmitter = new NativeEventEmitter(NativeModules.MunimPencilkit);
 
 // Export all interfaces
 export type {
@@ -57,14 +61,18 @@ export const PencilKitUtils = {
 
   // Event listeners
   addApplePencilListener: (callback: (data: ApplePencilData) => void) =>
-    MunimPencilkit.addApplePencilDataListener(callback),
+    eventEmitter.addListener('onApplePencilData', (data: any) => callback(data as ApplePencilData)),
   removeApplePencilListener: () =>
-    MunimPencilkit.removeApplePencilDataListener(),
+    eventEmitter.removeAllListeners('onApplePencilData'),
   addDrawingChangeListener: (
     callback: (viewId: number, drawing: PencilKitDrawingData) => void
-  ) => MunimPencilkit.addPencilKitDrawingChangeListener(callback),
+  ) => eventEmitter.addListener('onPencilKitDrawingChange', (event: any) => {
+    if (event.viewId && event.drawing) {
+      callback(event.viewId, event.drawing as PencilKitDrawingData);
+    }
+  }),
   removeDrawingChangeListener: () =>
-    MunimPencilkit.removePencilKitDrawingChangeListener(),
+    eventEmitter.removeAllListeners('onPencilKitDrawingChange'),
 };
 
 // Default export

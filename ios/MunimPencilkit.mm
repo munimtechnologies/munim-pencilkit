@@ -3,12 +3,23 @@
 #import <React/RCTUIManager.h>
 #import <React/RCTEventDispatcher.h>
 #import <React/RCTUtils.h>
+#import <React/RCTEventEmitter.h>
 
 // Global dictionary to store PencilKit views
 static NSMutableDictionary<NSNumber *, PencilKitView *> *pencilKitViews = nil;
 
 @implementation MunimPencilkit
 RCT_EXPORT_MODULE()
+
++ (BOOL)requiresMainQueueSetup
+{
+    return YES;
+}
+
+- (NSArray<NSString *> *)supportedEvents
+{
+    return @[@"onApplePencilData", @"onPencilKitDrawingChange"];
+}
 
 + (void)initialize {
     if (self == [MunimPencilkit class]) {
@@ -166,6 +177,17 @@ RCT_EXPORT_MODULE()
     });
 }
 
+// Event sending methods
++ (void)sendApplePencilDataEvent:(NSDictionary *)data
+{
+    [[NSNotificationCenter defaultCenter] postNotificationName:@"MunimPencilkitApplePencilData" object:data];
+}
+
++ (void)sendDrawingChangeEvent:(NSDictionary *)data
+{
+    [[NSNotificationCenter defaultCenter] postNotificationName:@"MunimPencilkitDrawingChange" object:data];
+}
+
 - (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:
     (const facebook::react::ObjCTurboModule::InitParams &)params
 {
@@ -182,8 +204,6 @@ RCT_EXPORT_MODULE(PencilKitView)
 RCT_EXPORT_VIEW_PROPERTY(viewId, NSInteger)
 RCT_EXPORT_VIEW_PROPERTY(enableApplePencilData, BOOL)
 RCT_EXPORT_VIEW_PROPERTY(enableToolPicker, BOOL)
-RCT_EXPORT_VIEW_PROPERTY(onApplePencilData, RCTBubblingEventBlock)
-RCT_EXPORT_VIEW_PROPERTY(onDrawingChange, RCTBubblingEventBlock)
 
 - (UIView *)view {
     return [[PencilKitView alloc] initWithViewId:0];
@@ -320,13 +340,11 @@ RCT_EXPORT_VIEW_PROPERTY(onDrawingChange, RCTBubblingEventBlock)
 
 // PKCanvasViewDelegate
 - (void)canvasViewDrawingDidChange:(PKCanvasView *)canvasView {
-    if (self.onDrawingChange) {
-        NSDictionary *drawing = [self convertPKDrawingToDictionary:canvasView.drawing];
-        self.onDrawingChange(@{
-            @"viewId": @(self.viewId),
-            @"drawing": drawing
-        });
-    }
+    NSDictionary *drawing = [self convertPKDrawingToDictionary:canvasView.drawing];
+    [MunimPencilkit sendDrawingChangeEvent:@{
+        @"viewId": @(self.viewId),
+        @"drawing": drawing
+    }];
 }
 
 // Touch handling for Apple Pencil data
@@ -358,9 +376,7 @@ RCT_EXPORT_VIEW_PROPERTY(onDrawingChange, RCTBubblingEventBlock)
     for (UITouch *touch in touches) {
         if (touch.type == UITouchTypePencil || touch.type == UITouchTypeStylus) {
             NSDictionary *applePencilData = [self convertUITouchToApplePencilData:touch phase:phase];
-            if (self.onApplePencilData) {
-                self.onApplePencilData(applePencilData);
-            }
+            [MunimPencilkit sendApplePencilDataEvent:applePencilData];
         }
     }
 }
