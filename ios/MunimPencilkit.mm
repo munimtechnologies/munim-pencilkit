@@ -32,14 +32,12 @@ RCT_EXPORT_MODULE()
 
 - (void)addListener:(NSString *)eventName
 {
-    // RCTEventEmitter handles listener management automatically
-    // This method is called when a listener is added
+    [super addListener:eventName];
 }
 
 - (void)removeListeners:(NSInteger)count
 {
-    // RCTEventEmitter handles listener management automatically
-    // This method is called when listeners are removed
+    [super removeListeners:count];
 }
 
 + (void)initialize {
