@@ -1037,7 +1037,9 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
     for (PKStroke *stroke in drawing.strokes) {
         NSMutableArray *points = [NSMutableArray array];
         
-        for (PKStrokePoint *point in stroke.path) {
+        // PKStrokePath does not conform to NSFastEnumeration; enumerate interpolated points instead
+        NSArray<PKStrokePoint *> *interpPoints = stroke.path.interpolatedPoints;
+        for (PKStrokePoint *point in interpPoints) {
             [points addObject:@{
                 @"location": @{
                     @"x": @(point.location.x),
