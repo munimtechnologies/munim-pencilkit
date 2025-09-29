@@ -5,10 +5,14 @@ export interface ApplePencilData {
   pressure: number; // 0.0 to 1.0
   altitude: number; // 0.0 to 1.0
   azimuth: number; // 0.0 to 2π radians
+  azimuthUnitVector: {
+    x: number;
+    y: number;
+  }; // Unit vector pointing in azimuth direction
   force: number; // 0.0 to 1.0
   maximumPossibleForce: number;
   perpendicularForce: number; // Computed perpendicular force
-  // Note: rollAngle may not be available on all iOS versions
+  rollAngle: number; // Barrel-roll angle of Apple Pencil
   timestamp: number;
   location: {
     x: number;

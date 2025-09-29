@@ -633,11 +633,15 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
     return @{
         @"pressure": @(curvedPressure),
         @"altitude": @(touch.altitudeAngle / (M_PI / 2)),
-        @"azimuth": @([touch azimuthAngleInView:self]), // Azimuth angle in view
+        @"azimuth": @([touch azimuthAngleInView:self]), // Azimuth angle method
+        @"azimuthUnitVector": @{
+            @"x": @([touch azimuthUnitVectorInView:self].dx),
+            @"y": @([touch azimuthUnitVectorInView:self].dy)
+        }, // Azimuth unit vector
         @"force": @(touch.force),
         @"maximumPossibleForce": @(touch.maximumPossibleForce),
         @"perpendicularForce": @(perpendicularForce),
-        // Note: rollAngle may not be available on all iOS versions
+        @"rollAngle": @(touch.rollAngle), // Barrel-roll angle of Apple Pencil
         @"timestamp": @(touch.timestamp),
         @"location": @{
             @"x": @(location.x),
