@@ -63,6 +63,14 @@ export interface ApplePencilMotionData {
   timestamp: number;
 }
 
+export interface ApplePencilHoverData {
+  viewId: number;
+  location: { x: number; y: number };
+  altitude: number; // radians
+  azimuth: { x: number; y: number }; // unit vector
+  timestamp: number;
+}
+
 // PencilKit drawing data
 export interface PencilKitDrawingData {
   strokes: PencilKitStroke[];

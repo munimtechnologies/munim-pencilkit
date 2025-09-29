@@ -20,12 +20,14 @@ import type {
   ApplePencilPredictedTouchesData,
   ApplePencilEstimatedPropertiesData,
   ApplePencilMotionData,
+  ApplePencilHoverData,
 } from './NativeMunimPencilkit';
 
 // Create event emitter for the native module
 const eventEmitter = new NativeEventEmitter(NativeModules.MunimPencilkit);
 
 const { MunimPencilkit } = NativeModules;
+const createdIdRef: { current: number | null } = { current: null };
 
 // Native component interface
 interface PencilKitNativeViewProps {
@@ -57,6 +59,7 @@ export interface PencilKitViewProps {
   ) => void;
   onApplePencilMotion?: (data: ApplePencilMotionData) => void;
   onViewReady?: (viewId: number) => void;
+  onApplePencilHover?: (data: ApplePencilHoverData) => void;
   enableApplePencilData?: boolean;
   enableToolPicker?: boolean;
   enableHapticFeedback?: boolean;
@@ -87,6 +90,7 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
       onApplePencilPredictedTouches,
       onApplePencilEstimatedProperties,
       onApplePencilMotion,
+      onApplePencilHover,
       onViewReady,
       enableApplePencilData = false,
       enableToolPicker = true,
@@ -102,23 +106,19 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
     const predictedTouchesListenerRef = useRef<any>(null);
     const estimatedPropertiesListenerRef = useRef<any>(null);
     const motionListenerRef = useRef<any>(null);
+    const hoverListenerRef = useRef<any>(null);
 
-    // Initialize the PencilKit view
+    // Initialize the PencilKit view once
     useEffect(() => {
       let isMounted = true;
 
       const initializeView = async () => {
         try {
           const id = await MunimPencilkit.createPencilKitView();
-          if (isMounted) {
-            setViewId(id);
-            onViewReady?.(id);
-
-            // Apply initial config if provided
-            if (config) {
-              await MunimPencilkit.setPencilKitConfig(id, config);
-            }
-          }
+          if (!isMounted) return;
+          setViewId(id);
+          // Cleanup will destroy this specific id without depending on state
+          createdIdRef.current = id;
         } catch (error) {
           console.error('Failed to create PencilKit view:', error);
         }
@@ -128,11 +128,19 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
 
       return () => {
         isMounted = false;
-        if (viewId) {
-          MunimPencilkit.destroyPencilKitView(viewId).catch(console.error);
+        const id = createdIdRef.current;
+        if (id) {
+          MunimPencilkit.destroyPencilKitView(id).catch(console.error);
         }
       };
     }, []);
+
+    // Notify when viewId is ready
+    useEffect(() => {
+      if (viewId && onViewReady) {
+        onViewReady(viewId);
+      }
+    }, [viewId, onViewReady]);
 
     // Set up event listeners
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -200,6 +208,14 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
         );
       }
 
+      // Apple Pencil hover listener (iPadOS 16+; emitted from native)
+      if (onApplePencilHover) {
+        hoverListenerRef.current = eventEmitter.addListener(
+          'onApplePencilHover',
+          (data: any) => onApplePencilHover(data as ApplePencilHoverData)
+        );
+      }
+
       return () => {
         applePencilListenerRef.current?.remove();
         drawingChangeListenerRef.current?.remove();
@@ -207,6 +223,7 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
         predictedTouchesListenerRef.current?.remove();
         estimatedPropertiesListenerRef.current?.remove();
         motionListenerRef.current?.remove();
+        hoverListenerRef.current?.remove();
       };
     }, [
       viewId,
@@ -216,6 +233,7 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
       onApplePencilPredictedTouches,
       onApplePencilEstimatedProperties,
       onApplePencilMotion,
+      onApplePencilHover,
       enableApplePencilData,
       enableHapticFeedback,
       enableMotionTracking,

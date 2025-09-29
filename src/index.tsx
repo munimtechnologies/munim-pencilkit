@@ -9,6 +9,7 @@ import type {
   ApplePencilPredictedTouchesData,
   ApplePencilEstimatedPropertiesData,
   ApplePencilMotionData,
+  ApplePencilHoverData,
 } from './NativeMunimPencilkit';
 
 // Create event emitter for the native module
@@ -26,6 +27,7 @@ export type {
   ApplePencilPredictedTouchesData,
   ApplePencilEstimatedPropertiesData,
   ApplePencilMotionData,
+  ApplePencilHoverData,
 } from './NativeMunimPencilkit';
 
 // Export the PencilKit view component
@@ -109,12 +111,23 @@ export const PencilKitUtils = {
     ),
   removeApplePencilEstimatedPropertiesListener: () =>
     eventEmitter.removeAllListeners('onApplePencilEstimatedProperties'),
-  addApplePencilMotionListener: (callback: (data: ApplePencilMotionData) => void) =>
+  addApplePencilMotionListener: (
+    callback: (data: ApplePencilMotionData) => void
+  ) =>
     eventEmitter.addListener('onApplePencilMotion', (data: any) =>
       callback(data as ApplePencilMotionData)
     ),
   removeApplePencilMotionListener: () =>
     eventEmitter.removeAllListeners('onApplePencilMotion'),
+
+  addApplePencilHoverListener: (
+    callback: (data: ApplePencilHoverData) => void
+  ) =>
+    eventEmitter.addListener('onApplePencilHover', (data: any) =>
+      callback(data as ApplePencilHoverData)
+    ),
+  removeApplePencilHoverListener: () =>
+    eventEmitter.removeAllListeners('onApplePencilHover'),
 };
 
 // Default export

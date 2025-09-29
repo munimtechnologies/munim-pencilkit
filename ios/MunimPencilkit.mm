@@ -26,7 +26,8 @@ RCT_EXPORT_MODULE()
         @"onApplePencilCoalescedTouches",
         @"onApplePencilPredictedTouches",
         @"onApplePencilEstimatedProperties",
-        @"onApplePencilMotion"
+        @"onApplePencilMotion",
+        @"onApplePencilHover"
     ];
 }
 
@@ -253,6 +254,11 @@ RCT_EXPORT_MODULE()
     [self sendEventWithName:@"onApplePencilMotion" body:data];
 }
 
+- (void)sendApplePencilHoverEvent:(NSDictionary *)data
+{
+    [self sendEventWithName:@"onApplePencilHover" body:data];
+}
+
 // Static methods to send events from PencilKitView
 + (void)sendApplePencilDataEvent:(NSDictionary *)data
 {
@@ -293,6 +299,13 @@ RCT_EXPORT_MODULE()
 {
     if (munimPencilkitInstance) {
         [munimPencilkitInstance sendApplePencilMotionEvent:data];
+    }
+}
+
++ (void)sendApplePencilHoverEvent:(NSDictionary *)data
+{
+    if (munimPencilkitInstance) {
+        [munimPencilkitInstance sendApplePencilHoverEvent:data];
     }
 }
 
@@ -349,6 +362,31 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
     return self;
 }
 
+// Hover handling (iPadOS 16+)
+- (void)handleHover:(UIHoverGestureRecognizer *)recognizer {
+    if (@available(iPadOS 16.0, *)) {
+        // Attempt to access UIPencilHoverPose via KVC if available
+        id pose = [recognizer valueForKey:@"pencilHoverPose"];
+        if (pose) {
+            CGPoint location = [[pose valueForKey:@"location"] CGPointValue];
+            NSNumber *altitude = [pose valueForKey:@"altitude"];
+            NSValue *azimuthVectorValue = [pose valueForKey:@"azimuth"];
+            CGPoint azimuthVector = CGPointZero;
+            if (azimuthVectorValue) {
+                azimuthVector = [azimuthVectorValue CGPointValue];
+            }
+            NSDictionary *hoverData = @{
+                @"viewId": @(self.viewId),
+                @"location": @{ @"x": @(location.x), @"y": @(location.y) },
+                @"altitude": altitude ?: @(0),
+                @"azimuth": @{ @"x": @(azimuthVector.x), @"y": @(azimuthVector.y) },
+                @"timestamp": @([[NSDate date] timeIntervalSince1970])
+            };
+            [MunimPencilkit sendApplePencilHoverEvent:hoverData];
+        }
+    }
+}
+
 - (void)setupPencilKitView {
     // Create PKCanvasView
     self.canvasView = [[PKCanvasView alloc] init];
@@ -373,6 +411,11 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
         [self setupToolPicker];
     }
     
+    // Add hover recognizer on iPadOS 16+
+    if (@available(iPadOS 16.0, *)) {
+        UIHoverGestureRecognizer *hoverRecognizer = [[UIHoverGestureRecognizer alloc] initWithTarget:self action:@selector(handleHover:)];
+        [self.canvasView addGestureRecognizer:hoverRecognizer];
+    }
 }
 
 - (void)setupToolPicker {
