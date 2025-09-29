@@ -113,14 +113,14 @@ For iOS, add PencilKit framework to your project:
 3. Go to "Build Phases" → "Link Binary With Libraries"
 4. Add `PencilKit.framework`
 
-**For Expo projects**, add the PencilKit framework to your `app.json`:
+**For Expo projects**, PencilKit framework is automatically included. However, you need to add the following permissions to your `app.json`:
 
 ```json
 {
   "expo": {
     "ios": {
       "infoPlist": {
-        "UILaunchStoryboardName": "LaunchScreen"
+        "NSApplePencilUsageDescription": "This app uses Apple Pencil for drawing and note-taking"
       }
     }
   }
@@ -143,7 +143,7 @@ export default function DrawingScreen() {
     allowsFingerDrawing: true,
     allowsPencilOnlyDrawing: false,
     isRulerActive: false,
-    drawingPolicy: 'default'
+    drawingPolicy: 'default',
   };
 
   return (
@@ -325,7 +325,7 @@ const ProfessionalDrawingApp = () => {
     allowsFingerDrawing: false,
     allowsPencilOnlyDrawing: true,
     isRulerActive: true,
-    drawingPolicy: 'pencilOnly'
+    drawingPolicy: 'pencilOnly',
   };
 
   const handleSave = async () => {
@@ -406,8 +406,13 @@ const DataCollectionApp = () => {
           <Text>Altitude: {pencilData.altitude.toFixed(3)}</Text>
           <Text>Azimuth: {pencilData.azimuth.toFixed(3)}</Text>
           <Text>Force: {pencilData.force.toFixed(3)}</Text>
-          <Text>Location: ({pencilData.location.x.toFixed(1)}, {pencilData.location.y.toFixed(1)})</Text>
-          <Text>Is Apple Pencil: {pencilData.isApplePencil ? 'Yes' : 'No'}</Text>
+          <Text>
+            Location: ({pencilData.location.x.toFixed(1)},{' '}
+            {pencilData.location.y.toFixed(1)})
+          </Text>
+          <Text>
+            Is Apple Pencil: {pencilData.isApplePencil ? 'Yes' : 'No'}
+          </Text>
           <Text>Phase: {pencilData.phase}</Text>
         </View>
       )}
@@ -447,7 +452,7 @@ const CustomToolsApp = () => {
     allowsFingerDrawing: true,
     allowsPencilOnlyDrawing: false,
     isRulerActive: false,
-    drawingPolicy: 'anyInput'
+    drawingPolicy: 'anyInput',
   };
 
   const handleUndo = async () => {
