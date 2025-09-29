@@ -1,6 +1,6 @@
 {
   "name": "munim-pencilkit",
-  "version": "1.11.2",
+  "version": "1.11.3",
   "description": "Pencilkit for react native",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
