@@ -97,14 +97,16 @@
 
 ### Apple Pencil Advanced Features
 
-- 📊 **Pressure Sensitivity** - Full pressure detection and mapping
+- 📊 **Pressure Sensitivity** - Full pressure detection with Apple's recommended curves
 - 🎯 **Tilt Detection** - Altitude and azimuth angle tracking
-- 🔄 **Coalesced Touches** - High-fidelity input for smooth drawing
+- 🔄 **Coalesced Touches** - Optimized high-fidelity input for smooth drawing
 - 🔮 **Predicted Touches** - Latency compensation for responsive drawing
-- 📈 **Estimated Properties** - Track and handle property refinements
+- 📈 **Estimated Properties** - Real-time property refinement with `touchesEstimatedPropertiesUpdated`
 - 📱 **Haptic Feedback** - Tactile responses for interactions
 - 🎢 **Motion Tracking** - Core Motion gyroscope data for barrel roll detection
 - 🧭 **Device Orientation** - Roll, pitch, and yaw angle tracking
+- ⚡ **Velocity & Acceleration** - Real-time stroke velocity and acceleration tracking
+- 📐 **Stroke Analysis** - Advanced stroke smoothness and consistency analysis
 
 ### Advanced Capabilities
 
@@ -113,6 +115,9 @@
 - 🎨 **Custom Brush Logic** - Advanced brush behavior based on sensor data
 - 🔧 **Dynamic Updates** - Update drawing configuration while active
 - 📱 **Cross-Platform** - Works on all iOS devices with Apple Pencil support
+- 📐 **Stroke Analysis** - Real-time stroke smoothness, consistency, and quality metrics
+- ⚡ **Performance Optimized** - Apple's recommended coalesced touches handling
+- 🎯 **Pressure Curves** - Natural pressure response using Apple's recommended algorithms
 
 ## 📦 Installation
 

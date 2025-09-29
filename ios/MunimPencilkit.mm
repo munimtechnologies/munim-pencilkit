@@ -260,6 +260,10 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
         _lastRollAngle = 0.0;
         _lastPitchAngle = 0.0;
         _lastYawAngle = 0.0;
+        _lastTouchLocation = CGPointZero;
+        _lastTouchTimestamp = 0.0;
+        _lastVelocity = 0.0;
+        _lastAcceleration = 0.0;
         [self setupPencilKitView];
     }
     return self;
@@ -467,6 +471,22 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
     [self handleTouches:touches phase:UITouchPhaseCancelled];
 }
 
+- (void)touchesEstimatedPropertiesUpdated:(NSSet<UITouch *> *)touches {
+    [super touchesEstimatedPropertiesUpdated:touches];
+    
+    if (!_isApplePencilDataCaptureActive || !self.enableApplePencilData) {
+        return;
+    }
+    
+    for (UITouch *touch in touches) {
+        if (touch.type == UITouchTypePencil || touch.type == UITouchTypeStylus) {
+            // Send updated properties event
+            NSDictionary *updatedPropertiesData = [self convertUITouchToEstimatedPropertiesData:touch];
+            [MunimPencilkit sendApplePencilEstimatedPropertiesEvent:updatedPropertiesData];
+        }
+    }
+}
+
 - (void)handleTouches:(NSSet<UITouch *> *)touches phase:(UITouchPhase)phase {
     if (!_isApplePencilDataCaptureActive || !self.enableApplePencilData) {
         return;
@@ -477,21 +497,9 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
             NSDictionary *applePencilData = [self convertUITouchToApplePencilData:touch phase:phase];
             [MunimPencilkit sendApplePencilDataEvent:applePencilData];
             
-            // Handle coalesced touches for high-fidelity input
+            // Handle coalesced touches for high-fidelity input (optimized)
             if (touch.coalescedTouches && touch.coalescedTouches.count > 0) {
-                NSMutableArray *coalescedData = [[NSMutableArray alloc] init];
-                for (UITouch *coalescedTouch in touch.coalescedTouches) {
-                    NSDictionary *coalescedTouchData = [self convertUITouchToApplePencilData:coalescedTouch phase:phase];
-                    [coalescedData addObject:coalescedTouchData];
-                }
-                
-                NSDictionary *coalescedTouchesData = @{
-                    @"viewId": @(self.viewId),
-                    @"touches": coalescedData,
-                    @"timestamp": @(touch.timestamp)
-                };
-                
-                [MunimPencilkit sendApplePencilCoalescedTouchesEvent:coalescedTouchesData];
+                [self processCoalescedTouches:touch.coalescedTouches phase:phase];
             }
             
             // Handle predicted touches for latency compensation
@@ -560,6 +568,10 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
     // Compute perpendicular force (force * cos(altitudeAngle))
     double perpendicularForce = touch.force * cos(touch.altitudeAngle);
     
+    // Apply pressure curve (Apple's recommended approach)
+    double pressure = touch.force / touch.maximumPossibleForce;
+    double curvedPressure = [self applyPressureCurve:pressure];
+    
     // Get estimated properties
     NSMutableArray *estimatedProperties = [[NSMutableArray alloc] init];
     if (touch.estimatedProperties & UITouchPropertyForce) {
@@ -590,8 +602,36 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
         [estimatedPropertiesExpectingUpdates addObject:@"location"];
     }
     
+    // Calculate velocity and acceleration
+    double velocity = 0.0;
+    double acceleration = 0.0;
+    
+    if (self.lastTouchTimestamp > 0 && phase != UITouchPhaseBegan) {
+        NSTimeInterval timeDelta = touch.timestamp - self.lastTouchTimestamp;
+        if (timeDelta > 0) {
+            // Calculate distance moved
+            double deltaX = location.x - self.lastTouchLocation.x;
+            double deltaY = location.y - self.lastTouchLocation.y;
+            double distance = sqrt(deltaX * deltaX + deltaY * deltaY);
+            
+            // Calculate velocity (pixels per second)
+            velocity = distance / timeDelta;
+            
+            // Calculate acceleration (change in velocity)
+            if (self.lastVelocity > 0) {
+                acceleration = (velocity - self.lastVelocity) / timeDelta;
+            }
+        }
+    }
+    
+    // Update tracking variables
+    self.lastTouchLocation = location;
+    self.lastTouchTimestamp = touch.timestamp;
+    self.lastVelocity = velocity;
+    self.lastAcceleration = acceleration;
+    
     return @{
-        @"pressure": @(touch.force / touch.maximumPossibleForce),
+        @"pressure": @(curvedPressure),
         @"altitude": @(touch.altitudeAngle / (M_PI / 2)),
         @"azimuth": @([touch azimuthAngleInView:self]), // Azimuth angle in view
         @"force": @(touch.force),
@@ -615,8 +655,279 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
         @"phase": phaseString,
         @"hasPreciseLocation": @(touch.hasPreciseLocation),
         @"estimatedProperties": estimatedProperties,
-        @"estimatedPropertiesExpectingUpdates": estimatedPropertiesExpectingUpdates
+        @"estimatedPropertiesExpectingUpdates": estimatedPropertiesExpectingUpdates,
+        @"velocity": @(velocity),
+        @"acceleration": @(acceleration)
     };
+}
+
+- (NSDictionary *)convertUITouchToEstimatedPropertiesData:(UITouch *)touch {
+    // Get updated properties
+    NSMutableArray *updatedProperties = [[NSMutableArray alloc] init];
+    if (touch.estimatedProperties & UITouchPropertyForce) {
+        [updatedProperties addObject:@"force"];
+    }
+    if (touch.estimatedProperties & UITouchPropertyAzimuth) {
+        [updatedProperties addObject:@"azimuth"];
+    }
+    if (touch.estimatedProperties & UITouchPropertyAltitude) {
+        [updatedProperties addObject:@"altitude"];
+    }
+    if (touch.estimatedProperties & UITouchPropertyLocation) {
+        [updatedProperties addObject:@"location"];
+    }
+    
+    // Get properties still expecting updates
+    NSMutableArray *propertiesExpectingUpdates = [[NSMutableArray alloc] init];
+    if (touch.estimatedPropertiesExpectingUpdates & UITouchPropertyForce) {
+        [propertiesExpectingUpdates addObject:@"force"];
+    }
+    if (touch.estimatedPropertiesExpectingUpdates & UITouchPropertyAzimuth) {
+        [propertiesExpectingUpdates addObject:@"azimuth"];
+    }
+    if (touch.estimatedPropertiesExpectingUpdates & UITouchPropertyAltitude) {
+        [propertiesExpectingUpdates addObject:@"altitude"];
+    }
+    if (touch.estimatedPropertiesExpectingUpdates & UITouchPropertyLocation) {
+        [propertiesExpectingUpdates addObject:@"location"];
+    }
+    
+    // Create updated Apple Pencil data with refined properties
+    NSDictionary *newData = [self convertUITouchToApplePencilData:touch phase:touch.phase];
+    
+    return @{
+        @"viewId": @(self.viewId),
+        @"touchId": @(touch.hash), // Use touch hash as identifier
+        @"updatedProperties": updatedProperties,
+        @"propertiesExpectingUpdates": propertiesExpectingUpdates,
+        @"newData": newData,
+        @"timestamp": @([[NSDate date] timeIntervalSince1970])
+    };
+}
+
+- (double)applyPressureCurve:(double)pressure {
+    // Apple's recommended pressure curve for natural drawing
+    // This creates a more responsive curve that feels natural
+    if (pressure <= 0.0) return 0.0;
+    if (pressure >= 1.0) return 1.0;
+    
+    // Apply a power curve for more natural pressure response
+    // This makes light pressure more sensitive and heavy pressure less sensitive
+    double curvedPressure = pow(pressure, 0.7);
+    
+    // Apply a slight S-curve for better control
+    double sCurve = 3.0 * curvedPressure * curvedPressure - 2.0 * curvedPressure * curvedPressure * curvedPressure;
+    
+    return sCurve;
+}
+
+- (void)processCoalescedTouches:(NSArray<UITouch *> *)coalescedTouches phase:(UITouchPhase)phase {
+    // Optimized coalesced touches processing
+    // Only process if we have a reasonable number of touches to avoid performance issues
+    if (coalescedTouches.count > 10) {
+        // Sample every other touch for very high-frequency input
+        NSMutableArray *sampledTouches = [[NSMutableArray alloc] init];
+        for (NSUInteger i = 0; i < coalescedTouches.count; i += 2) {
+            [sampledTouches addObject:coalescedTouches[i]];
+        }
+        coalescedTouches = sampledTouches;
+    }
+    
+    NSMutableArray *coalescedData = [[NSMutableArray alloc] initWithCapacity:coalescedTouches.count];
+    
+    for (UITouch *coalescedTouch in coalescedTouches) {
+        // Only process if it's a valid touch type
+        if (coalescedTouch.type == UITouchTypePencil || coalescedTouch.type == UITouchTypeStylus) {
+            NSDictionary *coalescedTouchData = [self convertUITouchToApplePencilData:coalescedTouch phase:phase];
+            [coalescedData addObject:coalescedTouchData];
+        }
+    }
+    
+    if (coalescedData.count > 0) {
+        NSDictionary *coalescedTouchesData = @{
+            @"viewId": @(self.viewId),
+            @"touches": coalescedData,
+            @"timestamp": @([[NSDate date] timeIntervalSince1970]),
+            @"count": @(coalescedData.count)
+        };
+        
+        [MunimPencilkit sendApplePencilCoalescedTouchesEvent:coalescedTouchesData];
+    }
+}
+
+- (NSDictionary *)analyzeStroke:(NSArray<NSDictionary *> *)strokePoints {
+    if (strokePoints.count < 2) {
+        return @{
+            @"smoothness": @(0.0),
+            @"consistency": @(0.0),
+            @"length": @(0.0),
+            @"duration": @(0.0),
+            @"averageVelocity": @(0.0),
+            @"maxVelocity": @(0.0),
+            @"averagePressure": @(0.0),
+            @"pressureVariance": @(0.0)
+        };
+    }
+    
+    double smoothness = [self calculateStrokeSmoothness:strokePoints];
+    double consistency = [self calculateStrokeConsistency:strokePoints];
+    
+    // Calculate stroke length
+    double totalLength = 0.0;
+    for (NSUInteger i = 1; i < strokePoints.count; i++) {
+        NSDictionary *prevPoint = strokePoints[i-1];
+        NSDictionary *currPoint = strokePoints[i];
+        
+        double x1 = [prevPoint[@"location"][@"x"] doubleValue];
+        double y1 = [prevPoint[@"location"][@"y"] doubleValue];
+        double x2 = [currPoint[@"location"][@"x"] doubleValue];
+        double y2 = [currPoint[@"location"][@"y"] doubleValue];
+        
+        double distance = sqrt(pow(x2 - x1, 2) + pow(y2 - y1, 2));
+        totalLength += distance;
+    }
+    
+    // Calculate duration
+    double startTime = [strokePoints.firstObject[@"timestamp"] doubleValue];
+    double endTime = [strokePoints.lastObject[@"timestamp"] doubleValue];
+    double duration = endTime - startTime;
+    
+    // Calculate velocity statistics
+    double totalVelocity = 0.0;
+    double maxVelocity = 0.0;
+    for (NSDictionary *point in strokePoints) {
+        double velocity = [point[@"velocity"] doubleValue];
+        totalVelocity += velocity;
+        maxVelocity = MAX(maxVelocity, velocity);
+    }
+    double averageVelocity = totalVelocity / strokePoints.count;
+    
+    // Calculate pressure statistics
+    double totalPressure = 0.0;
+    for (NSDictionary *point in strokePoints) {
+        double pressure = [point[@"pressure"] doubleValue];
+        totalPressure += pressure;
+    }
+    double averagePressure = totalPressure / strokePoints.count;
+    
+    // Calculate pressure variance
+    double pressureVariance = 0.0;
+    for (NSDictionary *point in strokePoints) {
+        double pressure = [point[@"pressure"] doubleValue];
+        pressureVariance += pow(pressure - averagePressure, 2);
+    }
+    pressureVariance = pressureVariance / strokePoints.count;
+    
+    return @{
+        @"smoothness": @(smoothness),
+        @"consistency": @(consistency),
+        @"length": @(totalLength),
+        @"duration": @(duration),
+        @"averageVelocity": @(averageVelocity),
+        @"maxVelocity": @(maxVelocity),
+        @"averagePressure": @(averagePressure),
+        @"pressureVariance": @(pressureVariance)
+    };
+}
+
+- (double)calculateStrokeSmoothness:(NSArray<NSDictionary *> *)strokePoints {
+    if (strokePoints.count < 3) return 0.0;
+    
+    double totalAngleChange = 0.0;
+    int angleCount = 0;
+    
+    for (NSUInteger i = 1; i < strokePoints.count - 1; i++) {
+        NSDictionary *prevPoint = strokePoints[i-1];
+        NSDictionary *currPoint = strokePoints[i];
+        NSDictionary *nextPoint = strokePoints[i+1];
+        
+        // Calculate angle between consecutive segments
+        double x1 = [prevPoint[@"location"][@"x"] doubleValue];
+        double y1 = [prevPoint[@"location"][@"y"] doubleValue];
+        double x2 = [currPoint[@"location"][@"x"] doubleValue];
+        double y2 = [currPoint[@"location"][@"y"] doubleValue];
+        double x3 = [nextPoint[@"location"][@"x"] doubleValue];
+        double y3 = [nextPoint[@"location"][@"y"] doubleValue];
+        
+        // Calculate vectors
+        double v1x = x2 - x1;
+        double v1y = y2 - y1;
+        double v2x = x3 - x2;
+        double v2y = y3 - y2;
+        
+        // Calculate angle between vectors
+        double dotProduct = v1x * v2x + v1y * v2y;
+        double mag1 = sqrt(v1x * v1x + v1y * v1y);
+        double mag2 = sqrt(v2x * v2x + v2y * v2y);
+        
+        if (mag1 > 0 && mag2 > 0) {
+            double cosAngle = dotProduct / (mag1 * mag2);
+            cosAngle = MAX(-1.0, MIN(1.0, cosAngle)); // Clamp to valid range
+            double angle = acos(cosAngle);
+            totalAngleChange += angle;
+            angleCount++;
+        }
+    }
+    
+    if (angleCount == 0) return 0.0;
+    
+    double averageAngleChange = totalAngleChange / angleCount;
+    // Convert to smoothness score (0-1, where 1 is perfectly smooth)
+    double smoothness = MAX(0.0, 1.0 - (averageAngleChange / M_PI));
+    return smoothness;
+}
+
+- (double)calculateStrokeConsistency:(NSArray<NSDictionary *> *)strokePoints {
+    if (strokePoints.count < 2) return 0.0;
+    
+    // Calculate velocity consistency
+    NSMutableArray *velocities = [[NSMutableArray alloc] init];
+    for (NSDictionary *point in strokePoints) {
+        double velocity = [point[@"velocity"] doubleValue];
+        [velocities addObject:@(velocity)];
+    }
+    
+    // Calculate standard deviation of velocities
+    double totalVelocity = 0.0;
+    for (NSNumber *velocity in velocities) {
+        totalVelocity += [velocity doubleValue];
+    }
+    double averageVelocity = totalVelocity / velocities.count;
+    
+    double velocityVariance = 0.0;
+    for (NSNumber *velocity in velocities) {
+        double diff = [velocity doubleValue] - averageVelocity;
+        velocityVariance += diff * diff;
+    }
+    velocityVariance = velocityVariance / velocities.count;
+    double velocityStdDev = sqrt(velocityVariance);
+    
+    // Calculate pressure consistency
+    NSMutableArray *pressures = [[NSMutableArray alloc] init];
+    for (NSDictionary *point in strokePoints) {
+        double pressure = [point[@"pressure"] doubleValue];
+        [pressures addObject:@(pressure)];
+    }
+    
+    double totalPressure = 0.0;
+    for (NSNumber *pressure in pressures) {
+        totalPressure += [pressure doubleValue];
+    }
+    double averagePressure = totalPressure / pressures.count;
+    
+    double pressureVariance = 0.0;
+    for (NSNumber *pressure in pressures) {
+        double diff = [pressure doubleValue] - averagePressure;
+        pressureVariance += diff * diff;
+    }
+    pressureVariance = pressureVariance / pressures.count;
+    double pressureStdDev = sqrt(pressureVariance);
+    
+    // Combine velocity and pressure consistency (0-1, where 1 is most consistent)
+    double velocityConsistency = MAX(0.0, 1.0 - (velocityStdDev / averageVelocity));
+    double pressureConsistency = MAX(0.0, 1.0 - (pressureStdDev / averagePressure));
+    
+    return (velocityConsistency + pressureConsistency) / 2.0;
 }
 
 - (NSDictionary *)convertPKDrawingToDictionary:(PKDrawing *)drawing {

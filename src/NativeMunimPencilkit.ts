@@ -27,6 +27,8 @@ export interface ApplePencilData {
   hasPreciseLocation: boolean;
   estimatedProperties: string[];
   estimatedPropertiesExpectingUpdates: string[];
+  velocity: number; // pixels per second
+  acceleration: number; // change in velocity per second
 }
 
 export interface ApplePencilCoalescedTouchesData {

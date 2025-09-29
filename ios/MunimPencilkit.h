@@ -35,6 +35,12 @@
 @property (nonatomic, assign) double lastPitchAngle;
 @property (nonatomic, assign) double lastYawAngle;
 
+// Velocity and acceleration tracking
+@property (nonatomic, assign) CGPoint lastTouchLocation;
+@property (nonatomic, assign) NSTimeInterval lastTouchTimestamp;
+@property (nonatomic, assign) double lastVelocity;
+@property (nonatomic, assign) double lastAcceleration;
+
 - (instancetype)initWithViewId:(NSInteger)viewId;
 - (void)updateConfig:(NSDictionary *)config;
 - (NSDictionary *)getDrawingData;
@@ -54,5 +60,10 @@
 - (void)enableMotionTracking:(BOOL)enabled;
 - (void)startMotionTracking;
 - (void)stopMotionTracking;
+
+// Stroke analysis methods
+- (NSDictionary *)analyzeStroke:(NSArray<NSDictionary *> *)strokePoints;
+- (double)calculateStrokeSmoothness:(NSArray<NSDictionary *> *)strokePoints;
+- (double)calculateStrokeConsistency:(NSArray<NSDictionary *> *)strokePoints;
 
 @end
