@@ -55,7 +55,7 @@ RCT_EXPORT_MODULE()
     });
 }
 
-- (void)getPencilKitDrawing:(double)viewId rejecter:(RCTPromiseRejectBlock)reject {
+- (void)getPencilKitDrawing:(double)viewId resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject {
     dispatch_async(dispatch_get_main_queue(), ^{
         PencilKitView *pencilKitView = pencilKitViews[@((NSInteger)viewId)];
         if (pencilKitView) {
@@ -87,7 +87,7 @@ RCT_EXPORT_MODULE()
     });
 }
 
-- (void)undoPencilKitDrawing:(double)viewId rejecter:(RCTPromiseRejectBlock)reject {
+- (void)undoPencilKitDrawing:(double)viewId resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject {
     dispatch_async(dispatch_get_main_queue(), ^{
         PencilKitView *pencilKitView = pencilKitViews[@((NSInteger)viewId)];
         if (pencilKitView) {
@@ -99,7 +99,7 @@ RCT_EXPORT_MODULE()
     });
 }
 
-- (void)redoPencilKitDrawing:(double)viewId rejecter:(RCTPromiseRejectBlock)reject {
+- (void)redoPencilKitDrawing:(double)viewId resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject {
     dispatch_async(dispatch_get_main_queue(), ^{
         PencilKitView *pencilKitView = pencilKitViews[@((NSInteger)viewId)];
         if (pencilKitView) {
@@ -111,7 +111,7 @@ RCT_EXPORT_MODULE()
     });
 }
 
-- (void)canUndoPencilKitDrawing:(double)viewId rejecter:(RCTPromiseRejectBlock)reject {
+- (void)canUndoPencilKitDrawing:(double)viewId resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject {
     dispatch_async(dispatch_get_main_queue(), ^{
         PencilKitView *pencilKitView = pencilKitViews[@((NSInteger)viewId)];
         if (pencilKitView) {
@@ -123,7 +123,7 @@ RCT_EXPORT_MODULE()
     });
 }
 
-- (void)canRedoPencilKitDrawing:(double)viewId rejecter:(RCTPromiseRejectBlock)reject {
+- (void)canRedoPencilKitDrawing:(double)viewId resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject {
     dispatch_async(dispatch_get_main_queue(), ^{
         PencilKitView *pencilKitView = pencilKitViews[@((NSInteger)viewId)];
         if (pencilKitView) {
@@ -154,7 +154,7 @@ RCT_EXPORT_MODULE()
     });
 }
 
-- (void)isApplePencilDataCaptureActive:(double)viewId rejecter:(RCTPromiseRejectBlock)reject {
+- (void)isApplePencilDataCaptureActive:(double)viewId resolver:(RCTPromiseResolveBlock)resolve rejecter:(RCTPromiseRejectBlock)reject {
     dispatch_async(dispatch_get_main_queue(), ^{
         PencilKitView *pencilKitView = pencilKitViews[@((NSInteger)viewId)];
         if (pencilKitView) {
@@ -182,6 +182,8 @@ RCT_EXPORT_MODULE(PencilKitView)
 RCT_EXPORT_VIEW_PROPERTY(viewId, NSInteger)
 RCT_EXPORT_VIEW_PROPERTY(enableApplePencilData, BOOL)
 RCT_EXPORT_VIEW_PROPERTY(enableToolPicker, BOOL)
+RCT_EXPORT_VIEW_PROPERTY(onApplePencilData, RCTBubblingEventBlock)
+RCT_EXPORT_VIEW_PROPERTY(onDrawingChange, RCTBubblingEventBlock)
 
 - (UIView *)view {
     return [[PencilKitView alloc] initWithViewId:0];
