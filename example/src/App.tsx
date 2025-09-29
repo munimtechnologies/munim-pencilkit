@@ -1,25 +1,26 @@
-import React, { useState, useRef } from 'react';
-import { 
-  Text, 
-  View, 
-  StyleSheet, 
-  ScrollView, 
-  TouchableOpacity, 
+import { useState, useRef } from 'react';
+import {
+  Text,
+  View,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
   Alert,
   SafeAreaView,
-  StatusBar
+  StatusBar,
 } from 'react-native';
-import { 
-  PencilKitView, 
-  PencilKitUtils,
-  type ApplePencilData, 
+import {
+  PencilKitView,
+  type ApplePencilData,
   type PencilKitDrawingData,
-  type PencilKitConfig 
+  type PencilKitConfig,
 } from 'munim-pencilkit';
 
 export default function App() {
-  const [applePencilData, setApplePencilData] = useState<ApplePencilData | null>(null);
-  const [isApplePencilCaptureActive, setIsApplePencilCaptureActive] = useState(false);
+  const [applePencilData, setApplePencilData] =
+    useState<ApplePencilData | null>(null);
+  const [isApplePencilCaptureActive, setIsApplePencilCaptureActive] =
+    useState(false);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const pencilKitRef = useRef<any>(null);
@@ -100,23 +101,28 @@ export default function App() {
     allowsFingerDrawing: true,
     allowsPencilOnlyDrawing: false,
     isRulerActive: false,
-    drawingPolicy: 'default'
+    drawingPolicy: 'default',
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
-      
+
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Munim PencilKit Demo</Text>
-        <Text style={styles.subtitle}>Apple Pencil & PencilKit Integration</Text>
+        <Text style={styles.subtitle}>
+          Apple Pencil & PencilKit Integration
+        </Text>
       </View>
 
       {/* Controls */}
       <View style={styles.controls}>
-        <TouchableOpacity 
-          style={[styles.button, isApplePencilCaptureActive && styles.buttonActive]} 
+        <TouchableOpacity
+          style={[
+            styles.button,
+            isApplePencilCaptureActive && styles.buttonActive,
+          ]}
           onPress={toggleApplePencilCapture}
         >
           <Text style={styles.buttonText}>
@@ -125,31 +131,39 @@ export default function App() {
         </TouchableOpacity>
 
         <View style={styles.buttonRow}>
-          <TouchableOpacity 
-            style={[styles.button, styles.smallButton, !canUndo && styles.buttonDisabled]} 
+          <TouchableOpacity
+            style={[
+              styles.button,
+              styles.smallButton,
+              !canUndo && styles.buttonDisabled,
+            ]}
             onPress={handleUndo}
             disabled={!canUndo}
           >
             <Text style={styles.buttonText}>Undo</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={[styles.button, styles.smallButton, !canRedo && styles.buttonDisabled]} 
+          <TouchableOpacity
+            style={[
+              styles.button,
+              styles.smallButton,
+              !canRedo && styles.buttonDisabled,
+            ]}
             onPress={handleRedo}
             disabled={!canRedo}
           >
             <Text style={styles.buttonText}>Redo</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={[styles.button, styles.smallButton]} 
+          <TouchableOpacity
+            style={[styles.button, styles.smallButton]}
             onPress={handleClear}
           >
             <Text style={styles.buttonText}>Clear</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={[styles.button, styles.smallButton]} 
+          <TouchableOpacity
+            style={[styles.button, styles.smallButton]}
             onPress={handleSaveDrawing}
           >
             <Text style={styles.buttonText}>Save</Text>
@@ -188,11 +202,10 @@ export default function App() {
             Force: {applePencilData.force.toFixed(3)}
           </Text>
           <Text style={styles.dataText}>
-            Location: ({applePencilData.location.x.toFixed(1)}, {applePencilData.location.y.toFixed(1)})
+            Location: ({applePencilData.location.x.toFixed(1)},{' '}
+            {applePencilData.location.y.toFixed(1)})
           </Text>
-          <Text style={styles.dataText}>
-            Phase: {applePencilData.phase}
-          </Text>
+          <Text style={styles.dataText}>Phase: {applePencilData.phase}</Text>
           <Text style={styles.dataText}>
             Is Apple Pencil: {applePencilData.isApplePencil ? 'Yes' : 'No'}
           </Text>

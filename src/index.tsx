@@ -1,5 +1,10 @@
 import MunimPencilkit from './NativeMunimPencilkit';
 import { PencilKitView } from './PencilKitView';
+import type {
+  ApplePencilData,
+  PencilKitDrawingData,
+  PencilKitConfig,
+} from './NativeMunimPencilkit';
 
 // Export all interfaces
 export type {
@@ -23,39 +28,43 @@ export function multiply(a: number, b: number): number {
 export const PencilKitUtils = {
   // Create a new PencilKit view
   createView: () => MunimPencilkit.createPencilKitView(),
-  
+
   // Destroy a PencilKit view
   destroyView: (viewId: number) => MunimPencilkit.destroyPencilKitView(viewId),
-  
+
   // Configure PencilKit view
-  setConfig: (viewId: number, config: PencilKitConfig) => 
+  setConfig: (viewId: number, config: PencilKitConfig) =>
     MunimPencilkit.setPencilKitConfig(viewId, config),
-  
+
   // Drawing operations
   getDrawing: (viewId: number) => MunimPencilkit.getPencilKitDrawing(viewId),
-  setDrawing: (viewId: number, drawing: PencilKitDrawingData) => 
+  setDrawing: (viewId: number, drawing: PencilKitDrawingData) =>
     MunimPencilkit.setPencilKitDrawing(viewId, drawing),
-  clearDrawing: (viewId: number) => MunimPencilkit.clearPencilKitDrawing(viewId),
+  clearDrawing: (viewId: number) =>
+    MunimPencilkit.clearPencilKitDrawing(viewId),
   undo: (viewId: number) => MunimPencilkit.undoPencilKitDrawing(viewId),
   redo: (viewId: number) => MunimPencilkit.redoPencilKitDrawing(viewId),
   canUndo: (viewId: number) => MunimPencilkit.canUndoPencilKitDrawing(viewId),
   canRedo: (viewId: number) => MunimPencilkit.canRedoPencilKitDrawing(viewId),
-  
+
   // Apple Pencil data capture
-  startApplePencilCapture: (viewId: number) => 
+  startApplePencilCapture: (viewId: number) =>
     MunimPencilkit.startApplePencilDataCapture(viewId),
-  stopApplePencilCapture: (viewId: number) => 
+  stopApplePencilCapture: (viewId: number) =>
     MunimPencilkit.stopApplePencilDataCapture(viewId),
-  isApplePencilCaptureActive: (viewId: number) => 
+  isApplePencilCaptureActive: (viewId: number) =>
     MunimPencilkit.isApplePencilDataCaptureActive(viewId),
-  
+
   // Event listeners
-  addApplePencilListener: (callback: (data: ApplePencilData) => void) => 
+  addApplePencilListener: (callback: (data: ApplePencilData) => void) =>
     MunimPencilkit.addApplePencilDataListener(callback),
-  removeApplePencilListener: () => MunimPencilkit.removeApplePencilDataListener(),
-  addDrawingChangeListener: (callback: (viewId: number, drawing: PencilKitDrawingData) => void) => 
-    MunimPencilkit.addPencilKitDrawingChangeListener(callback),
-  removeDrawingChangeListener: () => MunimPencilkit.removePencilKitDrawingChangeListener(),
+  removeApplePencilListener: () =>
+    MunimPencilkit.removeApplePencilDataListener(),
+  addDrawingChangeListener: (
+    callback: (viewId: number, drawing: PencilKitDrawingData) => void
+  ) => MunimPencilkit.addPencilKitDrawingChangeListener(callback),
+  removeDrawingChangeListener: () =>
+    MunimPencilkit.removePencilKitDrawingChangeListener(),
 };
 
 // Default export

@@ -1,15 +1,36 @@
-import React, { useEffect, useRef, useState, useImperativeHandle, forwardRef } from 'react';
-import { View, ViewStyle, requireNativeComponent, NativeModules, NativeEventEmitter } from 'react-native';
-import type { 
-  ApplePencilData, 
-  PencilKitDrawingData, 
-  PencilKitConfig 
+import {
+  useEffect,
+  useRef,
+  useState,
+  useImperativeHandle,
+  forwardRef,
+} from 'react';
+import {
+  View,
+  type ViewStyle,
+  requireNativeComponent,
+  NativeModules,
+  NativeEventEmitter,
+} from 'react-native';
+import type {
+  ApplePencilData,
+  PencilKitDrawingData,
+  PencilKitConfig,
 } from './NativeMunimPencilkit';
 
 const { MunimPencilkit } = NativeModules;
 
+// Native component interface
+interface PencilKitNativeViewProps {
+  style?: ViewStyle;
+  viewId: number;
+  enableApplePencilData: boolean;
+  enableToolPicker: boolean;
+}
+
 // Native component
-const PencilKitNativeView = requireNativeComponent('PencilKitView');
+const PencilKitNativeView =
+  requireNativeComponent<PencilKitNativeViewProps>('PencilKitView');
 
 // Event emitter for native events
 const eventEmitter = new NativeEventEmitter(MunimPencilkit);
@@ -38,15 +59,18 @@ export interface PencilKitViewRef {
 }
 
 export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
-  ({ 
-    style, 
-    config, 
-    onApplePencilData, 
-    onDrawingChange, 
-    onViewReady,
-    enableApplePencilData = false,
-    enableToolPicker = true
-  }, ref) => {
+  (
+    {
+      style,
+      config,
+      onApplePencilData,
+      onDrawingChange,
+      onViewReady,
+      enableApplePencilData = false,
+      enableToolPicker = true,
+    },
+    ref
+  ) => {
     const [viewId, setViewId] = useState<number | null>(null);
     const applePencilListenerRef = useRef<any>(null);
     const drawingChangeListenerRef = useRef<any>(null);
@@ -61,7 +85,7 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
           if (isMounted) {
             setViewId(id);
             onViewReady?.(id);
-            
+
             // Apply initial config if provided
             if (config) {
               await MunimPencilkit.setPencilKitConfig(id, config);
@@ -83,6 +107,7 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
     }, []);
 
     // Set up event listeners
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     useEffect(() => {
       if (!viewId) return;
 
@@ -90,7 +115,7 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
       if (onApplePencilData && enableApplePencilData) {
         applePencilListenerRef.current = eventEmitter.addListener(
           'onApplePencilData',
-          onApplePencilData
+          (data: any) => onApplePencilData(data as ApplePencilData)
         );
       }
 
@@ -98,9 +123,9 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
       if (onDrawingChange) {
         drawingChangeListenerRef.current = eventEmitter.addListener(
           'onPencilKitDrawingChange',
-          (event) => {
+          (event: any) => {
             if (event.viewId === viewId) {
-              onDrawingChange(event.drawing);
+              onDrawingChange(event.drawing as PencilKitDrawingData);
             }
           }
         );
@@ -110,7 +135,14 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
         applePencilListenerRef.current?.remove();
         drawingChangeListenerRef.current?.remove();
       };
-    }, [viewId, onApplePencilData, onDrawingChange, enableApplePencilData]);
+    }, [
+      viewId,
+      onApplePencilData,
+      onDrawingChange,
+      enableApplePencilData,
+      config,
+      onViewReady,
+    ]);
 
     // Update config when it changes
     useEffect(() => {
@@ -120,48 +152,52 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
     }, [viewId, config]);
 
     // Expose methods via ref
-    useImperativeHandle(ref, () => ({
-      getDrawing: async () => {
-        if (!viewId) throw new Error('PencilKit view not ready');
-        return MunimPencilkit.getPencilKitDrawing(viewId);
-      },
-      setDrawing: async (drawing: PencilKitDrawingData) => {
-        if (!viewId) throw new Error('PencilKit view not ready');
-        return MunimPencilkit.setPencilKitDrawing(viewId, drawing);
-      },
-      clearDrawing: async () => {
-        if (!viewId) throw new Error('PencilKit view not ready');
-        return MunimPencilkit.clearPencilKitDrawing(viewId);
-      },
-      undo: async () => {
-        if (!viewId) throw new Error('PencilKit view not ready');
-        return MunimPencilkit.undoPencilKitDrawing(viewId);
-      },
-      redo: async () => {
-        if (!viewId) throw new Error('PencilKit view not ready');
-        return MunimPencilkit.redoPencilKitDrawing(viewId);
-      },
-      canUndo: async () => {
-        if (!viewId) throw new Error('PencilKit view not ready');
-        return MunimPencilkit.canUndoPencilKitDrawing(viewId);
-      },
-      canRedo: async () => {
-        if (!viewId) throw new Error('PencilKit view not ready');
-        return MunimPencilkit.canRedoPencilKitDrawing(viewId);
-      },
-      startApplePencilCapture: async () => {
-        if (!viewId) throw new Error('PencilKit view not ready');
-        return MunimPencilkit.startApplePencilDataCapture(viewId);
-      },
-      stopApplePencilCapture: async () => {
-        if (!viewId) throw new Error('PencilKit view not ready');
-        return MunimPencilkit.stopApplePencilDataCapture(viewId);
-      },
-      isApplePencilCaptureActive: async () => {
-        if (!viewId) throw new Error('PencilKit view not ready');
-        return MunimPencilkit.isApplePencilDataCaptureActive(viewId);
-      },
-    }), [viewId]);
+    useImperativeHandle(
+      ref,
+      () => ({
+        getDrawing: async () => {
+          if (!viewId) throw new Error('PencilKit view not ready');
+          return MunimPencilkit.getPencilKitDrawing(viewId);
+        },
+        setDrawing: async (drawing: PencilKitDrawingData) => {
+          if (!viewId) throw new Error('PencilKit view not ready');
+          return MunimPencilkit.setPencilKitDrawing(viewId, drawing);
+        },
+        clearDrawing: async () => {
+          if (!viewId) throw new Error('PencilKit view not ready');
+          return MunimPencilkit.clearPencilKitDrawing(viewId);
+        },
+        undo: async () => {
+          if (!viewId) throw new Error('PencilKit view not ready');
+          return MunimPencilkit.undoPencilKitDrawing(viewId);
+        },
+        redo: async () => {
+          if (!viewId) throw new Error('PencilKit view not ready');
+          return MunimPencilkit.redoPencilKitDrawing(viewId);
+        },
+        canUndo: async () => {
+          if (!viewId) throw new Error('PencilKit view not ready');
+          return MunimPencilkit.canUndoPencilKitDrawing(viewId);
+        },
+        canRedo: async () => {
+          if (!viewId) throw new Error('PencilKit view not ready');
+          return MunimPencilkit.canRedoPencilKitDrawing(viewId);
+        },
+        startApplePencilCapture: async () => {
+          if (!viewId) throw new Error('PencilKit view not ready');
+          return MunimPencilkit.startApplePencilDataCapture(viewId);
+        },
+        stopApplePencilCapture: async () => {
+          if (!viewId) throw new Error('PencilKit view not ready');
+          return MunimPencilkit.stopApplePencilDataCapture(viewId);
+        },
+        isApplePencilCaptureActive: async () => {
+          if (!viewId) throw new Error('PencilKit view not ready');
+          return MunimPencilkit.isApplePencilDataCaptureActive(viewId);
+        },
+      }),
+      [viewId]
+    );
 
     if (!viewId) {
       return <View style={style} />;
