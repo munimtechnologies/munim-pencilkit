@@ -1286,10 +1286,10 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
     UIImageView *_renderImageView;
     
     // State per active stroke
-    NSMutableDictionary<UITouch *, NSValue *> *_lastPointByTouch;
-    NSMutableDictionary<UITouch *, UIBezierPath *> *_strokePaths;
-    NSMutableDictionary<UITouch *, NSMutableArray<NSValue *> *> *_strokePoints;
-    NSMutableDictionary<UITouch *, NSMutableArray<NSNumber *> *> *_strokePressures;
+    NSMutableDictionary<NSValue *, NSValue *> *_lastPointByTouch;
+    NSMutableDictionary<NSValue *, UIBezierPath *> *_strokePaths;
+    NSMutableDictionary<NSValue *, NSMutableArray<NSValue *> *> *_strokePoints;
+    NSMutableDictionary<NSValue *, NSMutableArray<NSNumber *> *> *_strokePressures;
     
     // Hover preview
     CAShapeLayer *_hoverPreviewLayer;
@@ -1464,11 +1464,11 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
         
         // Use coalesced touches for smoother strokes
         NSArray<UITouch *> *samples = [event coalescedTouchesForTouch:touch] ?: @[touch];
+        NSValue *touchKey = [NSValue valueWithPointer:(__bridge const void *)touch];
         for (UITouch *sample in samples) {
             CGPoint current = [sample preciseLocationInView:self];
             
             // Add point to stroke path
-            NSValue *touchKey = [NSValue valueWithPointer:(__bridge const void *)touch];
             UIBezierPath *path = _strokePaths[touchKey];
             NSMutableArray<NSValue *> *points = _strokePoints[touchKey];
             NSMutableArray<NSNumber *> *pressures = _strokePressures[touchKey];
@@ -1479,7 +1479,6 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
                 [pressures addObject:@([self normalizedForceForTouch:sample])];
             }
             
-            NSValue *touchKey = [NSValue valueWithPointer:(__bridge const void *)touch];
             _lastPointByTouch[touchKey] = [NSValue valueWithCGPoint:current];
         }
         
