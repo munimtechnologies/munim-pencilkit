@@ -479,11 +479,11 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
 }
 
 - (void)setupCustomStylusView {
-    NSLog(@"🎨 setupCustomStylusView: Creating StylusDrawingView");
-    // Create StylusDrawingView
+    NSLog(@"🎨 setupCustomStylusView: Creating Swift StylusDrawingView");
+    // Create Swift StylusDrawingView
     self.stylusView = [[StylusDrawingView alloc] init];
     if (self.stylusView) {
-        NSLog(@"🎨 setupCustomStylusView: StylusDrawingView created successfully");
+        NSLog(@"🎨 setupCustomStylusView: Swift StylusDrawingView created successfully");
         self.stylusView.delegate = self;
         self.stylusView.translatesAutoresizingMaskIntoConstraints = NO;
         [self addSubview:self.stylusView];
@@ -496,13 +496,14 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
             [self.stylusView.bottomAnchor constraintEqualToAnchor:self.bottomAnchor]
         ]];
         
-        // Configure default settings
+        // Configure default settings using Swift properties
         self.stylusView.allowsFingerDrawing = YES;
         self.stylusView.strokeColor = [UIColor labelColor];
         self.stylusView.baseLineWidth = 4.0;
-        NSLog(@"🎨 setupCustomStylusView: StylusDrawingView configured and added to view hierarchy");
+        self.stylusView.showHoverPreview = YES;
+        NSLog(@"🎨 setupCustomStylusView: Swift StylusDrawingView configured and added to view hierarchy");
     } else {
-        NSLog(@"🎨 setupCustomStylusView: ERROR - Failed to create StylusDrawingView");
+        NSLog(@"🎨 setupCustomStylusView: ERROR - Failed to create Swift StylusDrawingView");
     }
 }
 
@@ -544,8 +545,12 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
             self.stylusView.baseLineWidth = [config[@"baseLineWidth"] floatValue];
         }
         if (config[@"showHoverPreview"]) {
-            [self setShowHoverPreview:[config[@"showHoverPreview"] boolValue]];
-            [self.stylusView setShowHoverPreview:[config[@"showHoverPreview"] boolValue]];
+            BOOL showHover = [config[@"showHoverPreview"] boolValue];
+            [self setShowHoverPreview:showHover];
+            // Update Swift view's hover preview setting
+            if (self.stylusView) {
+                self.stylusView.showHoverPreview = showHover;
+            }
         }
     } else {
         // Update PencilKit canvas view config

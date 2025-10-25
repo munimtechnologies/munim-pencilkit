@@ -8,6 +8,9 @@
 #import <React/RCTUtils.h>
 #import <React/RCTEventEmitter.h>
 
+// Import Swift classes
+#import "munim-pencilkit-Swift.h"
+
 // Forward declarations
 @class StylusDrawingView;
 
