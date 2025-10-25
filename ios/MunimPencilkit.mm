@@ -376,7 +376,12 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
         // Initialize hover preview setting
         _showHoverPreview = YES;
         
+        // Initialize both views but only show the appropriate one
         [self setupPencilKitView];
+        [self setupCustomStylusView];
+        
+        // Show PencilKit by default
+        [self updateViewVisibility];
     }
     return self;
 }
@@ -439,11 +444,7 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
 }
 
 - (void)setupPencilKitView {
-    if (_useCustomStylusView) {
-        [self setupCustomStylusView];
-    } else {
-        [self setupPencilKitCanvasView];
-    }
+    [self setupPencilKitCanvasView];
 }
 
 - (void)setupPencilKitCanvasView {
@@ -470,8 +471,8 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
         [self setupToolPicker];
     }
     
-    // Add hover recognizer on iOS 16+
-    if (@available(iOS 16.0, *)) {
+    // Add hover recognizer on iOS 13+ (same as StylusDrawingView)
+    if (@available(iOS 13.0, *)) {
         UIHoverGestureRecognizer *hoverRecognizer = [[UIHoverGestureRecognizer alloc] initWithTarget:self action:@selector(handleHover:)];
         [self.canvasView addGestureRecognizer:hoverRecognizer];
     }
@@ -643,11 +644,7 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
 - (void)setUseCustomStylusView:(BOOL)useCustom {
     if (_useCustomStylusView != useCustom) {
         _useCustomStylusView = useCustom;
-        if (useCustom) {
-            [self switchToCustomStylusView];
-        } else {
-            [self switchToPencilKitView];
-        }
+        [self updateViewVisibility];
     }
 }
 
@@ -658,22 +655,39 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
     }
 }
 
+- (void)updateViewVisibility {
+    // Show/hide views based on the current setting
+    if (_useCustomStylusView) {
+        self.canvasView.hidden = YES;
+        self.stylusView.hidden = NO;
+        // Sync drawing data from PencilKit to custom view
+        [self syncDrawingFromPencilKitToCustom];
+    } else {
+        self.canvasView.hidden = NO;
+        self.stylusView.hidden = YES;
+        // Sync drawing data from custom view to PencilKit
+        [self syncDrawingFromCustomToPencilKit];
+    }
+}
+
 - (void)switchToCustomStylusView {
-    // Remove existing views
-    [self.canvasView removeFromSuperview];
-    [self.stylusView removeFromSuperview];
-    
-    // Create and setup custom stylus view
-    [self setupCustomStylusView];
+    _useCustomStylusView = YES;
+    [self updateViewVisibility];
 }
 
 - (void)switchToPencilKitView {
-    // Remove existing views
-    [self.canvasView removeFromSuperview];
-    [self.stylusView removeFromSuperview];
-    
-    // Create and setup PencilKit canvas view
-    [self setupPencilKitCanvasView];
+    _useCustomStylusView = NO;
+    [self updateViewVisibility];
+}
+
+- (void)syncDrawingFromPencilKitToCustom {
+    // TODO: Implement drawing sync from PencilKit to custom view
+    // For now, this is a placeholder
+}
+
+- (void)syncDrawingFromCustomToPencilKit {
+    // TODO: Implement drawing sync from custom view to PencilKit
+    // For now, this is a placeholder
 }
 
 #pragma mark - StylusDrawingViewDelegate
