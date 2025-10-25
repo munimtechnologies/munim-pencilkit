@@ -17,7 +17,7 @@ Pod::Spec.new do |s|
   s.private_header_files = "ios/**/*.h"
 
   # PencilKit framework dependency
-  s.frameworks = "PencilKit"
+  s.frameworks = "PencilKit", "CoreBluetooth"
   s.ios.framework = "PencilKit"
 
   install_modules_dependencies(s)
