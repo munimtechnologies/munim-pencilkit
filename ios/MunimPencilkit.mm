@@ -363,29 +363,61 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
     return self;
 }
 
-// Hover handling (iOS 16+)
+// Hover handling (iOS 13+)
 - (void)handleHover:(UIHoverGestureRecognizer *)recognizer {
-    if (@available(iOS 16.0, *)) {
-        // Attempt to access UIPencilHoverPose via KVC if available
-        id pose = [recognizer valueForKey:@"pencilHoverPose"];
-        if (pose) {
-            CGPoint location = [[pose valueForKey:@"location"] CGPointValue];
-            NSNumber *altitude = [pose valueForKey:@"altitude"];
-            NSValue *azimuthVectorValue = [pose valueForKey:@"azimuth"];
-            CGPoint azimuthVector = CGPointZero;
-            if (azimuthVectorValue) {
-                azimuthVector = [azimuthVectorValue CGPointValue];
-            }
-            NSDictionary *hoverData = @{
-                @"viewId": @(self.viewId),
-                @"location": @{ @"x": @(location.x), @"y": @(location.y) },
-                @"altitude": altitude ?: @(0),
-                @"azimuth": @{ @"x": @(azimuthVector.x), @"y": @(azimuthVector.y) },
-                @"timestamp": @([[NSDate date] timeIntervalSince1970])
-            };
-            [MunimPencilkit sendApplePencilHoverEvent:hoverData];
+    if (@available(iOS 13.0, *)) {
+        CGPoint location = [recognizer locationInView:self];
+        
+        switch (recognizer.state) {
+            case UIGestureRecognizerStateBegan:
+            case UIGestureRecognizerStateChanged:
+                // Show hover preview and send hover data
+                [self updateHoverPreviewAtLocation:location];
+                [self sendHoverEventAtLocation:location];
+                break;
+            case UIGestureRecognizerStateEnded:
+            case UIGestureRecognizerStateCancelled:
+            case UIGestureRecognizerStateFailed:
+                // Hide hover preview
+                [self hideHoverPreview];
+                break;
+            default:
+                break;
         }
     }
+}
+
+- (void)updateHoverPreviewAtLocation:(CGPoint)location {
+    // Update hover preview layer if available
+    if (_hoverPreviewLayer) {
+        CGFloat previewDiameter = MAX(4.0, _baseLineWidth * 2.0);
+        CGRect rect = CGRectMake(location.x - previewDiameter * 0.5,
+                               location.y - previewDiameter * 0.5,
+                               previewDiameter,
+                               previewDiameter);
+        UIBezierPath *path = [UIBezierPath bezierPathWithOvalInRect:rect];
+        _hoverPreviewLayer.path = path.CGPath;
+        _hoverPreviewLayer.hidden = NO;
+    }
+}
+
+- (void)hideHoverPreview {
+    if (_hoverPreviewLayer) {
+        _hoverPreviewLayer.hidden = YES;
+    }
+}
+
+- (void)sendHoverEventAtLocation:(CGPoint)location {
+    // Create hover data with basic location information
+    // Note: Advanced pencil pose data (altitude, azimuth) is not available via UIHoverGestureRecognizer
+    NSDictionary *hoverData = @{
+        @"viewId": @(self.viewId),
+        @"location": @{ @"x": @(location.x), @"y": @(location.y) },
+        @"altitude": @(0), // Not available via UIHoverGestureRecognizer
+        @"azimuth": @{ @"x": @(0), @"y": @(0) }, // Not available via UIHoverGestureRecognizer
+        @"timestamp": @([[NSDate date] timeIntervalSince1970])
+    };
+    [MunimPencilkit sendApplePencilHoverEvent:hoverData];
 }
 
 - (void)setupPencilKitView {
@@ -1637,12 +1669,12 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
             case UIGestureRecognizerStateBegan:
             case UIGestureRecognizerStateChanged:
                 [self updateHoverPreviewAtLocation:location];
-                _hoverPreviewLayer.hidden = NO;
+                [self sendHoverEventAtLocation:location];
                 break;
             case UIGestureRecognizerStateEnded:
             case UIGestureRecognizerStateCancelled:
             case UIGestureRecognizerStateFailed:
-                _hoverPreviewLayer.hidden = YES;
+                [self hideHoverPreview];
                 break;
             default:
                 break;
@@ -1650,16 +1682,6 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
     }
 }
 
-- (void)updateHoverPreviewAtLocation:(CGPoint)location {
-    // Use base width as preview size; could incorporate tilt/force when available via hover pose in future
-    CGFloat previewDiameter = MAX(4.0, _baseLineWidth * 2.0);
-    CGRect rect = CGRectMake(location.x - previewDiameter * 0.5,
-                           location.y - previewDiameter * 0.5,
-                           previewDiameter,
-                           previewDiameter);
-    UIBezierPath *path = [UIBezierPath bezierPathWithOvalInRect:rect];
-    _hoverPreviewLayer.path = path.CGPath;
-}
 
 #pragma mark - UIPencilInteractionDelegate
 
