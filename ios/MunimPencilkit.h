@@ -104,5 +104,6 @@
 - (void)updateHoverPreviewAtLocation:(CGPoint)location;
 - (void)hideHoverPreview;
 - (void)sendHoverEventAtLocation:(CGPoint)location;
+- (void)setShowHoverPreview:(BOOL)showHoverPreview;
 
 @end
