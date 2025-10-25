@@ -756,64 +756,90 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
     }
     
     for (UITouch *touch in touches) {
-        if (touch.type == UITouchTypePencil || touch.type == UITouchTypeStylus) {
-            NSDictionary *applePencilData = [self convertUITouchToApplePencilData:touch phase:phase];
-            [MunimPencilkit sendApplePencilDataEvent:applePencilData];
+        // Use the same simple check as MotesXcode
+        if (touch && touch.type == UITouchTypeStylus) {
+            @try {
+                NSDictionary *applePencilData = [self convertUITouchToApplePencilData:touch phase:phase];
+                if (applePencilData) {
+                    [MunimPencilkit sendApplePencilDataEvent:applePencilData];
+                }
+            } @catch (NSException *exception) {
+                NSLog(@"Error processing Apple Pencil touch: %@", exception.reason);
+                continue;
+            }
             
             // Handle coalesced touches for high-fidelity input (optimized)
             if (event) {
-                NSArray<UITouch *> *coalescedTouches = [event coalescedTouchesForTouch:touch];
-                if (coalescedTouches && coalescedTouches.count > 0) {
-                    [self processCoalescedTouches:coalescedTouches phase:phase];
+                @try {
+                    NSArray<UITouch *> *coalescedTouches = [event coalescedTouchesForTouch:touch];
+                    if (coalescedTouches && coalescedTouches.count > 0) {
+                        [self processCoalescedTouches:coalescedTouches phase:phase];
+                    }
+                } @catch (NSException *exception) {
+                    NSLog(@"Error processing coalesced touches: %@", exception.reason);
                 }
             }
             
             // Handle predicted touches for latency compensation
             if (event) {
-                NSArray<UITouch *> *predictedTouches = [event predictedTouchesForTouch:touch];
-                if (predictedTouches && predictedTouches.count > 0) {
-                    NSMutableArray *predictedData = [[NSMutableArray alloc] init];
-                    for (UITouch *predictedTouch in predictedTouches) {
-                        NSDictionary *predictedTouchData = [self convertUITouchToApplePencilData:predictedTouch phase:phase];
-                        [predictedData addObject:predictedTouchData];
+                @try {
+                    NSArray<UITouch *> *predictedTouches = [event predictedTouchesForTouch:touch];
+                    if (predictedTouches && predictedTouches.count > 0) {
+                        NSMutableArray *predictedData = [[NSMutableArray alloc] init];
+                        for (UITouch *predictedTouch in predictedTouches) {
+                            if (predictedTouch) {
+                                NSDictionary *predictedTouchData = [self convertUITouchToApplePencilData:predictedTouch phase:phase];
+                                if (predictedTouchData) {
+                                    [predictedData addObject:predictedTouchData];
+                                }
+                            }
+                        }
+                        
+                        if (predictedData.count > 0) {
+                            NSDictionary *predictedTouchesData = @{
+                                @"viewId": @(self.viewId),
+                                @"touches": predictedData,
+                                @"timestamp": @(touch.timestamp)
+                            };
+                            
+                            [MunimPencilkit sendApplePencilPredictedTouchesEvent:predictedTouchesData];
+                        }
                     }
-                    
-                    NSDictionary *predictedTouchesData = @{
-                        @"viewId": @(self.viewId),
-                        @"touches": predictedData,
-                        @"timestamp": @(touch.timestamp)
-                    };
-                    
-                    [MunimPencilkit sendApplePencilPredictedTouchesEvent:predictedTouchesData];
+                } @catch (NSException *exception) {
+                    NSLog(@"Error processing predicted touches: %@", exception.reason);
                 }
             }
             
             // Handle estimated properties updates
             if (touch.estimatedPropertiesExpectingUpdates != 0) {
-                NSMutableArray *estimatedProperties = [[NSMutableArray alloc] init];
-                if (touch.estimatedPropertiesExpectingUpdates & UITouchPropertyForce) {
-                    [estimatedProperties addObject:@"force"];
-                }
-                if (touch.estimatedPropertiesExpectingUpdates & UITouchPropertyAzimuth) {
-                    [estimatedProperties addObject:@"azimuth"];
-                }
-                if (touch.estimatedPropertiesExpectingUpdates & UITouchPropertyAltitude) {
-                    [estimatedProperties addObject:@"altitude"];
-                }
-                if (touch.estimatedPropertiesExpectingUpdates & UITouchPropertyLocation) {
-                    [estimatedProperties addObject:@"location"];
-                }
-                
-                if (estimatedProperties.count > 0) {
-                    NSDictionary *estimatedPropertiesData = @{
-                        @"viewId": @(self.viewId),
-                        @"touchId": @(touch.hash),
-                        @"updatedProperties": estimatedProperties,
-                        @"newData": applePencilData,
-                        @"timestamp": @(touch.timestamp)
-                    };
+                @try {
+                    NSMutableArray *estimatedProperties = [[NSMutableArray alloc] init];
+                    if (touch.estimatedPropertiesExpectingUpdates & UITouchPropertyForce) {
+                        [estimatedProperties addObject:@"force"];
+                    }
+                    if (touch.estimatedPropertiesExpectingUpdates & UITouchPropertyAzimuth) {
+                        [estimatedProperties addObject:@"azimuth"];
+                    }
+                    if (touch.estimatedPropertiesExpectingUpdates & UITouchPropertyAltitude) {
+                        [estimatedProperties addObject:@"altitude"];
+                    }
+                    if (touch.estimatedPropertiesExpectingUpdates & UITouchPropertyLocation) {
+                        [estimatedProperties addObject:@"location"];
+                    }
                     
-                    [MunimPencilkit sendApplePencilEstimatedPropertiesEvent:estimatedPropertiesData];
+                    if (estimatedProperties.count > 0) {
+                        NSDictionary *estimatedPropertiesData = @{
+                            @"viewId": @(self.viewId),
+                            @"touchId": @(touch.hash),
+                            @"updatedProperties": estimatedProperties,
+                            @"newData": applePencilData,
+                            @"timestamp": @(touch.timestamp)
+                        };
+                        
+                        [MunimPencilkit sendApplePencilEstimatedPropertiesEvent:estimatedPropertiesData];
+                    }
+                } @catch (NSException *exception) {
+                    NSLog(@"Error processing estimated properties: %@", exception.reason);
                 }
             }
         }
@@ -822,9 +848,22 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
 
 // Conversion methods
 - (NSDictionary *)convertUITouchToApplePencilData:(UITouch *)touch phase:(UITouchPhase)phase {
-    CGPoint location = [touch locationInView:self];
-    CGPoint previousLocation = [touch previousLocationInView:self];
-    CGPoint preciseLocation = [touch preciseLocationInView:self];
+    // Add null check for touch
+    if (!touch) {
+        NSLog(@"Error: Touch is nil in convertUITouchToApplePencilData");
+        return nil;
+    }
+    
+    // Add null check for self
+    if (!self) {
+        NSLog(@"Error: Self is nil in convertUITouchToApplePencilData");
+        return nil;
+    }
+    
+    @try {
+        CGPoint location = [touch locationInView:self];
+        CGPoint previousLocation = [touch previousLocationInView:self];
+        CGPoint preciseLocation = [touch preciseLocationInView:self];
     
     NSString *phaseString;
     switch (phase) {
@@ -849,7 +888,10 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
     double perpendicularForce = touch.force * cos(touch.altitudeAngle);
     
     // Apply pressure curve (Apple's recommended approach)
-    double pressure = touch.force / touch.maximumPossibleForce;
+    double pressure = 0.0;
+    if (touch.maximumPossibleForce > 0) {
+        pressure = touch.force / touch.maximumPossibleForce;
+    }
     double curvedPressure = [self applyPressureCurve:pressure];
     
     // Get estimated properties
@@ -904,45 +946,36 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
         }
     }
     
-    // Update tracking variables
-    self.lastTouchLocation = location;
-    self.lastTouchTimestamp = touch.timestamp;
-    self.lastVelocity = velocity;
-    self.lastAcceleration = acceleration;
-    
-    return @{
-        @"pressure": @(curvedPressure),
-        @"altitude": @(touch.altitudeAngle / (M_PI / 2)),
-        @"azimuth": @([touch azimuthAngleInView:self]), // Azimuth angle method
-        @"azimuthUnitVector": @{
-            @"x": @([touch azimuthUnitVectorInView:self].dx),
-            @"y": @([touch azimuthUnitVectorInView:self].dy)
-        }, // Azimuth unit vector
-        @"force": @(touch.force),
-        @"maximumPossibleForce": @(touch.maximumPossibleForce),
-        @"perpendicularForce": @(perpendicularForce),
-        @"rollAngle": @(touch.rollAngle), // Barrel-roll angle of Apple Pencil
-        @"timestamp": @(touch.timestamp),
-        @"location": @{
-            @"x": @(location.x),
-            @"y": @(location.y)
-        },
-        @"previousLocation": @{
-            @"x": @(previousLocation.x),
-            @"y": @(previousLocation.y)
-        },
-        @"preciseLocation": @{
-            @"x": @(preciseLocation.x),
-            @"y": @(preciseLocation.y)
-        },
-        @"isApplePencil": @(touch.type == UITouchTypePencil),
-        @"phase": phaseString,
-        @"hasPreciseLocation": @(YES), // Always true for Apple Pencil
-        @"estimatedProperties": estimatedProperties,
-        @"estimatedPropertiesExpectingUpdates": estimatedPropertiesExpectingUpdates,
-        @"velocity": @(velocity),
-        @"acceleration": @(acceleration)
-    };
+        // Update tracking variables
+        self.lastTouchLocation = location;
+        self.lastTouchTimestamp = touch.timestamp;
+        self.lastVelocity = velocity;
+        self.lastAcceleration = acceleration;
+        
+        // Simplified data structure like MotesXcode
+        return @{
+            @"type": @"stylus",
+            @"isApplePencil": @(YES),
+            @"pressure": @(curvedPressure),
+            @"force": @(touch.force),
+            @"maximumPossibleForce": @(touch.maximumPossibleForce),
+            @"altitude": @(touch.altitudeAngle),
+            @"azimuth": @([touch azimuthAngleInView:self]),
+            @"timestamp": @(touch.timestamp),
+            @"location": @{
+                @"x": @(location.x),
+                @"y": @(location.y)
+            },
+            @"preciseLocation": @{
+                @"x": @(preciseLocation.x),
+                @"y": @(preciseLocation.y)
+            },
+            @"phase": phaseString
+        };
+    } @catch (NSException *exception) {
+        NSLog(@"Error in convertUITouchToApplePencilData: %@", exception.reason);
+        return nil;
+    }
 }
 
 - (NSDictionary *)convertUITouchToEstimatedPropertiesData:(UITouch *)touch {
@@ -1006,36 +1039,51 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
 }
 
 - (void)processCoalescedTouches:(NSArray<UITouch *> *)coalescedTouches phase:(UITouchPhase)phase {
-    // Optimized coalesced touches processing
-    // Only process if we have a reasonable number of touches to avoid performance issues
-    if (coalescedTouches.count > 10) {
-        // Sample every other touch for very high-frequency input
-        NSMutableArray *sampledTouches = [[NSMutableArray alloc] init];
-        for (NSUInteger i = 0; i < coalescedTouches.count; i += 2) {
-            [sampledTouches addObject:coalescedTouches[i]];
-        }
-        coalescedTouches = sampledTouches;
+    // Add null check
+    if (!coalescedTouches) {
+        NSLog(@"Error: coalescedTouches is nil in processCoalescedTouches");
+        return;
     }
     
-    NSMutableArray *coalescedData = [[NSMutableArray alloc] initWithCapacity:coalescedTouches.count];
-    
-    for (UITouch *coalescedTouch in coalescedTouches) {
-        // Only process if it's a valid touch type
-        if (coalescedTouch.type == UITouchTypePencil || coalescedTouch.type == UITouchTypeStylus) {
-            NSDictionary *coalescedTouchData = [self convertUITouchToApplePencilData:coalescedTouch phase:phase];
-            [coalescedData addObject:coalescedTouchData];
+    @try {
+        // Optimized coalesced touches processing
+        // Only process if we have a reasonable number of touches to avoid performance issues
+        if (coalescedTouches.count > 10) {
+            // Sample every other touch for very high-frequency input
+            NSMutableArray *sampledTouches = [[NSMutableArray alloc] init];
+            for (NSUInteger i = 0; i < coalescedTouches.count; i += 2) {
+                UITouch *touch = coalescedTouches[i];
+                if (touch) {
+                    [sampledTouches addObject:touch];
+                }
+            }
+            coalescedTouches = sampledTouches;
         }
-    }
-    
-    if (coalescedData.count > 0) {
-        NSDictionary *coalescedTouchesData = @{
-            @"viewId": @(self.viewId),
-            @"touches": coalescedData,
-            @"timestamp": @([[NSDate date] timeIntervalSince1970]),
-            @"count": @(coalescedData.count)
-        };
         
-        [MunimPencilkit sendApplePencilCoalescedTouchesEvent:coalescedTouchesData];
+        NSMutableArray *coalescedData = [[NSMutableArray alloc] initWithCapacity:coalescedTouches.count];
+        
+        for (UITouch *coalescedTouch in coalescedTouches) {
+            // Only process if it's a valid touch type - use same simple check as MotesXcode
+            if (coalescedTouch && coalescedTouch.type == UITouchTypeStylus) {
+                NSDictionary *coalescedTouchData = [self convertUITouchToApplePencilData:coalescedTouch phase:phase];
+                if (coalescedTouchData) {
+                    [coalescedData addObject:coalescedTouchData];
+                }
+            }
+        }
+        
+        if (coalescedData.count > 0) {
+            NSDictionary *coalescedTouchesData = @{
+                @"viewId": @(self.viewId),
+                @"touches": coalescedData,
+                @"timestamp": @([[NSDate date] timeIntervalSince1970]),
+                @"count": @(coalescedData.count)
+            };
+            
+            [MunimPencilkit sendApplePencilCoalescedTouchesEvent:coalescedTouchesData];
+        }
+    } @catch (NSException *exception) {
+        NSLog(@"Error in processCoalescedTouches: %@", exception.reason);
     }
 }
 
