@@ -804,8 +804,9 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
     for (UITouch *touch in touches) {
         // Use the same simple check as MotesXcode
         if (touch && touch.type == UITouchTypeStylus) {
+            NSDictionary *applePencilData = nil;
             @try {
-                NSDictionary *applePencilData = [self convertUITouchToApplePencilData:touch phase:phase];
+                applePencilData = [self convertUITouchToApplePencilData:touch phase:phase];
                 if (applePencilData) {
                     [MunimPencilkit sendApplePencilDataEvent:applePencilData];
                 }
@@ -878,7 +879,7 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
                             @"viewId": @(self.viewId),
                             @"touchId": @(touch.hash),
                             @"updatedProperties": estimatedProperties,
-                            @"newData": applePencilData,
+                            @"newData": applePencilData ?: @{},
                             @"timestamp": @(touch.timestamp)
                         };
                         
