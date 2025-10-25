@@ -1754,6 +1754,37 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
     }
 }
 
+- (void)updateHoverPreviewAtLocation:(CGPoint)location {
+    if (_hoverPreviewLayer && _showHoverPreview) {
+        CGFloat previewDiameter = MAX(4.0, _baseLineWidth * 2.0);
+        CGRect rect = CGRectMake(location.x - previewDiameter * 0.5,
+                               location.y - previewDiameter * 0.5,
+                               previewDiameter,
+                               previewDiameter);
+        UIBezierPath *path = [UIBezierPath bezierPathWithOvalInRect:rect];
+        _hoverPreviewLayer.path = path.CGPath;
+        _hoverPreviewLayer.hidden = NO;
+    }
+}
+
+- (void)hideHoverPreview {
+    if (_hoverPreviewLayer) {
+        _hoverPreviewLayer.hidden = YES;
+    }
+}
+
+- (void)sendHoverEventAtLocation:(CGPoint)location {
+    // Create hover data with basic location information
+    NSDictionary *hoverData = @{
+        @"viewId": @(0), // StylusDrawingView doesn't have viewId, use 0
+        @"location": @{ @"x": @(location.x), @"y": @(location.y) },
+        @"altitude": @(0), // Not available via UIHoverGestureRecognizer
+        @"azimuth": @{ @"x": @(0), @"y": @(0) }, // Not available via UIHoverGestureRecognizer
+        @"timestamp": @([[NSDate date] timeIntervalSince1970])
+    };
+    [MunimPencilkit sendApplePencilHoverEvent:hoverData];
+}
+
 
 #pragma mark - UIPencilInteractionDelegate
 
