@@ -272,6 +272,7 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
     // Update config when it changes
     useEffect(() => {
       if (viewId && config) {
+        console.log('🎨 PencilKitView: Sending config to native:', config);
         MunimPencilkit.setPencilKitConfig(viewId, config).catch(console.error);
       }
     }, [viewId, config]);
