@@ -60,6 +60,9 @@ export interface PencilKitViewProps {
   onApplePencilMotion?: (data: ApplePencilMotionData) => void;
   onViewReady?: (viewId: number) => void;
   onApplePencilHover?: (data: ApplePencilHoverData) => void;
+  onStylusViewToggleEraser?: (isOn: boolean) => void; // New: Custom stylus view eraser toggle
+  onStylusViewStartDrawing?: () => void; // New: Custom stylus view drawing started
+  onStylusViewEndDrawing?: () => void; // New: Custom stylus view drawing ended
   enableApplePencilData?: boolean;
   enableToolPicker?: boolean;
   enableHapticFeedback?: boolean;
@@ -91,6 +94,9 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
       onApplePencilEstimatedProperties,
       onApplePencilMotion,
       onApplePencilHover,
+      onStylusViewToggleEraser,
+      onStylusViewStartDrawing,
+      onStylusViewEndDrawing,
       onViewReady,
       enableApplePencilData = false,
       enableToolPicker = true,
@@ -216,6 +222,19 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
         );
       }
 
+      // Custom stylus view event listeners
+      if (onStylusViewToggleEraser) {
+        eventEmitter.addListener('onApplePencilData', (data: any) => {
+          if (data.action === 'drawingStarted' && onStylusViewStartDrawing) {
+            onStylusViewStartDrawing();
+          } else if (data.action === 'drawingEnded' && onStylusViewEndDrawing) {
+            onStylusViewEndDrawing();
+          } else if (data.isEraserOn !== undefined && onStylusViewToggleEraser) {
+            onStylusViewToggleEraser(data.isEraserOn);
+          }
+        });
+      }
+
       return () => {
         applePencilListenerRef.current?.remove();
         drawingChangeListenerRef.current?.remove();
@@ -234,6 +253,9 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
       onApplePencilEstimatedProperties,
       onApplePencilMotion,
       onApplePencilHover,
+      onStylusViewToggleEraser,
+      onStylusViewStartDrawing,
+      onStylusViewEndDrawing,
       enableApplePencilData,
       enableHapticFeedback,
       enableMotionTracking,

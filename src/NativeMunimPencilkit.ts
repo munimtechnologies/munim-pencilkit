@@ -115,6 +115,9 @@ export interface PencilKitConfig {
   enableApplePencilData?: boolean;
   enableToolPicker?: boolean;
   enableHapticFeedback?: boolean;
+  useCustomStylusView?: boolean; // New: Toggle between PencilKit and custom stylus view
+  strokeColor?: string; // New: Stroke color for custom stylus view
+  baseLineWidth?: number; // New: Base line width for custom stylus view
 }
 
 export interface Spec extends TurboModule {

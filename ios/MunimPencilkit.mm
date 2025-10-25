@@ -348,6 +348,7 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
         _enableToolPicker = YES;
         _enableHapticFeedback = NO;
         _enableMotionTracking = NO;
+        _useCustomStylusView = NO; // Default to PencilKit
         _isApplePencilDataCaptureActive = NO;
         _isApplePencilActive = NO;
         _lastRollAngle = 0.0;
@@ -388,6 +389,14 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
 }
 
 - (void)setupPencilKitView {
+    if (_useCustomStylusView) {
+        [self setupCustomStylusView];
+    } else {
+        [self setupPencilKitCanvasView];
+    }
+}
+
+- (void)setupPencilKitCanvasView {
     // Create PKCanvasView
     self.canvasView = [[PKCanvasView alloc] init];
     self.canvasView.delegate = self;
@@ -418,6 +427,27 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
     }
 }
 
+- (void)setupCustomStylusView {
+    // Create StylusDrawingView
+    self.stylusView = [[StylusDrawingView alloc] init];
+    self.stylusView.delegate = self;
+    self.stylusView.translatesAutoresizingMaskIntoConstraints = NO;
+    [self addSubview:self.stylusView];
+    
+    // Set up constraints
+    [NSLayoutConstraint activateConstraints:@[
+        [self.stylusView.topAnchor constraintEqualToAnchor:self.topAnchor],
+        [self.stylusView.leadingAnchor constraintEqualToAnchor:self.leadingAnchor],
+        [self.stylusView.trailingAnchor constraintEqualToAnchor:self.trailingAnchor],
+        [self.stylusView.bottomAnchor constraintEqualToAnchor:self.bottomAnchor]
+    ]];
+    
+    // Configure default settings
+    self.stylusView.allowsFingerDrawing = YES;
+    self.stylusView.strokeColor = [UIColor labelColor];
+    self.stylusView.baseLineWidth = 4.0;
+}
+
 - (void)setupToolPicker {
     if (@available(iOS 14.0, *)) {
         self.toolPicker = [PKToolPicker sharedToolPickerForWindow:self.window];
@@ -429,42 +459,93 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
 }
 
 - (void)updateConfig:(NSDictionary *)config {
-    if (config[@"allowsFingerDrawing"]) {
-        self.canvasView.allowsFingerDrawing = [config[@"allowsFingerDrawing"] boolValue];
+    // Handle custom stylus view toggle
+    if (config[@"useCustomStylusView"]) {
+        BOOL useCustom = [config[@"useCustomStylusView"] boolValue];
+        if (useCustom != _useCustomStylusView) {
+            [self setUseCustomStylusView:useCustom];
+        }
     }
     
-    if (config[@"allowsPencilOnlyDrawing"]) {
-        self.canvasView.allowsFingerDrawing = ![config[@"allowsPencilOnlyDrawing"] boolValue];
-    }
-    
-    if (config[@"isRulerActive"]) {
-        self.canvasView.rulerActive = [config[@"isRulerActive"] boolValue];
-    }
-    
-    if (config[@"drawingPolicy"]) {
-        NSString *policy = config[@"drawingPolicy"];
-        if ([policy isEqualToString:@"anyInput"]) {
-            self.canvasView.drawingPolicy = PKCanvasViewDrawingPolicyAnyInput;
-        } else if ([policy isEqualToString:@"pencilOnly"]) {
-            self.canvasView.drawingPolicy = PKCanvasViewDrawingPolicyPencilOnly;
-        } else {
-            self.canvasView.drawingPolicy = PKCanvasViewDrawingPolicyDefault;
+    if (_useCustomStylusView) {
+        // Update custom stylus view config
+        if (config[@"allowsFingerDrawing"]) {
+            self.stylusView.allowsFingerDrawing = [config[@"allowsFingerDrawing"] boolValue];
+        }
+        if (config[@"strokeColor"]) {
+            // Parse color from string if needed
+            NSString *colorString = config[@"strokeColor"];
+            if ([colorString isKindOfClass:[NSString class]]) {
+                // Simple color parsing - in a real implementation you'd want more robust parsing
+                self.stylusView.strokeColor = [UIColor colorWithRed:0.0 green:0.0 blue:0.0 alpha:1.0];
+            }
+        }
+        if (config[@"baseLineWidth"]) {
+            self.stylusView.baseLineWidth = [config[@"baseLineWidth"] floatValue];
+        }
+    } else {
+        // Update PencilKit canvas view config
+        if (config[@"allowsFingerDrawing"]) {
+            self.canvasView.allowsFingerDrawing = [config[@"allowsFingerDrawing"] boolValue];
+        }
+        
+        if (config[@"allowsPencilOnlyDrawing"]) {
+            self.canvasView.allowsFingerDrawing = ![config[@"allowsPencilOnlyDrawing"] boolValue];
+        }
+        
+        if (config[@"isRulerActive"]) {
+            self.canvasView.rulerActive = [config[@"isRulerActive"] boolValue];
+        }
+        
+        if (config[@"drawingPolicy"]) {
+            NSString *policy = config[@"drawingPolicy"];
+            if ([policy isEqualToString:@"anyInput"]) {
+                self.canvasView.drawingPolicy = PKCanvasViewDrawingPolicyAnyInput;
+            } else if ([policy isEqualToString:@"pencilOnly"]) {
+                self.canvasView.drawingPolicy = PKCanvasViewDrawingPolicyPencilOnly;
+            } else {
+                self.canvasView.drawingPolicy = PKCanvasViewDrawingPolicyDefault;
+            }
         }
     }
 }
 
 - (NSDictionary *)getDrawingData {
-    PKDrawing *drawing = self.canvasView.drawing;
-    return [self convertPKDrawingToDictionary:drawing];
+    if (_useCustomStylusView) {
+        // For custom stylus view, we return a simple representation
+        // In a real implementation, you might want to store stroke data
+        return @{
+            @"strokes": @[],
+            @"bounds": @{
+                @"x": @(0),
+                @"y": @(0),
+                @"width": @(self.bounds.size.width),
+                @"height": @(self.bounds.size.height)
+            }
+        };
+    } else {
+        PKDrawing *drawing = self.canvasView.drawing;
+        return [self convertPKDrawingToDictionary:drawing];
+    }
 }
 
 - (void)setDrawingData:(NSDictionary *)drawingData {
-    PKDrawing *drawing = [self convertDictionaryToPKDrawing:drawingData];
-    self.canvasView.drawing = drawing;
+    if (_useCustomStylusView) {
+        // For custom stylus view, we could load an image if provided
+        // This is a simplified implementation
+        [self.stylusView clearCanvas];
+    } else {
+        PKDrawing *drawing = [self convertDictionaryToPKDrawing:drawingData];
+        self.canvasView.drawing = drawing;
+    }
 }
 
 - (void)clearDrawing {
-    self.canvasView.drawing = [[PKDrawing alloc] init];
+    if (_useCustomStylusView) {
+        [self.stylusView clearCanvas];
+    } else {
+        self.canvasView.drawing = [[PKDrawing alloc] init];
+    }
 }
 
 - (BOOL)undo {
@@ -501,6 +582,65 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
 
 - (BOOL)isApplePencilDataCaptureActive {
     return _isApplePencilDataCaptureActive;
+}
+
+#pragma mark - Custom Stylus View Methods
+
+- (void)setUseCustomStylusView:(BOOL)useCustom {
+    if (_useCustomStylusView != useCustom) {
+        _useCustomStylusView = useCustom;
+        [self switchToCustomStylusView];
+    }
+}
+
+- (void)switchToCustomStylusView {
+    // Remove existing views
+    [self.canvasView removeFromSuperview];
+    [self.stylusView removeFromSuperview];
+    
+    // Create and setup custom stylus view
+    [self setupCustomStylusView];
+}
+
+- (void)switchToPencilKitView {
+    // Remove existing views
+    [self.canvasView removeFromSuperview];
+    [self.stylusView removeFromSuperview];
+    
+    // Create and setup PencilKit canvas view
+    [self setupPencilKitCanvasView];
+}
+
+#pragma mark - StylusDrawingViewDelegate
+
+- (void)stylusViewDidToggleEraser:(StylusDrawingView *)view isOn:(BOOL)isOn {
+    // Send event to React Native
+    NSDictionary *eventData = @{
+        @"viewId": @(self.viewId),
+        @"isEraserOn": @(isOn),
+        @"timestamp": @([[NSDate date] timeIntervalSince1970])
+    };
+    [MunimPencilkit sendApplePencilDataEvent:eventData];
+}
+
+- (void)stylusViewDidStartDrawing:(StylusDrawingView *)view {
+    // Send event to React Native
+    NSDictionary *eventData = @{
+        @"viewId": @(self.viewId),
+        @"action": @"drawingStarted",
+        @"timestamp": @([[NSDate date] timeIntervalSince1970])
+    };
+    [MunimPencilkit sendApplePencilDataEvent:eventData];
+}
+
+- (void)stylusViewDidEndDrawing:(StylusDrawingView *)view {
+    // Send event to React Native
+    NSDictionary *eventData = @{
+        @"viewId": @(self.viewId),
+        @"action": @"drawingEnded",
+        @"timestamp": @([[NSDate date] timeIntervalSince1970])
+    };
+    [MunimPencilkit sendApplePencilDataEvent:eventData];
 }
 
 // Apple Pencil Pro interaction methods
@@ -1135,6 +1275,350 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
     [color getRed:&red green:&green blue:&blue alpha:&alpha];
     return [NSString stringWithFormat:@"rgba(%d,%d,%d,%f)", 
             (int)(red * 255), (int)(green * 255), (int)(blue * 255), alpha];
+}
+
+@end
+
+// MARK: - StylusDrawingView Implementation
+
+@implementation StylusDrawingView {
+    // Backing store for incremental rendering
+    UIImageView *_renderImageView;
+    
+    // State per active stroke
+    NSMutableDictionary<UITouch *, NSValue *> *_lastPointByTouch;
+    NSMutableDictionary<UITouch *, UIBezierPath *> *_strokePaths;
+    NSMutableDictionary<UITouch *, NSMutableArray<NSValue *> *> *_strokePoints;
+    NSMutableDictionary<UITouch *, NSMutableArray<NSNumber *> *> *_strokePressures;
+    
+    // Hover preview
+    CAShapeLayer *_hoverPreviewLayer;
+    UIHoverGestureRecognizer *_hoverGesture;
+    
+    // Tool state
+    BOOL _isEraserEnabled;
+}
+
+- (instancetype)initWithFrame:(CGRect)frame {
+    self = [super initWithFrame:frame];
+    if (self) {
+        [self commonInit];
+    }
+    return self;
+}
+
+- (instancetype)initWithCoder:(NSCoder *)coder {
+    self = [super initWithCoder:coder];
+    if (self) {
+        [self commonInit];
+    }
+    return self;
+}
+
+- (void)commonInit {
+    self.multipleTouchEnabled = YES;
+    self.backgroundColor = [UIColor systemBackgroundColor];
+    
+    // Initialize backing store
+    _renderImageView = [[UIImageView alloc] init];
+    _renderImageView.contentMode = UIViewContentModeCenter;
+    _renderImageView.opaque = YES;
+    [self addSubview:_renderImageView];
+    
+    // Initialize stroke tracking dictionaries
+    _lastPointByTouch = [[NSMutableDictionary alloc] init];
+    _strokePaths = [[NSMutableDictionary alloc] init];
+    _strokePoints = [[NSMutableDictionary alloc] init];
+    _strokePressures = [[NSMutableDictionary alloc] init];
+    
+    // Hover preview layer
+    _hoverPreviewLayer = [CAShapeLayer layer];
+    _hoverPreviewLayer.fillColor = [UIColor clearColor].CGColor;
+    _hoverPreviewLayer.strokeColor = [[UIColor systemBlueColor] colorWithAlphaComponent:0.6].CGColor;
+    _hoverPreviewLayer.lineWidth = 1.0;
+    _hoverPreviewLayer.hidden = YES;
+    [self.layer addSublayer:_hoverPreviewLayer];
+    
+    // Hover support (available on iPad with Pencil hover)
+    if (@available(iOS 13.0, *)) {
+        _hoverGesture = [[UIHoverGestureRecognizer alloc] initWithTarget:self action:@selector(handleHover:)];
+        [self addGestureRecognizer:_hoverGesture];
+    }
+    
+    // Pencil interaction (tap)
+    if (@available(iOS 12.1, *)) {
+        UIPencilInteraction *pencil = [[UIPencilInteraction alloc] init];
+        pencil.delegate = self;
+        [self addInteraction:pencil];
+    }
+    
+    // Default values
+    _allowsFingerDrawing = NO;
+    _strokeColor = [UIColor labelColor];
+    _baseLineWidth = 4.0;
+    _isEraserEnabled = NO;
+}
+
+- (void)layoutSubviews {
+    [super layoutSubviews];
+    _renderImageView.frame = self.bounds;
+    
+    // Initialize image if needed
+    if (_renderImageView.image == nil && self.bounds.size.width > 0 && self.bounds.size.height > 0) {
+        _renderImageView.image = [self emptyImageWithSize:self.bounds.size];
+    }
+}
+
+- (void)clearCanvas {
+    _renderImageView.image = [self emptyImageWithSize:self.bounds.size];
+    [_strokePaths removeAllObjects];
+    [_strokePoints removeAllObjects];
+    [_strokePressures removeAllObjects];
+    [_lastPointByTouch removeAllObjects];
+    [self setNeedsDisplay];
+}
+
+- (void)setCanvasImage:(UIImage *)image {
+    if (image) {
+        // Ensure the image is set with proper scaling to match the view bounds
+        if (!CGSizeEqualToSize(self.bounds.size, CGSizeZero) && !CGSizeEqualToSize(self.bounds.size, image.size)) {
+            // Create a properly sized image that matches the view bounds
+            UIGraphicsImageRendererFormat *format = [UIGraphicsImageRendererFormat defaultFormat];
+            format.scale = [UIScreen mainScreen].scale;
+            format.opaque = YES;
+            UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:self.bounds.size format:format];
+            UIImage *scaledImage = [renderer imageWithActions:^(UIGraphicsImageRendererContext * _Nonnull rendererContext) {
+                [image drawInRect:CGRectMake(0, 0, self.bounds.size.width, self.bounds.size.height)];
+            }];
+            _renderImageView.image = scaledImage;
+        } else {
+            _renderImageView.image = image;
+        }
+    } else if (!CGSizeEqualToSize(self.bounds.size, CGSizeZero)) {
+        _renderImageView.image = [self emptyImageWithSize:self.bounds.size];
+    }
+    [self setNeedsDisplay];
+}
+
+- (UIImage *)snapshotImage {
+    return _renderImageView.image;
+}
+
+- (void)setEraserEnabled:(BOOL)enabled {
+    _isEraserEnabled = enabled;
+    if (_isEraserEnabled) {
+        _hoverPreviewLayer.strokeColor = [[UIColor systemRedColor] colorWithAlphaComponent:0.7].CGColor;
+    } else {
+        _hoverPreviewLayer.strokeColor = [[UIColor systemBlueColor] colorWithAlphaComponent:0.6].CGColor;
+    }
+}
+
+- (UIImage *)emptyImageWithSize:(CGSize)size {
+    UIGraphicsImageRendererFormat *format = [UIGraphicsImageRendererFormat defaultFormat];
+    format.scale = [UIScreen mainScreen].scale;
+    format.opaque = YES;
+    UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:size format:format];
+    return [renderer imageWithActions:^(UIGraphicsImageRendererContext * _Nonnull rendererContext) {
+        [(self.backgroundColor ?: [UIColor whiteColor]) setFill];
+        UIRectFill(CGRectMake(0, 0, size.width, size.height));
+    }];
+}
+
+#pragma mark - Touch Handling
+
+- (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    if (!_renderImageView.image) return;
+    
+    for (UITouch *touch in touches) {
+        if (![self shouldAcceptTouch:touch]) continue;
+        
+        CGPoint point = [touch preciseLocationInView:self];
+        _lastPointByTouch[touch] = [NSValue valueWithCGPoint:point];
+        
+        // Initialize stroke path and points
+        UIBezierPath *path = [UIBezierPath bezierPath];
+        [path moveToPoint:point];
+        _strokePaths[touch] = path;
+        
+        NSMutableArray<NSValue *> *points = [[NSMutableArray alloc] init];
+        [points addObject:[NSValue valueWithCGPoint:point]];
+        _strokePoints[touch] = points;
+        
+        NSMutableArray<NSNumber *> *pressures = [[NSMutableArray alloc] init];
+        [pressures addObject:@([self normalizedForceForTouch:touch])];
+        _strokePressures[touch] = pressures;
+        
+        // Notify delegate that drawing started
+        if ([self.delegate respondsToSelector:@selector(stylusViewDidStartDrawing:)]) {
+            [self.delegate stylusViewDidStartDrawing:self];
+        }
+    }
+}
+
+- (void)touchesMoved:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    if (!_renderImageView.image) return;
+    
+    for (UITouch *touch in touches) {
+        if (![self shouldAcceptTouch:touch]) continue;
+        
+        // Use coalesced touches for smoother strokes
+        NSArray<UITouch *> *samples = [event coalescedTouchesForTouch:touch] ?: @[touch];
+        for (UITouch *sample in samples) {
+            CGPoint current = [sample preciseLocationInView:self];
+            
+            // Add point to stroke path
+            UIBezierPath *path = _strokePaths[touch];
+            NSMutableArray<NSValue *> *points = _strokePoints[touch];
+            NSMutableArray<NSNumber *> *pressures = _strokePressures[touch];
+            
+            if (path && points && pressures) {
+                [path addLineToPoint:current];
+                [points addObject:[NSValue valueWithCGPoint:current]];
+                [pressures addObject:@([self normalizedForceForTouch:sample])];
+            }
+            
+            _lastPointByTouch[touch] = [NSValue valueWithCGPoint:current];
+        }
+        
+        // Render the entire stroke with pressure-sensitive segments
+        [self renderStrokeWithPressureForTouch:touch onImage:_renderImageView.image];
+    }
+}
+
+- (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    [self endTouches:touches];
+}
+
+- (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    [self endTouches:touches];
+}
+
+- (void)endTouches:(NSSet<UITouch *> *)touches {
+    for (UITouch *touch in touches) {
+        [_lastPointByTouch removeObjectForKey:touch];
+        [_strokePaths removeObjectForKey:touch];
+        [_strokePoints removeObjectForKey:touch];
+        [_strokePressures removeObjectForKey:touch];
+    }
+    
+    // Notify delegate that drawing ended
+    if ([self.delegate respondsToSelector:@selector(stylusViewDidEndDrawing:)]) {
+        [self.delegate stylusViewDidEndDrawing:self];
+    }
+}
+
+- (BOOL)shouldAcceptTouch:(UITouch *)touch {
+    if (_allowsFingerDrawing) return YES;
+    if (@available(iOS 12.1, *)) {
+        return touch.type == UITouchTypeStylus;
+    } else {
+        return YES;
+    }
+}
+
+#pragma mark - Rendering
+
+- (void)renderStrokeWithPressureForTouch:(UITouch *)touch onImage:(UIImage *)image {
+    if (self.bounds.size.width <= 0 || self.bounds.size.height <= 0) return;
+    
+    NSMutableArray<NSValue *> *points = _strokePoints[touch];
+    NSMutableArray<NSNumber *> *pressures = _strokePressures[touch];
+    
+    if (!points || !pressures || points.count <= 1) return;
+    
+    UIGraphicsImageRendererFormat *format = [UIGraphicsImageRendererFormat defaultFormat];
+    format.scale = [UIScreen mainScreen].scale;
+    format.opaque = YES;
+    UIGraphicsImageRenderer *renderer = [[UIGraphicsImageRenderer alloc] initWithSize:self.bounds.size format:format];
+    
+    UIColor *color = _isEraserEnabled ? (self.backgroundColor ?: [UIColor whiteColor]) : _strokeColor;
+    
+    UIImage *updated = [renderer imageWithActions:^(UIGraphicsImageRendererContext * _Nonnull rendererContext) {
+        [image drawAtPoint:CGPointZero];
+        
+        // Draw the stroke with pressure-sensitive segments
+        for (NSUInteger i = 1; i < points.count; i++) {
+            CGPoint from = [points[i-1] CGPointValue];
+            CGPoint to = [points[i] CGPointValue];
+            
+            // Use the pressure stored for this point
+            CGFloat force = [pressures[i] floatValue];
+            CGFloat tiltFactor = [self tiltWidthFactorForTouch:touch];
+            CGFloat width = MAX(2.0, _baseLineWidth * (0.5 + force) * tiltFactor);
+            
+            UIBezierPath *path = [UIBezierPath bezierPath];
+            [path moveToPoint:from];
+            [path addLineToPoint:to];
+            path.lineCapStyle = kCGLineCapRound;
+            path.lineJoinStyle = kCGLineJoinRound;
+            path.lineWidth = width;
+            
+            [color setStroke];
+            [path stroke];
+        }
+    }];
+    
+    _renderImageView.image = updated;
+}
+
+- (CGFloat)normalizedForceForTouch:(UITouch *)touch {
+    if (touch.maximumPossibleForce <= 0) return 1.0;
+    CGFloat value = touch.force / touch.maximumPossibleForce;
+    return MAX(0.0, MIN(1.0, value));
+}
+
+- (CGFloat)tiltWidthFactorForTouch:(UITouch *)touch {
+    // Increase width when the pencil is tilted (lower altitude)
+    // altitudeAngle ranges roughly 0 (parallel) to ~pi/2 (perpendicular)
+    CGFloat altitude = touch.altitudeAngle;
+    CGFloat perpendicularity = MAX(0.0, MIN(1.0, altitude / (M_PI / 2.0)));
+    // When perpendicularity is low (tilted), allow up to 1.8x width
+    return 1.0 + (1.8 - 1.0) * (1.0 - perpendicularity);
+}
+
+#pragma mark - Hover Handling
+
+- (void)handleHover:(UIHoverGestureRecognizer *)recognizer {
+    if (@available(iOS 13.0, *)) {
+        CGPoint location = [recognizer locationInView:self];
+        switch (recognizer.state) {
+            case UIGestureRecognizerStateBegan:
+            case UIGestureRecognizerStateChanged:
+                [self updateHoverPreviewAtLocation:location];
+                _hoverPreviewLayer.hidden = NO;
+                break;
+            case UIGestureRecognizerStateEnded:
+            case UIGestureRecognizerStateCancelled:
+            case UIGestureRecognizerStateFailed:
+                _hoverPreviewLayer.hidden = YES;
+                break;
+            default:
+                break;
+        }
+    }
+}
+
+- (void)updateHoverPreviewAtLocation:(CGPoint)location {
+    // Use base width as preview size; could incorporate tilt/force when available via hover pose in future
+    CGFloat previewDiameter = MAX(4.0, _baseLineWidth * 2.0);
+    CGRect rect = CGRectMake(location.x - previewDiameter * 0.5,
+                           location.y - previewDiameter * 0.5,
+                           previewDiameter,
+                           previewDiameter);
+    UIBezierPath *path = [UIBezierPath bezierPathWithOvalInRect:rect];
+    _hoverPreviewLayer.path = path.CGPath;
+}
+
+#pragma mark - UIPencilInteractionDelegate
+
+- (void)pencilInteractionDidTap:(UIPencilInteraction *)interaction {
+    // Toggle eraser on pencil tap
+    _isEraserEnabled = !_isEraserEnabled;
+    [self setEraserEnabled:_isEraserEnabled];
+    
+    if ([self.delegate respondsToSelector:@selector(stylusViewDidToggleEraser:isOn:)]) {
+        [self.delegate stylusViewDidToggleEraser:self isOn:_isEraserEnabled];
+    }
 }
 
 @end

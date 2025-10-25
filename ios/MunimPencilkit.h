@@ -8,6 +8,16 @@
 #import <React/RCTUtils.h>
 #import <React/RCTEventEmitter.h>
 
+// Forward declarations
+@class StylusDrawingView;
+
+// StylusDrawingView Delegate Protocol
+@protocol StylusDrawingViewDelegate <NSObject>
+- (void)stylusViewDidToggleEraser:(StylusDrawingView *)view isOn:(BOOL)isOn;
+- (void)stylusViewDidStartDrawing:(StylusDrawingView *)view;
+- (void)stylusViewDidEndDrawing:(StylusDrawingView *)view;
+@end
+
 @interface MunimPencilkit : RCTEventEmitter <NativeMunimPencilkitSpec>
 
 @end
@@ -18,14 +28,16 @@
 @end
 
 // PencilKit Native View with Apple Pencil support
-@interface PencilKitView : UIView <PKCanvasViewDelegate>
+@interface PencilKitView : UIView <PKCanvasViewDelegate, StylusDrawingViewDelegate>
 
 @property (nonatomic, assign) NSInteger viewId;
 @property (nonatomic, assign) BOOL enableApplePencilData;
 @property (nonatomic, assign) BOOL enableToolPicker;
 @property (nonatomic, assign) BOOL enableHapticFeedback;
 @property (nonatomic, assign) BOOL enableMotionTracking;
+@property (nonatomic, assign) BOOL useCustomStylusView; // New: Toggle between PencilKit and custom view
 @property (nonatomic, strong) PKCanvasView *canvasView;
+@property (nonatomic, strong) StylusDrawingView *stylusView; // New: Custom stylus drawing view
 @property (nonatomic, strong) PKToolPicker *toolPicker;
 @property (nonatomic, strong) CMMotionManager *motionManager;
 
@@ -54,6 +66,11 @@
 - (void)stopApplePencilDataCapture;
 - (BOOL)isApplePencilDataCaptureActive;
 
+// Custom Stylus View methods
+- (void)setUseCustomStylusView:(BOOL)useCustom;
+- (void)switchToCustomStylusView;
+- (void)switchToPencilKitView;
+
 // Apple Pencil methods
 - (void)enableHapticFeedback:(BOOL)enabled;
 - (void)triggerHapticFeedback:(UIImpactFeedbackStyle)style;
@@ -65,5 +82,22 @@
 - (NSDictionary *)analyzeStroke:(NSArray<NSDictionary *> *)strokePoints;
 - (double)calculateStrokeSmoothness:(NSArray<NSDictionary *> *)strokePoints;
 - (double)calculateStrokeConsistency:(NSArray<NSDictionary *> *)strokePoints;
+
+@end
+
+// Custom Stylus Drawing View (similar to MotesXcode)
+@interface StylusDrawingView : UIView <UIPencilInteractionDelegate>
+
+// Public configuration
+@property (nonatomic, assign) BOOL allowsFingerDrawing;
+@property (nonatomic, strong) UIColor *strokeColor;
+@property (nonatomic, assign) CGFloat baseLineWidth;
+@property (nonatomic, weak) id<StylusDrawingViewDelegate> delegate;
+
+// Drawing methods
+- (void)clearCanvas;
+- (void)setCanvasImage:(UIImage *)image;
+- (UIImage *)snapshotImage;
+- (void)setEraserEnabled:(BOOL)enabled;
 
 @end
