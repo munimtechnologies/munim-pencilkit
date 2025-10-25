@@ -277,7 +277,7 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
           .then(() => {
             console.log('🎨 PencilKitView: Config sent successfully to native');
           })
-          .catch((error) => {
+          .catch((error: any) => {
             console.error(
               '🎨 PencilKitView: Error sending config to native:',
               error
