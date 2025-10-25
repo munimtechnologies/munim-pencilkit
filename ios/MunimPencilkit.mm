@@ -363,9 +363,9 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
     return self;
 }
 
-// Hover handling (iPadOS 16+)
+// Hover handling (iOS 16+)
 - (void)handleHover:(UIHoverGestureRecognizer *)recognizer {
-    if (@available(iPadOS 16.0, *)) {
+    if (@available(iOS 16.0, *)) {
         // Attempt to access UIPencilHoverPose via KVC if available
         id pose = [recognizer valueForKey:@"pencilHoverPose"];
         if (pose) {
@@ -420,8 +420,8 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
         [self setupToolPicker];
     }
     
-    // Add hover recognizer on iPadOS 16+
-    if (@available(iPadOS 16.0, *)) {
+    // Add hover recognizer on iOS 16+
+    if (@available(iOS 16.0, *)) {
         UIHoverGestureRecognizer *hoverRecognizer = [[UIHoverGestureRecognizer alloc] initWithTarget:self action:@selector(handleHover:)];
         [self.canvasView addGestureRecognizer:hoverRecognizer];
     }
@@ -1433,20 +1433,21 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
         if (![self shouldAcceptTouch:touch]) continue;
         
         CGPoint point = [touch preciseLocationInView:self];
-        _lastPointByTouch[touch] = [NSValue valueWithCGPoint:point];
+        NSValue *touchKey = [NSValue valueWithPointer:(__bridge const void *)touch];
+        _lastPointByTouch[touchKey] = [NSValue valueWithCGPoint:point];
         
         // Initialize stroke path and points
         UIBezierPath *path = [UIBezierPath bezierPath];
         [path moveToPoint:point];
-        _strokePaths[touch] = path;
+        _strokePaths[touchKey] = path;
         
         NSMutableArray<NSValue *> *points = [[NSMutableArray alloc] init];
         [points addObject:[NSValue valueWithCGPoint:point]];
-        _strokePoints[touch] = points;
+        _strokePoints[touchKey] = points;
         
         NSMutableArray<NSNumber *> *pressures = [[NSMutableArray alloc] init];
         [pressures addObject:@([self normalizedForceForTouch:touch])];
-        _strokePressures[touch] = pressures;
+        _strokePressures[touchKey] = pressures;
         
         // Notify delegate that drawing started
         if ([self.delegate respondsToSelector:@selector(stylusViewDidStartDrawing:)]) {
@@ -1467,9 +1468,10 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
             CGPoint current = [sample preciseLocationInView:self];
             
             // Add point to stroke path
-            UIBezierPath *path = _strokePaths[touch];
-            NSMutableArray<NSValue *> *points = _strokePoints[touch];
-            NSMutableArray<NSNumber *> *pressures = _strokePressures[touch];
+            NSValue *touchKey = [NSValue valueWithPointer:(__bridge const void *)touch];
+            UIBezierPath *path = _strokePaths[touchKey];
+            NSMutableArray<NSValue *> *points = _strokePoints[touchKey];
+            NSMutableArray<NSNumber *> *pressures = _strokePressures[touchKey];
             
             if (path && points && pressures) {
                 [path addLineToPoint:current];
@@ -1477,7 +1479,8 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
                 [pressures addObject:@([self normalizedForceForTouch:sample])];
             }
             
-            _lastPointByTouch[touch] = [NSValue valueWithCGPoint:current];
+            NSValue *touchKey = [NSValue valueWithPointer:(__bridge const void *)touch];
+            _lastPointByTouch[touchKey] = [NSValue valueWithCGPoint:current];
         }
         
         // Render the entire stroke with pressure-sensitive segments
@@ -1495,10 +1498,11 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
 
 - (void)endTouches:(NSSet<UITouch *> *)touches {
     for (UITouch *touch in touches) {
-        [_lastPointByTouch removeObjectForKey:touch];
-        [_strokePaths removeObjectForKey:touch];
-        [_strokePoints removeObjectForKey:touch];
-        [_strokePressures removeObjectForKey:touch];
+        NSValue *touchKey = [NSValue valueWithPointer:(__bridge const void *)touch];
+        [_lastPointByTouch removeObjectForKey:touchKey];
+        [_strokePaths removeObjectForKey:touchKey];
+        [_strokePoints removeObjectForKey:touchKey];
+        [_strokePressures removeObjectForKey:touchKey];
     }
     
     // Notify delegate that drawing ended
@@ -1521,8 +1525,9 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
 - (void)renderStrokeWithPressureForTouch:(UITouch *)touch onImage:(UIImage *)image {
     if (self.bounds.size.width <= 0 || self.bounds.size.height <= 0) return;
     
-    NSMutableArray<NSValue *> *points = _strokePoints[touch];
-    NSMutableArray<NSNumber *> *pressures = _strokePressures[touch];
+    NSValue *touchKey = [NSValue valueWithPointer:(__bridge const void *)touch];
+    NSMutableArray<NSValue *> *points = _strokePoints[touchKey];
+    NSMutableArray<NSNumber *> *pressures = _strokePressures[touchKey];
     
     if (!points || !pressures || points.count <= 1) return;
     
