@@ -635,7 +635,11 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
 - (void)setUseCustomStylusView:(BOOL)useCustom {
     if (_useCustomStylusView != useCustom) {
         _useCustomStylusView = useCustom;
-        [self switchToCustomStylusView];
+        if (useCustom) {
+            [self switchToCustomStylusView];
+        } else {
+            [self switchToPencilKitView];
+        }
     }
 }
 
