@@ -149,7 +149,7 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
     }, [viewId, onViewReady]);
 
     // Set up event listeners
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
     useEffect(() => {
       if (!viewId) return;
 
@@ -215,12 +215,15 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
       }
 
       // Apple Pencil hover listener (iPadOS 16+; emitted from native)
-      if (onApplePencilHover) {
-        hoverListenerRef.current = eventEmitter.addListener(
-          'onApplePencilHover',
-          (data: any) => onApplePencilHover(data as ApplePencilHoverData)
-        );
-      }
+      // Always register to prevent warnings, even if no callback provided
+      hoverListenerRef.current = eventEmitter.addListener(
+        'onApplePencilHover',
+        (data: any) => {
+          if (onApplePencilHover) {
+            onApplePencilHover(data as ApplePencilHoverData);
+          }
+        }
+      );
 
       // Custom stylus view event listeners
       if (onStylusViewToggleEraser) {
@@ -229,7 +232,10 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
             onStylusViewStartDrawing();
           } else if (data.action === 'drawingEnded' && onStylusViewEndDrawing) {
             onStylusViewEndDrawing();
-          } else if (data.isEraserOn !== undefined && onStylusViewToggleEraser) {
+          } else if (
+            data.isEraserOn !== undefined &&
+            onStylusViewToggleEraser
+          ) {
             onStylusViewToggleEraser(data.isEraserOn);
           }
         });
