@@ -479,24 +479,31 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
 }
 
 - (void)setupCustomStylusView {
+    NSLog(@"🎨 setupCustomStylusView: Creating StylusDrawingView");
     // Create StylusDrawingView
     self.stylusView = [[StylusDrawingView alloc] init];
-    self.stylusView.delegate = self;
-    self.stylusView.translatesAutoresizingMaskIntoConstraints = NO;
-    [self addSubview:self.stylusView];
-    
-    // Set up constraints
-    [NSLayoutConstraint activateConstraints:@[
-        [self.stylusView.topAnchor constraintEqualToAnchor:self.topAnchor],
-        [self.stylusView.leadingAnchor constraintEqualToAnchor:self.leadingAnchor],
-        [self.stylusView.trailingAnchor constraintEqualToAnchor:self.trailingAnchor],
-        [self.stylusView.bottomAnchor constraintEqualToAnchor:self.bottomAnchor]
-    ]];
-    
-    // Configure default settings
-    self.stylusView.allowsFingerDrawing = YES;
-    self.stylusView.strokeColor = [UIColor labelColor];
-    self.stylusView.baseLineWidth = 4.0;
+    if (self.stylusView) {
+        NSLog(@"🎨 setupCustomStylusView: StylusDrawingView created successfully");
+        self.stylusView.delegate = self;
+        self.stylusView.translatesAutoresizingMaskIntoConstraints = NO;
+        [self addSubview:self.stylusView];
+        
+        // Set up constraints
+        [NSLayoutConstraint activateConstraints:@[
+            [self.stylusView.topAnchor constraintEqualToAnchor:self.topAnchor],
+            [self.stylusView.leadingAnchor constraintEqualToAnchor:self.leadingAnchor],
+            [self.stylusView.trailingAnchor constraintEqualToAnchor:self.trailingAnchor],
+            [self.stylusView.bottomAnchor constraintEqualToAnchor:self.bottomAnchor]
+        ]];
+        
+        // Configure default settings
+        self.stylusView.allowsFingerDrawing = YES;
+        self.stylusView.strokeColor = [UIColor labelColor];
+        self.stylusView.baseLineWidth = 4.0;
+        NSLog(@"🎨 setupCustomStylusView: StylusDrawingView configured and added to view hierarchy");
+    } else {
+        NSLog(@"🎨 setupCustomStylusView: ERROR - Failed to create StylusDrawingView");
+    }
 }
 
 - (void)setupToolPicker {
@@ -666,16 +673,41 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
     NSLog(@"🎨 updateViewVisibility - useCustomStylusView: %@", _useCustomStylusView ? @"YES" : @"NO");
     NSLog(@"🎨 canvasView exists: %@, stylusView exists: %@", self.canvasView ? @"YES" : @"NO", self.stylusView ? @"YES" : @"NO");
     
+    if (self.canvasView) {
+        NSLog(@"🎨 canvasView frame: %@, hidden: %@", NSStringFromCGRect(self.canvasView.frame), self.canvasView.hidden ? @"YES" : @"NO");
+    }
+    if (self.stylusView) {
+        NSLog(@"🎨 stylusView frame: %@, hidden: %@", NSStringFromCGRect(self.stylusView.frame), self.stylusView.hidden ? @"YES" : @"NO");
+    }
+    
     if (_useCustomStylusView) {
-        self.canvasView.hidden = YES;
-        self.stylusView.hidden = NO;
-        NSLog(@"🎨 Showing custom stylus view, hiding PencilKit");
+        if (self.canvasView) {
+            self.canvasView.hidden = YES;
+            NSLog(@"🎨 Hiding PencilKit canvasView");
+        } else {
+            NSLog(@"🎨 WARNING: canvasView is nil, cannot hide it");
+        }
+        
+        if (self.stylusView) {
+            self.stylusView.hidden = NO;
+            NSLog(@"🎨 Showing custom stylus view");
+        } else {
+            NSLog(@"🎨 ERROR: stylusView is nil, cannot show it!");
+        }
+        
         // Sync drawing data from PencilKit to custom view
         [self syncDrawingFromPencilKitToCustom];
     } else {
-        self.canvasView.hidden = NO;
-        self.stylusView.hidden = YES;
-        NSLog(@"🎨 Showing PencilKit, hiding custom stylus view");
+        if (self.canvasView) {
+            self.canvasView.hidden = NO;
+            NSLog(@"🎨 Showing PencilKit canvasView");
+        }
+        
+        if (self.stylusView) {
+            self.stylusView.hidden = YES;
+            NSLog(@"🎨 Hiding custom stylus view");
+        }
+        
         // Sync drawing data from custom view to PencilKit
         [self syncDrawingFromCustomToPencilKit];
     }
@@ -793,10 +825,13 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
     }
 }
 
-// PKCanvasViewDelegate - DISABLED (PencilKit is disabled)
+// PKCanvasViewDelegate
 - (void)canvasViewDrawingDidChange:(PKCanvasView *)canvasView {
-    // PencilKit is disabled - do not send drawing change events
-    NSLog(@"🎨 canvasViewDrawingDidChange - PencilKit disabled, ignoring event");
+    NSDictionary *drawing = [self convertPKDrawingToDictionary:canvasView.drawing];
+    [MunimPencilkit sendDrawingChangeEvent:@{
+        @"viewId": @(self.viewId),
+        @"drawing": drawing
+    }];
 }
 
 
