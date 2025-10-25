@@ -510,9 +510,11 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
 }
 
 - (void)updateConfig:(NSDictionary *)config {
+    NSLog(@"🎨 updateConfig called with: %@", config);
     // Handle custom stylus view toggle
     if (config[@"useCustomStylusView"]) {
         BOOL useCustom = [config[@"useCustomStylusView"] boolValue];
+        NSLog(@"🎨 Config wants useCustomStylusView: %@", useCustom ? @"YES" : @"NO");
         if (useCustom != _useCustomStylusView) {
             [self setUseCustomStylusView:useCustom];
         }
@@ -642,9 +644,13 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
 #pragma mark - Custom Stylus View Methods
 
 - (void)setUseCustomStylusView:(BOOL)useCustom {
+    NSLog(@"🎨 setUseCustomStylusView called with: %@", useCustom ? @"YES" : @"NO");
     if (_useCustomStylusView != useCustom) {
         _useCustomStylusView = useCustom;
+        NSLog(@"🎨 Switching to %@ mode", useCustom ? @"custom" : @"PencilKit");
         [self updateViewVisibility];
+    } else {
+        NSLog(@"🎨 Already in %@ mode, no change needed", useCustom ? @"custom" : @"PencilKit");
     }
 }
 
@@ -657,14 +663,19 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
 
 - (void)updateViewVisibility {
     // Show/hide views based on the current setting
+    NSLog(@"🎨 updateViewVisibility - useCustomStylusView: %@", _useCustomStylusView ? @"YES" : @"NO");
+    NSLog(@"🎨 canvasView exists: %@, stylusView exists: %@", self.canvasView ? @"YES" : @"NO", self.stylusView ? @"YES" : @"NO");
+    
     if (_useCustomStylusView) {
         self.canvasView.hidden = YES;
         self.stylusView.hidden = NO;
+        NSLog(@"🎨 Showing custom stylus view, hiding PencilKit");
         // Sync drawing data from PencilKit to custom view
         [self syncDrawingFromPencilKitToCustom];
     } else {
         self.canvasView.hidden = NO;
         self.stylusView.hidden = YES;
+        NSLog(@"🎨 Showing PencilKit, hiding custom stylus view");
         // Sync drawing data from custom view to PencilKit
         [self syncDrawingFromCustomToPencilKit];
     }
