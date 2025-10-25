@@ -16,6 +16,12 @@ Pod::Spec.new do |s|
   s.source_files = "ios/**/*.{h,m,mm,cpp,swift}"
   s.private_header_files = "ios/**/*.h"
 
+  # Swift configuration
+  s.swift_version = "5.0"
+  s.pod_target_xcconfig = {
+    'SWIFT_OBJC_BRIDGING_HEADER' => '$(PODS_TARGET_SRCROOT)/ios/munim-pencilkit-Bridging-Header.h'
+  }
+
   # PencilKit framework dependency
   s.frameworks = "PencilKit", "CoreBluetooth"
   s.ios.framework = "PencilKit"

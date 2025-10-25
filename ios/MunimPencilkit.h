@@ -8,11 +8,18 @@
 #import <React/RCTUtils.h>
 #import <React/RCTEventEmitter.h>
 
-// Import Swift classes
+// Import Swift classes (conditional import for bridging header)
+#if __has_include("munim-pencilkit-Swift.h")
 #import "munim-pencilkit-Swift.h"
+#endif
 
 // Forward declarations
 @class StylusDrawingView;
+
+// Forward declarations for Swift classes (in case bridging header isn't available)
+#if !__has_include("munim-pencilkit-Swift.h")
+@class StylusDrawingViewManager;
+#endif
 
 // StylusDrawingView Delegate Protocol
 @protocol StylusDrawingViewDelegate <NSObject>
