@@ -340,6 +340,7 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
     BOOL _isApplePencilDataCaptureActive;
     CAShapeLayer *_hoverPreviewLayer;
     CGFloat _baseLineWidth;
+    BOOL _showHoverPreview;
 }
 
 - (instancetype)initWithViewId:(NSInteger)viewId {
@@ -372,6 +373,9 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
         // Initialize base line width
         _baseLineWidth = 4.0;
         
+        // Initialize hover preview setting
+        _showHoverPreview = YES;
+        
         [self setupPencilKitView];
     }
     return self;
@@ -402,8 +406,8 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
 }
 
 - (void)updateHoverPreviewAtLocation:(CGPoint)location {
-    // Update hover preview layer if available
-    if (_hoverPreviewLayer) {
+    // Update hover preview layer if available and enabled
+    if (_hoverPreviewLayer && _showHoverPreview) {
         CGFloat previewDiameter = MAX(4.0, _baseLineWidth * 2.0);
         CGRect rect = CGRectMake(location.x - previewDiameter * 0.5,
                                location.y - previewDiameter * 0.5,
@@ -529,6 +533,10 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
         if (config[@"baseLineWidth"]) {
             self.stylusView.baseLineWidth = [config[@"baseLineWidth"] floatValue];
         }
+        if (config[@"showHoverPreview"]) {
+            [self setShowHoverPreview:[config[@"showHoverPreview"] boolValue]];
+            [self.stylusView setShowHoverPreview:[config[@"showHoverPreview"] boolValue]];
+        }
     } else {
         // Update PencilKit canvas view config
         if (config[@"allowsFingerDrawing"]) {
@@ -640,6 +648,13 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
         } else {
             [self switchToPencilKitView];
         }
+    }
+}
+
+- (void)setShowHoverPreview:(BOOL)showHoverPreview {
+    _showHoverPreview = showHoverPreview;
+    if (!showHoverPreview && _hoverPreviewLayer) {
+        _hoverPreviewLayer.hidden = YES;
     }
 }
 
@@ -1396,6 +1411,7 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
     
     // Tool state
     BOOL _isEraserEnabled;
+    BOOL _showHoverPreview;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame {
@@ -1437,6 +1453,9 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
     _hoverPreviewLayer.lineWidth = 1.0;
     _hoverPreviewLayer.hidden = YES;
     [self.layer addSublayer:_hoverPreviewLayer];
+    
+    // Initialize hover preview setting
+    _showHoverPreview = YES;
     
     // Hover support (available on iPad with Pencil hover)
     if (@available(iOS 13.0, *)) {
@@ -1509,6 +1528,13 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
         _hoverPreviewLayer.strokeColor = [[UIColor systemRedColor] colorWithAlphaComponent:0.7].CGColor;
     } else {
         _hoverPreviewLayer.strokeColor = [[UIColor systemBlueColor] colorWithAlphaComponent:0.6].CGColor;
+    }
+}
+
+- (void)setShowHoverPreview:(BOOL)showHoverPreview {
+    _showHoverPreview = showHoverPreview;
+    if (!showHoverPreview && _hoverPreviewLayer) {
+        _hoverPreviewLayer.hidden = YES;
     }
 }
 
@@ -1687,7 +1713,9 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
         switch (recognizer.state) {
             case UIGestureRecognizerStateBegan:
             case UIGestureRecognizerStateChanged:
-                [self updateHoverPreviewAtLocation:location];
+                if (_showHoverPreview) {
+                    [self updateHoverPreviewAtLocation:location];
+                }
                 [self sendHoverEventAtLocation:location];
                 break;
             case UIGestureRecognizerStateEnded:
