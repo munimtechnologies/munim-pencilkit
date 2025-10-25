@@ -376,11 +376,11 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
         // Initialize hover preview setting
         _showHoverPreview = YES;
         
-        // Initialize both views but only show the appropriate one
-        [self setupPencilKitView];
+        // Only setup custom stylus view - disable PencilKit entirely
         [self setupCustomStylusView];
         
-        // Show PencilKit by default
+        // Always show custom stylus view
+        _useCustomStylusView = YES;
         [self updateViewVisibility];
     }
     return self;
@@ -568,41 +568,33 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
 }
 
 - (NSDictionary *)getDrawingData {
-    if (_useCustomStylusView) {
-        // For custom stylus view, we return a simple representation
-        // In a real implementation, you might want to store stroke data
-        return @{
-            @"strokes": @[],
-            @"bounds": @{
-                @"x": @(0),
-                @"y": @(0),
-                @"width": @(self.bounds.size.width),
-                @"height": @(self.bounds.size.height)
-            }
-        };
-    } else {
-        PKDrawing *drawing = self.canvasView.drawing;
-        return [self convertPKDrawingToDictionary:drawing];
-    }
+    // Always use custom stylus view - PencilKit is disabled
+    NSLog(@"🎨 getDrawingData - Using custom stylus view (PencilKit disabled)");
+    // For custom stylus view, we return a simple representation
+    // In a real implementation, you might want to store stroke data
+    return @{
+        @"strokes": @[],
+        @"bounds": @{
+            @"x": @(0),
+            @"y": @(0),
+            @"width": @(self.bounds.size.width),
+            @"height": @(self.bounds.size.height)
+        }
+    };
 }
 
 - (void)setDrawingData:(NSDictionary *)drawingData {
-    if (_useCustomStylusView) {
-        // For custom stylus view, we could load an image if provided
-        // This is a simplified implementation
-        [self.stylusView clearCanvas];
-    } else {
-        PKDrawing *drawing = [self convertDictionaryToPKDrawing:drawingData];
-        self.canvasView.drawing = drawing;
-    }
+    // Always use custom stylus view - PencilKit is disabled
+    NSLog(@"🎨 setDrawingData - Using custom stylus view (PencilKit disabled)");
+    // For custom stylus view, we could load an image if provided
+    // This is a simplified implementation
+    [self.stylusView clearCanvas];
 }
 
 - (void)clearDrawing {
-    if (_useCustomStylusView) {
-        [self.stylusView clearCanvas];
-    } else {
-        self.canvasView.drawing = [[PKDrawing alloc] init];
-    }
+    // Always use custom stylus view - PencilKit is disabled
+    NSLog(@"🎨 clearDrawing - Using custom stylus view (PencilKit disabled)");
+    [self.stylusView clearCanvas];
 }
 
 - (BOOL)undo {
@@ -644,14 +636,11 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
 #pragma mark - Custom Stylus View Methods
 
 - (void)setUseCustomStylusView:(BOOL)useCustom {
-    NSLog(@"🎨 setUseCustomStylusView called with: %@", useCustom ? @"YES" : @"NO");
-    if (_useCustomStylusView != useCustom) {
-        _useCustomStylusView = useCustom;
-        NSLog(@"🎨 Switching to %@ mode", useCustom ? @"custom" : @"PencilKit");
-        [self updateViewVisibility];
-    } else {
-        NSLog(@"🎨 Already in %@ mode, no change needed", useCustom ? @"custom" : @"PencilKit");
-    }
+    NSLog(@"🎨 setUseCustomStylusView called with: %@ (PencilKit disabled - always using custom)", useCustom ? @"YES" : @"NO");
+    // Always use custom stylus view - PencilKit is disabled
+    _useCustomStylusView = YES;
+    NSLog(@"🎨 Always using custom stylus view (PencilKit disabled)");
+    [self updateViewVisibility];
 }
 
 - (void)setShowHoverPreview:(BOOL)showHoverPreview {
@@ -662,22 +651,21 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
 }
 
 - (void)updateViewVisibility {
-    // Show/hide views based on the current setting
-    NSLog(@"🎨 updateViewVisibility - useCustomStylusView: %@", _useCustomStylusView ? @"YES" : @"NO");
-    NSLog(@"🎨 canvasView exists: %@, stylusView exists: %@", self.canvasView ? @"YES" : @"NO", self.stylusView ? @"YES" : @"NO");
+    // Always show custom stylus view - PencilKit is disabled
+    NSLog(@"🎨 updateViewVisibility - Always using custom stylus view (PencilKit disabled)");
+    NSLog(@"🎨 stylusView exists: %@", self.stylusView ? @"YES" : @"NO");
     
-    if (_useCustomStylusView) {
+    // Hide PencilKit if it exists
+    if (self.canvasView) {
         self.canvasView.hidden = YES;
+    }
+    
+    // Always show custom stylus view
+    if (self.stylusView) {
         self.stylusView.hidden = NO;
-        NSLog(@"🎨 Showing custom stylus view, hiding PencilKit");
-        // Sync drawing data from PencilKit to custom view
-        [self syncDrawingFromPencilKitToCustom];
+        NSLog(@"🎨 Showing custom stylus view (PencilKit disabled)");
     } else {
-        self.canvasView.hidden = NO;
-        self.stylusView.hidden = YES;
-        NSLog(@"🎨 Showing PencilKit, hiding custom stylus view");
-        // Sync drawing data from custom view to PencilKit
-        [self syncDrawingFromCustomToPencilKit];
+        NSLog(@"🎨 ERROR: Custom stylus view not found!");
     }
 }
 
@@ -793,13 +781,10 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
     }
 }
 
-// PKCanvasViewDelegate
+// PKCanvasViewDelegate - DISABLED (PencilKit is disabled)
 - (void)canvasViewDrawingDidChange:(PKCanvasView *)canvasView {
-    NSDictionary *drawing = [self convertPKDrawingToDictionary:canvasView.drawing];
-    [MunimPencilkit sendDrawingChangeEvent:@{
-        @"viewId": @(self.viewId),
-        @"drawing": drawing
-    }];
+    // PencilKit is disabled - do not send drawing change events
+    NSLog(@"🎨 canvasViewDrawingDidChange - PencilKit disabled, ignoring event");
 }
 
 
