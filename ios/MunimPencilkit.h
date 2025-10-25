@@ -100,4 +100,9 @@
 - (UIImage *)snapshotImage;
 - (void)setEraserEnabled:(BOOL)enabled;
 
+// Hover handling methods
+- (void)updateHoverPreviewAtLocation:(CGPoint)location;
+- (void)hideHoverPreview;
+- (void)sendHoverEventAtLocation:(CGPoint)location;
+
 @end

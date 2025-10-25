@@ -338,6 +338,8 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
 // PencilKit Native View Implementation
 @implementation PencilKitView {
     BOOL _isApplePencilDataCaptureActive;
+    CAShapeLayer *_hoverPreviewLayer;
+    CGFloat _baseLineWidth;
 }
 
 - (instancetype)initWithViewId:(NSInteger)viewId {
@@ -358,6 +360,18 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
         _lastTouchTimestamp = 0.0;
         _lastVelocity = 0.0;
         _lastAcceleration = 0.0;
+        
+        // Initialize hover preview layer
+        _hoverPreviewLayer = [CAShapeLayer layer];
+        _hoverPreviewLayer.fillColor = [UIColor clearColor].CGColor;
+        _hoverPreviewLayer.strokeColor = [[UIColor systemBlueColor] colorWithAlphaComponent:0.6].CGColor;
+        _hoverPreviewLayer.lineWidth = 1.0;
+        _hoverPreviewLayer.hidden = YES;
+        [self.layer addSublayer:_hoverPreviewLayer];
+        
+        // Initialize base line width
+        _baseLineWidth = 4.0;
+        
         [self setupPencilKitView];
     }
     return self;
