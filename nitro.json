@@ -1,0 +1,23 @@
+{
+  "$schema": "https://nitro.margelo.com/nitro.schema.json",
+  "cxxNamespace": [
+    "munimpencilkit"
+  ],
+  "ios": {
+    "iosModuleName": "MunimPencilkit"
+  },
+  "android": {
+    "androidNamespace": [
+      "munimpencilkit"
+    ],
+    "androidCxxLibName": "MunimPencilkit"
+  },
+  "autolinking": {
+    "MunimPencilkit": {
+      "swift": "HybridMunimPencilkit"
+    }
+  },
+  "ignorePaths": [
+    "**/node_modules"
+  ]
+}

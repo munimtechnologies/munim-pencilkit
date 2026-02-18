@@ -10,18 +10,22 @@ Pod::Spec.new do |s|
   s.license      = package["license"]
   s.authors      = package["author"]
 
-  s.platforms    = { :ios => "13.0" }
-  s.source       = { :git => "https://github.com/munimtechnologies/munim-pencilkit.git", :tag => "#{s.version}" }
+  s.platforms    = { :ios => min_ios_version_supported, :visionos => 1.0 }
+  s.source       = { :git => "https://github.com/sheehanmunim/munim-pencilkit.git", :tag => "#{s.version}" }
 
-  s.source_files = "ios/**/*.{h,m,mm,cpp,swift}"
-  s.private_header_files = "ios/**/*.h"
+  s.source_files = [
+    # Implementation (Swift)
+    "ios/**/*.{swift}",
+    # Autolinking/Registration (Objective-C++)
+    "ios/**/*.{m,mm}",
+    # Implementation (C++ objects)
+    "cpp/**/*.{hpp,cpp}",
+  ]
 
-  # Swift configuration
-  s.swift_version = "5.0"
+  load 'nitrogen/generated/ios/MunimPencilkit+autolinking.rb'
+  add_nitrogen_files(s)
 
-  # PencilKit framework dependency
-  s.frameworks = "PencilKit", "CoreBluetooth"
-  s.ios.framework = "PencilKit"
-
+  s.dependency 'React-jsi'
+  s.dependency 'React-callinvoker'
   install_modules_dependencies(s)
 end

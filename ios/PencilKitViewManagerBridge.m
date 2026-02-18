@@ -1,0 +1,25 @@
+#import <React/RCTViewManager.h>
+
+@interface RCT_EXTERN_REMAP_MODULE(PencilKitView, PencilKitViewManager, RCTViewManager)
+
+RCT_EXPORT_VIEW_PROPERTY(viewId, NSNumber)
+RCT_EXPORT_VIEW_PROPERTY(enableApplePencilData, BOOL)
+RCT_EXPORT_VIEW_PROPERTY(enableToolPicker, BOOL)
+RCT_EXPORT_VIEW_PROPERTY(enableHapticFeedback, BOOL)
+RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
+RCT_EXPORT_VIEW_PROPERTY(enableSqueezeInteraction, BOOL)
+RCT_EXPORT_VIEW_PROPERTY(enableDoubleTapInteraction, BOOL)
+RCT_EXPORT_VIEW_PROPERTY(enableHoverSupport, BOOL)
+
+RCT_EXPORT_VIEW_PROPERTY(onApplePencilData, RCTDirectEventBlock)
+RCT_EXPORT_VIEW_PROPERTY(onPencilKitDrawingChange, RCTDirectEventBlock)
+RCT_EXPORT_VIEW_PROPERTY(onApplePencilCoalescedTouches, RCTDirectEventBlock)
+RCT_EXPORT_VIEW_PROPERTY(onApplePencilPredictedTouches, RCTDirectEventBlock)
+RCT_EXPORT_VIEW_PROPERTY(onApplePencilEstimatedProperties, RCTDirectEventBlock)
+RCT_EXPORT_VIEW_PROPERTY(onApplePencilMotion, RCTDirectEventBlock)
+RCT_EXPORT_VIEW_PROPERTY(onApplePencilHover, RCTDirectEventBlock)
+RCT_EXPORT_VIEW_PROPERTY(onApplePencilSqueeze, RCTDirectEventBlock)
+RCT_EXPORT_VIEW_PROPERTY(onApplePencilDoubleTap, RCTDirectEventBlock)
+RCT_EXPORT_VIEW_PROPERTY(onApplePencilPreferredSqueezeAction, RCTDirectEventBlock)
+
+@end
