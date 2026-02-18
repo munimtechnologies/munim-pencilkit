@@ -886,7 +886,7 @@ Enable haptic feedback for interactions:
 1. **PencilKit Not Loading**: Ensure PencilKit.framework is properly linked in your iOS project
 2. **Apple Pencil Data Not Captured**: Check that `enableApplePencilData` is set to true
 3. **Drawing Not Appearing**: Verify that the PencilKitView has proper dimensions and styling
-4. **Apple Pencil Pro Features Not Working**: Ensure you're using Apple Pencil Pro and iOS 13.0+
+4. **Apple Pencil Pro Features Not Working**: Ensure you're using Apple Pencil Pro and iOS/iPadOS 17.5+
 
 ### Expo-Specific Issues
 
@@ -910,9 +910,9 @@ export REACT_NATIVE_PENCILKIT_DEBUG=1
 
 ### Requirements
 
-- iOS 13.0+
+- iOS/iPadOS 17.5+
 - React Native 0.60+
-- Xcode 11+
+- Xcode 15+
 - Apple Pencil (for full functionality)
 - Apple Pencil Pro (for advanced features)
 - Expo SDK 50+ (for Expo projects)
