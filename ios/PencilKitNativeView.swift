@@ -566,7 +566,7 @@ final class TouchForwardingCanvasView: PKCanvasView {
     }
   }
 
-  private func mapPencilInteractionPhase(_ phase: UIPencilInteractionPhase) -> String {
+  private func mapPencilInteractionPhase(_ phase: UIPencilInteraction.Phase) -> String {
     switch phase {
     case .began:
       return "began"
