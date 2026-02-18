@@ -911,7 +911,7 @@ export REACT_NATIVE_PENCILKIT_DEBUG=1
 ### Requirements
 
 - iOS/iPadOS 17.5+
-- React Native 0.60+
+- React Native 0.75+
 - Xcode 15+
 - Apple Pencil (for full functionality)
 - Apple Pencil Pro (for advanced features)
