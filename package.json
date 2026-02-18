@@ -1,6 +1,6 @@
 {
   "name": "munim-pencilkit",
-  "version": "1.12.29",
+  "version": "1.12.30",
   "description": "munim-pencilkit is a react native package built with Nitro",
   "main": "./lib/commonjs/index.js",
   "module": "./lib/module/index.js",
