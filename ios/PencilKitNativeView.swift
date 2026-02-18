@@ -113,7 +113,7 @@ final class TouchForwardingCanvasView: PKCanvasView {
     canvasView.owner = self
     canvasView.delegate = self
     canvasView.translatesAutoresizingMaskIntoConstraints = false
-    canvasView.multipleTouchEnabled = true
+    canvasView.isMultipleTouchEnabled = true
     addSubview(canvasView)
 
     NSLayoutConstraint.activate([
