@@ -126,15 +126,15 @@
 ### React Native CLI
 
 ```bash
-npm install munim-pencilkit
+npm install munim-pencilkit react-native-nitro-modules
 # or
-yarn add munim-pencilkit
+yarn add munim-pencilkit react-native-nitro-modules
 ```
 
 ### Expo
 
 ```bash
-npx expo install munim-pencilkit
+npx expo install munim-pencilkit react-native-nitro-modules
 ```
 
 > **Note**: This library requires Expo SDK 50+ and works with both managed and bare workflows.
@@ -420,22 +420,46 @@ interface ApplePencilData {
 ```typescript
 interface ApplePencilSqueezeData {
   viewId: number;
-  phase: 'began' | 'changed' | 'ended';
-  value: number;
+  phase: 'began' | 'changed' | 'ended' | 'cancelled';
   timestamp: number;
-  isActive: boolean;
   preferredAction:
     | 'ignore'
+    | 'switchEraser'
+    | 'showColorPalette'
+    | 'showInkAttributes'
     | 'showContextualPalette'
     | 'switchPrevious'
-    | 'runShortcut';
+    | 'runSystemShortcut';
+  hoverPose?: {
+    location: { x: number; y: number };
+    zOffset: number;
+    azimuth: number;
+    azimuthUnitVector: { x: number; y: number };
+    altitude: number;
+    rollAngle: number;
+  };
 }
 
 interface ApplePencilDoubleTapData {
   viewId: number;
-  phase: 'began' | 'changed' | 'ended';
+  phase: 'ended';
   timestamp: number;
-  isActive: boolean;
+  preferredAction:
+    | 'ignore'
+    | 'switchEraser'
+    | 'showColorPalette'
+    | 'showInkAttributes'
+    | 'showContextualPalette'
+    | 'switchPrevious'
+    | 'runSystemShortcut';
+  hoverPose?: {
+    location: { x: number; y: number };
+    zOffset: number;
+    azimuth: number;
+    azimuthUnitVector: { x: number; y: number };
+    altitude: number;
+    rollAngle: number;
+  };
 }
 
 interface ApplePencilHoverData {
@@ -478,10 +502,12 @@ interface ApplePencilEstimatedPropertiesData {
 interface ApplePencilPreferredSqueezeActionData {
   preferredAction:
     | 'ignore'
+    | 'switchEraser'
+    | 'showColorPalette'
+    | 'showInkAttributes'
     | 'showContextualPalette'
     | 'switchPrevious'
-    | 'runShortcut';
-  customAction?: string;
+    | 'runSystemShortcut';
 }
 ```
 
@@ -501,6 +527,10 @@ interface PencilKitConfig {
   enableApplePencilData?: boolean;
   enableToolPicker?: boolean;
   enableHapticFeedback?: boolean;
+  enableMotionTracking?: boolean;
+  enableSqueezeInteraction?: boolean;
+  enableDoubleTapInteraction?: boolean;
+  enableHoverSupport?: boolean;
   useCustomStylusView?: boolean;
   showHoverPreview?: boolean;
   strokeColor?: string;
@@ -690,13 +720,9 @@ const AdvancedDataCollectionApp = () => {
     );
 
     return () => {
-      PencilKitUtils.removeApplePencilListener(handlePencilData);
-      PencilKitUtils.removeApplePencilPredictedTouchesListener(
-        handlePredictedTouches
-      );
-      PencilKitUtils.removeApplePencilEstimatedPropertiesListener(
-        handleEstimatedProperties
-      );
+      PencilKitUtils.removeApplePencilListener();
+      PencilKitUtils.removeApplePencilPredictedTouchesListener();
+      PencilKitUtils.removeApplePencilEstimatedPropertiesListener();
     };
   }, []);
 
