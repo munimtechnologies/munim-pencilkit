@@ -10,6 +10,18 @@ static NSMutableDictionary<NSNumber *, PencilKitView *> *pencilKitViews = nil;
 // Global reference to the MunimPencilkit instance for event sending
 static MunimPencilkit *munimPencilkitInstance = nil;
 
+@class PencilKitView;
+
+@interface MPKCanvasView : PKCanvasView
+@property (nonatomic, weak) PencilKitView *owner;
+@end
+
+@interface PencilKitView ()
+- (void)handleTouches:(NSSet<UITouch *> *)touches phase:(UITouchPhase)phase withEvent:(UIEvent *)event;
+- (void)processTouchesEstimatedPropertiesUpdated:(NSSet<UITouch *> *)touches;
+- (void)sendHoverEventAtLocation:(CGPoint)location withRecognizer:(UIHoverGestureRecognizer *)recognizer;
+@end
+
 @implementation MunimPencilkit
 RCT_EXPORT_MODULE()
 
@@ -318,6 +330,35 @@ RCT_EXPORT_MODULE()
 
 @end
 
+@implementation MPKCanvasView
+
+- (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    [super touchesBegan:touches withEvent:event];
+    [self.owner handleTouches:touches phase:UITouchPhaseBegan withEvent:event];
+}
+
+- (void)touchesMoved:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    [super touchesMoved:touches withEvent:event];
+    [self.owner handleTouches:touches phase:UITouchPhaseMoved withEvent:event];
+}
+
+- (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    [super touchesEnded:touches withEvent:event];
+    [self.owner handleTouches:touches phase:UITouchPhaseEnded withEvent:event];
+}
+
+- (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event {
+    [super touchesCancelled:touches withEvent:event];
+    [self.owner handleTouches:touches phase:UITouchPhaseCancelled withEvent:event];
+}
+
+- (void)touchesEstimatedPropertiesUpdated:(NSSet<UITouch *> *)touches {
+    [super touchesEstimatedPropertiesUpdated:touches];
+    [self.owner processTouchesEstimatedPropertiesUpdated:touches];
+}
+
+@end
+
 // PencilKit View Manager Implementation
 @implementation PencilKitViewManager
 
@@ -386,6 +427,23 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
     return self;
 }
 
+- (void)setViewId:(NSInteger)viewId {
+    if (_viewId == viewId) {
+        return;
+    }
+
+    NSNumber *oldKey = @(_viewId);
+    if (_viewId > 0 && pencilKitViews[oldKey] == self) {
+        [pencilKitViews removeObjectForKey:oldKey];
+    }
+
+    _viewId = viewId;
+
+    if (viewId > 0) {
+        pencilKitViews[@(viewId)] = self;
+    }
+}
+
 // Hover handling (iOS 13+)
 - (void)handleHover:(UIHoverGestureRecognizer *)recognizer {
     if (@available(iOS 13.0, *)) {
@@ -396,7 +454,7 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
             case UIGestureRecognizerStateChanged:
                 // Show hover preview and send hover data
                 [self updateHoverPreviewAtLocation:location];
-                [self sendHoverEventAtLocation:location];
+                [self sendHoverEventAtLocation:location withRecognizer:recognizer];
                 break;
             case UIGestureRecognizerStateEnded:
             case UIGestureRecognizerStateCancelled:
@@ -431,13 +489,45 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
 }
 
 - (void)sendHoverEventAtLocation:(CGPoint)location {
-    // Create hover data with basic location information
-    // Note: Advanced pencil pose data (altitude, azimuth) is not available via UIHoverGestureRecognizer
+    [self sendHoverEventAtLocation:location withRecognizer:nil];
+}
+
+- (void)sendHoverEventAtLocation:(CGPoint)location withRecognizer:(UIHoverGestureRecognizer *)recognizer {
+    CGFloat altitude = 0.0;
+    CGFloat azimuth = 0.0;
+    CGFloat zOffset = 0.0;
+    CGFloat rollAngle = 0.0;
+    CGVector azimuthUnitVector = CGVectorMake(0.0, 0.0);
+
+    if (@available(iOS 16.1, *)) {
+        if (recognizer) {
+            zOffset = recognizer.zOffset;
+        }
+    }
+    if (@available(iOS 16.4, *)) {
+        if (recognizer) {
+            altitude = recognizer.altitudeAngle;
+            azimuth = [recognizer azimuthAngleInView:self];
+            azimuthUnitVector = [recognizer azimuthUnitVectorInView:self];
+        }
+    }
+    if (@available(iOS 17.5, *)) {
+        if (recognizer) {
+            rollAngle = recognizer.rollAngle;
+        }
+    }
+
     NSDictionary *hoverData = @{
         @"viewId": @(self.viewId),
         @"location": @{ @"x": @(location.x), @"y": @(location.y) },
-        @"altitude": @(0), // Not available via UIHoverGestureRecognizer
-        @"azimuth": @{ @"x": @(0), @"y": @(0) }, // Not available via UIHoverGestureRecognizer
+        @"altitude": @(altitude),
+        @"azimuth": @(azimuth),
+        @"azimuthUnitVector": @{
+            @"x": @(azimuthUnitVector.dx),
+            @"y": @(azimuthUnitVector.dy)
+        },
+        @"zOffset": @(zOffset),
+        @"rollAngle": @(rollAngle),
         @"timestamp": @([[NSDate date] timeIntervalSince1970])
     };
     [MunimPencilkit sendApplePencilHoverEvent:hoverData];
@@ -449,9 +539,12 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
 
 - (void)setupPencilKitCanvasView {
     // Create PKCanvasView
-    self.canvasView = [[PKCanvasView alloc] init];
+    MPKCanvasView *canvasView = [[MPKCanvasView alloc] init];
+    canvasView.owner = self;
+    self.canvasView = canvasView;
     self.canvasView.delegate = self;
     self.canvasView.translatesAutoresizingMaskIntoConstraints = NO;
+    self.canvasView.multipleTouchEnabled = YES;
     [self addSubview:self.canvasView];
     
     // Set up constraints
@@ -463,8 +556,11 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
     ]];
     
     // Configure default settings
-    self.canvasView.allowsFingerDrawing = YES;
-    self.canvasView.drawingPolicy = PKCanvasViewDrawingPolicyAnyInput;
+    if (@available(iOS 14.0, *)) {
+        self.canvasView.drawingPolicy = PKCanvasViewDrawingPolicyAnyInput;
+    } else {
+        self.canvasView.allowsFingerDrawing = YES;
+    }
     
     // Set up tool picker if enabled
     if (self.enableToolPicker) {
@@ -474,6 +570,7 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
     // Add hover recognizer on iOS 13+ (same as StylusDrawingView)
     if (@available(iOS 13.0, *)) {
         UIHoverGestureRecognizer *hoverRecognizer = [[UIHoverGestureRecognizer alloc] initWithTarget:self action:@selector(handleHover:)];
+        hoverRecognizer.allowedTouchTypes = @[@(UITouchTypePencil)];
         [self.canvasView addGestureRecognizer:hoverRecognizer];
     }
 }
@@ -554,27 +651,34 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
         }
     } else {
         // Update PencilKit canvas view config
-        if (config[@"allowsFingerDrawing"]) {
-            self.canvasView.allowsFingerDrawing = [config[@"allowsFingerDrawing"] boolValue];
-        }
-        
-        if (config[@"allowsPencilOnlyDrawing"]) {
-            self.canvasView.allowsFingerDrawing = ![config[@"allowsPencilOnlyDrawing"] boolValue];
+        NSNumber *allowsFingerDrawing = config[@"allowsFingerDrawing"];
+        NSNumber *allowsPencilOnlyDrawing = config[@"allowsPencilOnlyDrawing"];
+        NSString *policy = config[@"drawingPolicy"];
+
+        if (@available(iOS 14.0, *)) {
+            if ([policy isKindOfClass:[NSString class]]) {
+                if ([policy isEqualToString:@"anyInput"]) {
+                    self.canvasView.drawingPolicy = PKCanvasViewDrawingPolicyAnyInput;
+                } else if ([policy isEqualToString:@"pencilOnly"]) {
+                    self.canvasView.drawingPolicy = PKCanvasViewDrawingPolicyPencilOnly;
+                } else {
+                    self.canvasView.drawingPolicy = PKCanvasViewDrawingPolicyDefault;
+                }
+            } else if ([allowsPencilOnlyDrawing isKindOfClass:[NSNumber class]]) {
+                self.canvasView.drawingPolicy = allowsPencilOnlyDrawing.boolValue ? PKCanvasViewDrawingPolicyPencilOnly : PKCanvasViewDrawingPolicyAnyInput;
+            } else if ([allowsFingerDrawing isKindOfClass:[NSNumber class]]) {
+                self.canvasView.drawingPolicy = allowsFingerDrawing.boolValue ? PKCanvasViewDrawingPolicyAnyInput : PKCanvasViewDrawingPolicyPencilOnly;
+            }
+        } else {
+            if ([allowsPencilOnlyDrawing isKindOfClass:[NSNumber class]]) {
+                self.canvasView.allowsFingerDrawing = !allowsPencilOnlyDrawing.boolValue;
+            } else if ([allowsFingerDrawing isKindOfClass:[NSNumber class]]) {
+                self.canvasView.allowsFingerDrawing = allowsFingerDrawing.boolValue;
+            }
         }
         
         if (config[@"isRulerActive"]) {
             self.canvasView.rulerActive = [config[@"isRulerActive"] boolValue];
-        }
-        
-        if (config[@"drawingPolicy"]) {
-            NSString *policy = config[@"drawingPolicy"];
-            if ([policy isEqualToString:@"anyInput"]) {
-                self.canvasView.drawingPolicy = PKCanvasViewDrawingPolicyAnyInput;
-            } else if ([policy isEqualToString:@"pencilOnly"]) {
-                self.canvasView.drawingPolicy = PKCanvasViewDrawingPolicyPencilOnly;
-            } else {
-                self.canvasView.drawingPolicy = PKCanvasViewDrawingPolicyDefault;
-            }
         }
     }
 }
@@ -863,7 +967,11 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
 
 - (void)touchesEstimatedPropertiesUpdated:(NSSet<UITouch *> *)touches {
     [super touchesEstimatedPropertiesUpdated:touches];
-    
+
+    [self processTouchesEstimatedPropertiesUpdated:touches];
+}
+
+- (void)processTouchesEstimatedPropertiesUpdated:(NSSet<UITouch *> *)touches {
     if (!_isApplePencilDataCaptureActive || !self.enableApplePencilData) {
         return;
     }
@@ -884,7 +992,7 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
     
     for (UITouch *touch in touches) {
         // Use the same simple check as MotesXcode
-        if (touch && touch.type == UITouchTypeStylus) {
+        if (touch && (touch.type == UITouchTypePencil || touch.type == UITouchTypeStylus)) {
             NSDictionary *applePencilData = nil;
             @try {
                 applePencilData = [self convertUITouchToApplePencilData:touch phase:phase];
@@ -1079,26 +1187,46 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
         self.lastTouchTimestamp = touch.timestamp;
         self.lastVelocity = velocity;
         self.lastAcceleration = acceleration;
-        
-        // Simplified data structure like MotesXcode
+
+        CGVector azimuthUnitVector = [touch azimuthUnitVectorInView:self];
+        CGFloat rollAngle = 0.0;
+        if (@available(iOS 17.5, *)) {
+            rollAngle = touch.rollAngle;
+        }
+
         return @{
-            @"type": @"stylus",
+            @"type": @"pencil",
             @"isApplePencil": @(YES),
             @"pressure": @(curvedPressure),
             @"force": @(touch.force),
             @"maximumPossibleForce": @(touch.maximumPossibleForce),
+            @"perpendicularForce": @(perpendicularForce),
+            @"rollAngle": @(rollAngle),
             @"altitude": @(touch.altitudeAngle),
             @"azimuth": @([touch azimuthAngleInView:self]),
+            @"azimuthUnitVector": @{
+                @"x": @(azimuthUnitVector.dx),
+                @"y": @(azimuthUnitVector.dy)
+            },
             @"timestamp": @(touch.timestamp),
             @"location": @{
                 @"x": @(location.x),
                 @"y": @(location.y)
             },
+            @"previousLocation": @{
+                @"x": @(previousLocation.x),
+                @"y": @(previousLocation.y)
+            },
             @"preciseLocation": @{
                 @"x": @(preciseLocation.x),
                 @"y": @(preciseLocation.y)
             },
-            @"phase": phaseString
+            @"phase": phaseString,
+            @"hasPreciseLocation": @(YES),
+            @"estimatedProperties": estimatedProperties,
+            @"estimatedPropertiesExpectingUpdates": estimatedPropertiesExpectingUpdates,
+            @"velocity": @(velocity),
+            @"acceleration": @(acceleration)
         };
     } @catch (NSException *exception) {
         NSLog(@"Error in convertUITouchToApplePencilData: %@", exception.reason);
@@ -1192,7 +1320,7 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
         
         for (UITouch *coalescedTouch in coalescedTouches) {
             // Only process if it's a valid touch type - use same simple check as MotesXcode
-            if (coalescedTouch && coalescedTouch.type == UITouchTypeStylus) {
+            if (coalescedTouch && (coalescedTouch.type == UITouchTypePencil || coalescedTouch.type == UITouchTypeStylus)) {
                 NSDictionary *coalescedTouchData = [self convertUITouchToApplePencilData:coalescedTouch phase:phase];
                 if (coalescedTouchData) {
                     [coalescedData addObject:coalescedTouchData];
@@ -1522,6 +1650,7 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
     // Hover support (available on iPad with Pencil hover)
     if (@available(iOS 13.0, *)) {
         _hoverGesture = [[UIHoverGestureRecognizer alloc] initWithTarget:self action:@selector(handleHover:)];
+        _hoverGesture.allowedTouchTypes = @[@(UITouchTypePencil)];
         [self addGestureRecognizer:_hoverGesture];
     }
     
@@ -1778,7 +1907,7 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
                 if (_showHoverPreview) {
                     [self updateHoverPreviewAtLocation:location];
                 }
-                [self sendHoverEventAtLocation:location];
+                [self sendHoverEventAtLocation:location withRecognizer:recognizer];
                 break;
             case UIGestureRecognizerStateEnded:
             case UIGestureRecognizerStateCancelled:
@@ -1811,12 +1940,45 @@ RCT_EXPORT_VIEW_PROPERTY(enableMotionTracking, BOOL)
 }
 
 - (void)sendHoverEventAtLocation:(CGPoint)location {
-    // Create hover data with basic location information
+    [self sendHoverEventAtLocation:location withRecognizer:nil];
+}
+
+- (void)sendHoverEventAtLocation:(CGPoint)location withRecognizer:(UIHoverGestureRecognizer *)recognizer {
+    CGFloat altitude = 0.0;
+    CGFloat azimuth = 0.0;
+    CGFloat zOffset = 0.0;
+    CGFloat rollAngle = 0.0;
+    CGVector azimuthUnitVector = CGVectorMake(0.0, 0.0);
+
+    if (@available(iOS 16.1, *)) {
+        if (recognizer) {
+            zOffset = recognizer.zOffset;
+        }
+    }
+    if (@available(iOS 16.4, *)) {
+        if (recognizer) {
+            altitude = recognizer.altitudeAngle;
+            azimuth = [recognizer azimuthAngleInView:self];
+            azimuthUnitVector = [recognizer azimuthUnitVectorInView:self];
+        }
+    }
+    if (@available(iOS 17.5, *)) {
+        if (recognizer) {
+            rollAngle = recognizer.rollAngle;
+        }
+    }
+
     NSDictionary *hoverData = @{
         @"viewId": @(0), // StylusDrawingView doesn't have viewId, use 0
         @"location": @{ @"x": @(location.x), @"y": @(location.y) },
-        @"altitude": @(0), // Not available via UIHoverGestureRecognizer
-        @"azimuth": @{ @"x": @(0), @"y": @(0) }, // Not available via UIHoverGestureRecognizer
+        @"altitude": @(altitude),
+        @"azimuth": @(azimuth),
+        @"azimuthUnitVector": @{
+            @"x": @(azimuthUnitVector.dx),
+            @"y": @(azimuthUnitVector.dy)
+        },
+        @"zOffset": @(zOffset),
+        @"rollAngle": @(rollAngle),
         @"timestamp": @([[NSDate date] timeIntervalSince1970])
     };
     [MunimPencilkit sendApplePencilHoverEvent:hoverData];

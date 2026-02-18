@@ -114,6 +114,7 @@
 - (void)updateHoverPreviewAtLocation:(CGPoint)location;
 - (void)hideHoverPreview;
 - (void)sendHoverEventAtLocation:(CGPoint)location;
+- (void)sendHoverEventAtLocation:(CGPoint)location withRecognizer:(UIHoverGestureRecognizer *)recognizer;
 - (void)setShowHoverPreview:(BOOL)showHoverPreview;
 
 @end

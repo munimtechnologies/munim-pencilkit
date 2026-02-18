@@ -79,6 +79,7 @@
 ### Core PencilKit Integration
 
 - 🎨 **Full PencilKit Framework** - Complete Apple PencilKit framework support
+- ✍️ **Dual Native Drawing Modes** - Use `PKCanvasView` or a custom `UITouch` stylus renderer
 - ✏️ **Professional Drawing Tools** - Pen, pencil, marker, eraser, and lasso tools
 - 📱 **Native Performance** - Built with Turbo modules for optimal performance
 - 🎯 **TypeScript Support** - Full TypeScript definitions included
@@ -443,8 +444,14 @@ interface ApplePencilHoverData {
     x: number;
     y: number;
   };
-  altitude: number;
-  azimuth: number;
+  altitude: number; // radians
+  azimuth: number; // radians
+  azimuthUnitVector: {
+    x: number;
+    y: number;
+  };
+  zOffset?: number; // 1.0 far from screen, 0.0 near screen
+  rollAngle?: number; // Apple Pencil Pro (iOS 17.5+)
   timestamp: number;
 }
 
@@ -490,13 +497,14 @@ interface PencilKitConfig {
   isRulerActive: boolean;
   drawingPolicy: 'default' | 'anyInput' | 'pencilOnly';
 
-  // Apple Pencil Pro configuration
+  // Input / capture configuration
   enableApplePencilData?: boolean;
   enableToolPicker?: boolean;
-  enableSqueezeInteraction?: boolean;
-  enableDoubleTapInteraction?: boolean;
-  enableHoverSupport?: boolean;
   enableHapticFeedback?: boolean;
+  useCustomStylusView?: boolean;
+  showHoverPreview?: boolean;
+  strokeColor?: string;
+  baseLineWidth?: number;
 }
 ```
 
@@ -795,13 +803,14 @@ Hover pose detection for previews and visual feedback:
 
 ```tsx
 <PencilKitView
-  enableHoverSupport={true}
   onApplePencilHover={(data) => {
-    // Show brush preview at hover location
-    showBrushPreview(data.location, data.altitude);
+    // Show brush preview at hover location/angle
+    showBrushPreview(data.location, data.altitude, data.azimuth);
   }}
 />
 ```
+
+> Hover pose telemetry (`altitude`, `azimuth`, `azimuthUnitVector`) requires iPadOS 16.4+ on supported iPad hardware. `zOffset` requires iPadOS 16.1+, and `rollAngle` requires iOS/iPadOS 17.5+ with supported Apple Pencil hardware.
 
 ### Barrel Roll Support
 
@@ -862,7 +871,7 @@ Enable haptic feedback for interactions:
 ### Apple Pencil Pro Issues
 
 1. **Squeeze Not Working**: Ensure `enableSqueezeInteraction` is true and using Apple Pencil Pro
-2. **Hover Not Detected**: Check that `enableHoverSupport` is true and pencil is hovering
+2. **Hover Not Detected**: Ensure `onApplePencilHover` is registered and test on supported iPad hardware/iPadOS versions
 3. **Haptic Feedback Missing**: Verify `enableHapticFeedback` is true and device supports haptics
 
 ### Debug Mode

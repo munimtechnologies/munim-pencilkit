@@ -113,6 +113,7 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
     const estimatedPropertiesListenerRef = useRef<any>(null);
     const motionListenerRef = useRef<any>(null);
     const hoverListenerRef = useRef<any>(null);
+    const stylusEventsListenerRef = useRef<any>(null);
 
     // Initialize the PencilKit view once
     useEffect(() => {
@@ -226,19 +227,26 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
       );
 
       // Custom stylus view event listeners
-      if (onStylusViewToggleEraser) {
-        eventEmitter.addListener('onApplePencilData', (data: any) => {
-          if (data.action === 'drawingStarted' && onStylusViewStartDrawing) {
-            onStylusViewStartDrawing();
-          } else if (data.action === 'drawingEnded' && onStylusViewEndDrawing) {
-            onStylusViewEndDrawing();
-          } else if (
-            data.isEraserOn !== undefined &&
-            onStylusViewToggleEraser
-          ) {
-            onStylusViewToggleEraser(data.isEraserOn);
+      if (
+        onStylusViewToggleEraser ||
+        onStylusViewStartDrawing ||
+        onStylusViewEndDrawing
+      ) {
+        stylusEventsListenerRef.current = eventEmitter.addListener(
+          'onApplePencilData',
+          (data: any) => {
+            if (data.action === 'drawingStarted' && onStylusViewStartDrawing) {
+              onStylusViewStartDrawing();
+            } else if (data.action === 'drawingEnded' && onStylusViewEndDrawing) {
+              onStylusViewEndDrawing();
+            } else if (
+              data.isEraserOn !== undefined &&
+              onStylusViewToggleEraser
+            ) {
+              onStylusViewToggleEraser(data.isEraserOn);
+            }
           }
-        });
+        );
       }
 
       return () => {
@@ -249,6 +257,7 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
         estimatedPropertiesListenerRef.current?.remove();
         motionListenerRef.current?.remove();
         hoverListenerRef.current?.remove();
+        stylusEventsListenerRef.current?.remove();
       };
     }, [
       viewId,

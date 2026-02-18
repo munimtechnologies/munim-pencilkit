@@ -65,6 +65,7 @@ import UIKit
 
         // Hover support (available on iPad with Pencil hover)
         let hg = UIHoverGestureRecognizer(target: self, action: #selector(handleHover(_:)))
+        hg.allowedTouchTypes = [NSNumber(value: UITouch.TouchType.pencil.rawValue)]
         addGestureRecognizer(hg)
         hoverGesture = hg
 
@@ -209,7 +210,7 @@ import UIKit
     private func shouldAccept(touch: UITouch) -> Bool {
         if allowsFingerDrawing { return true }
         if #available(iOS 12.1, *) {
-            return touch.type == .stylus
+            return touch.type == .pencil
         } else {
             return true
         }

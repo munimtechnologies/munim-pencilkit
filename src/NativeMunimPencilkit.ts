@@ -67,7 +67,10 @@ export interface ApplePencilHoverData {
   viewId: number;
   location: { x: number; y: number };
   altitude: number; // radians
-  azimuth: { x: number; y: number }; // unit vector
+  azimuth: number; // radians
+  azimuthUnitVector: { x: number; y: number };
+  zOffset?: number; // normalized hover distance: 1.0 far -> 0.0 near
+  rollAngle?: number; // radians (Apple Pencil Pro, iOS 17.5+)
   timestamp: number;
 }
 
