@@ -4,6 +4,11 @@ import UIKit
   func stylusViewDidToggleEraser(_ view: StylusDrawingView, isOn: Bool)
   func stylusViewDidStartDrawing(_ view: StylusDrawingView)
   func stylusViewDidEndDrawing(_ view: StylusDrawingView)
+  func stylusView(
+    _ view: StylusDrawingView,
+    didCollectCoalescedTouches touches: [UITouch],
+    timestamp: TimeInterval
+  )
   func stylusViewDidHover(
     _ view: StylusDrawingView,
     location: CGPoint,
@@ -128,6 +133,16 @@ import UIKit
     guard let image = renderImageView.image else { return }
     for touch in touches where shouldAccept(touch: touch) {
       let samples = event?.coalescedTouches(for: touch) ?? [touch]
+      if touch.type == .pencil {
+        let pencilSamples = samples.filter { $0.type == .pencil }
+        if !pencilSamples.isEmpty {
+          delegate?.stylusView(
+            self,
+            didCollectCoalescedTouches: pencilSamples,
+            timestamp: touch.timestamp
+          )
+        }
+      }
       for sample in samples {
         let point = sample.preciseLocation(in: self)
         if var path = strokePaths[touch],

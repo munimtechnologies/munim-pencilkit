@@ -682,6 +682,23 @@ final class TouchForwardingCanvasView: PKCanvasView {
     onPencilKitDrawingChange?(getDrawingData())
   }
 
+  func stylusView(
+    _ view: StylusDrawingView,
+    didCollectCoalescedTouches touches: [UITouch],
+    timestamp: TimeInterval
+  ) {
+    guard enableApplePencilData, isApplePencilCaptureActive else { return }
+    let pencilTouches = touches.filter { $0.type == .pencil }
+    if pencilTouches.isEmpty { return }
+
+    let touchesData = pencilTouches.map { convertTouchToDictionary(touch: $0, phase: .moved) }
+    onApplePencilCoalescedTouches?([
+      "viewId": viewId.intValue,
+      "touches": touchesData,
+      "timestamp": timestamp,
+    ])
+  }
+
   func stylusViewDidHover(
     _ view: StylusDrawingView,
     location: CGPoint,
