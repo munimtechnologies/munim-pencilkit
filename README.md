@@ -79,13 +79,19 @@
 ### Core PencilKit Integration
 
 - 🎨 **Full PencilKit Framework** - Complete Apple PencilKit framework support
-- ✍️ **Dual Native Drawing Modes** - Use `PKCanvasView` or a custom `UITouch` stylus renderer
+- ✍️ **Dual Drawing Engines** - Use Apple PencilKit (`PKCanvasView`) or a custom stylus engine (`UITouch` renderer)
 - ✏️ **Professional Drawing Tools** - Pen, pencil, marker, eraser, and lasso tools
 - 📱 **Native Performance** - Built with Turbo modules for optimal performance
 - 🎯 **TypeScript Support** - Full TypeScript definitions included
 - 🔄 **Undo/Redo Support** - Built-in drawing history management
 - 🎛️ **Configurable** - Customizable drawing policies and tool settings
 - 🚀 **Expo Compatible** - Works seamlessly with Expo managed and bare workflows
+
+### Drawing Engine Modes
+
+- **Apple PencilKit Engine**: Set `useCustomStylusView` to `false` (native `PKCanvasView` rendering/input)
+- **Custom Stylus Engine**: Set `useCustomStylusView` to `true` (custom `UITouch` stylus renderer)
+- **Coalesced Touches**: `onApplePencilCoalescedTouches` is emitted in both engines when Apple Pencil capture is enabled
 
 ### Apple Pencil Data Capture
 
@@ -531,8 +537,8 @@ interface PencilKitConfig {
   enableSqueezeInteraction?: boolean;
   enableDoubleTapInteraction?: boolean;
   enableHoverSupport?: boolean;
-  useCustomStylusView?: boolean;
-  showHoverPreview?: boolean;
+  useCustomStylusView?: boolean; // false = Apple PencilKit engine, true = custom stylus engine
+  showHoverPreview?: boolean; // Hover ring used by custom stylus engine
   strokeColor?: string;
   baseLineWidth?: number;
 }
