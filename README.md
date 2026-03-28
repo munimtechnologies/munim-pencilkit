@@ -538,6 +538,11 @@ interface PencilKitConfig {
   enableDoubleTapInteraction?: boolean;
   enableHoverSupport?: boolean;
   useCustomStylusView?: boolean; // false = Apple PencilKit engine, true = custom stylus engine
+  squeezeEraserBehavior?: 'alwaysOn' | 'switchEraserOnly' | 'toggle' | 'none'; // custom stylus squeeze behavior, default: 'alwaysOn'
+  customStylusRenderMode?: 'incremental' | 'replay'; // default: 'incremental'
+  customStylusEraserMode?: 'clear' | 'paint'; // default: 'clear'
+  customStylusOpaqueCanvas?: boolean; // default: false
+  customStylusSurfaceColor?: string; // default: system background
   showHoverPreview?: boolean; // Hover ring used by custom stylus engine
   strokeColor?: string;
   baseLineWidth?: number;

@@ -15,6 +15,10 @@ import type {
 } from './types'
 
 export type {
+  PencilKitViewRef,
+} from './PencilKitView'
+
+export type {
   ApplePencilCoalescedTouchesData,
   ApplePencilData,
   ApplePencilDoubleTapData,
@@ -25,9 +29,12 @@ export type {
   ApplePencilPreferredSqueezeActionData,
   ApplePencilPredictedTouchesData,
   ApplePencilSqueezeData,
+  CustomStylusEraserMode,
+  CustomStylusRenderMode,
   PencilKitConfig,
   PencilKitDrawingData,
   PencilKitPoint,
+  SqueezeEraserBehavior,
   PencilKitStroke,
   PencilKitTool,
 } from './types'

@@ -105,6 +105,16 @@ export interface ApplePencilPreferredSqueezeActionData {
   preferredAction: ApplePencilPreferredAction
 }
 
+export type SqueezeEraserBehavior =
+  | 'alwaysOn'
+  | 'switchEraserOnly'
+  | 'toggle'
+  | 'none'
+
+export type CustomStylusRenderMode = 'incremental' | 'replay'
+
+export type CustomStylusEraserMode = 'clear' | 'paint'
+
 export interface PencilKitPoint {
   location: { x: number; y: number }
   pressure: number
@@ -151,6 +161,11 @@ export interface PencilKitConfig {
   enableDoubleTapInteraction?: boolean
   enableHoverSupport?: boolean
   useCustomStylusView?: boolean
+  squeezeEraserBehavior?: SqueezeEraserBehavior
+  customStylusRenderMode?: CustomStylusRenderMode
+  customStylusEraserMode?: CustomStylusEraserMode
+  customStylusOpaqueCanvas?: boolean
+  customStylusSurfaceColor?: string
   showHoverPreview?: boolean
   strokeColor?: string
   baseLineWidth?: number

@@ -25,6 +25,14 @@ import UIKit
   @objc var strokeColor: UIColor = .label
   @objc var baseLineWidth: CGFloat = 4.0
   @objc var showHoverPreview: Bool = true
+  @objc var renderMode: String = "incremental"
+  @objc var eraserMode: String = "clear"
+  @objc var opaqueCanvas: Bool = false {
+    didSet { applyCanvasCompositingMode() }
+  }
+  @objc var surfaceColor: UIColor = .systemBackground {
+    didSet { applyCanvasCompositingMode() }
+  }
   @objc weak var delegate: StylusDrawingViewDelegate?
 
   private let renderImageView = UIImageView()
@@ -47,10 +55,11 @@ import UIKit
 
   private func commonInit() {
     isMultipleTouchEnabled = true
-    backgroundColor = .systemBackground
+    backgroundColor = surfaceColor
 
     renderImageView.contentMode = .center
     renderImageView.isOpaque = true
+    renderImageView.backgroundColor = surfaceColor
     addSubview(renderImageView)
 
     hoverPreviewLayer.fillColor = UIColor.clear.cgColor
@@ -68,6 +77,8 @@ import UIKit
       pencil.delegate = self
       addInteraction(pencil)
     }
+
+    applyCanvasCompositingMode()
   }
 
   override func layoutSubviews() {
@@ -99,20 +110,30 @@ import UIKit
   }
 
   @objc func setEraserEnabled(_ enabled: Bool) {
+    guard isEraserEnabled != enabled else { return }
     isEraserEnabled = enabled
     hoverPreviewLayer.strokeColor = (
       enabled ? UIColor.systemRed : UIColor.systemBlue
     ).withAlphaComponent(0.7).cgColor
+    delegate?.stylusViewDidToggleEraser(self, isOn: isEraserEnabled)
+  }
+
+  @objc func toggleEraserEnabled() {
+    setEraserEnabled(!isEraserEnabled)
   }
 
   private func emptyImage(size: CGSize) -> UIImage {
     let format = UIGraphicsImageRendererFormat.default()
     format.scale = UIScreen.main.scale
-    format.opaque = true
+    format.opaque = opaqueCanvas
     let renderer = UIGraphicsImageRenderer(size: size, format: format)
     return renderer.image { context in
-      (backgroundColor ?? .white).setFill()
-      context.fill(CGRect(origin: .zero, size: size))
+      if opaqueCanvas {
+        surfaceColor.setFill()
+        context.fill(CGRect(origin: .zero, size: size))
+      } else {
+        context.cgContext.clear(CGRect(origin: .zero, size: size))
+      }
     }
   }
 
@@ -120,11 +141,13 @@ import UIKit
     for touch in touches where shouldAccept(touch: touch) {
       let point = touch.preciseLocation(in: self)
       lastPointByTouch[touch] = point
-      let path = UIBezierPath()
-      path.move(to: point)
-      strokePaths[touch] = path
-      strokePoints[touch] = [point]
-      strokePressures[touch] = [normalizedForce(for: touch)]
+      if renderMode == "replay" {
+        let path = UIBezierPath()
+        path.move(to: point)
+        strokePaths[touch] = path
+        strokePoints[touch] = [point]
+        strokePressures[touch] = [normalizedForce(for: touch)]
+      }
       delegate?.stylusViewDidStartDrawing(self)
     }
   }
@@ -143,22 +166,12 @@ import UIKit
           )
         }
       }
-      for sample in samples {
-        let point = sample.preciseLocation(in: self)
-        if var path = strokePaths[touch],
-          var points = strokePoints[touch],
-          var pressures = strokePressures[touch]
-        {
-          path.addLine(to: point)
-          points.append(point)
-          pressures.append(normalizedForce(for: sample))
-          strokePaths[touch] = path
-          strokePoints[touch] = points
-          strokePressures[touch] = pressures
-        }
-        lastPointByTouch[touch] = point
+      if renderMode == "replay" {
+        appendReplaySamples(for: touch, samples: samples)
+        renderReplayStroke(for: touch, on: image)
+      } else {
+        renderSegments(for: touch, samples: samples, on: image)
       }
-      renderStrokeWithPressure(for: touch, on: image)
     }
   }
 
@@ -190,17 +203,77 @@ import UIKit
     return true
   }
 
-  private func renderStrokeWithPressure(for touch: UITouch, on image: UIImage) {
-    guard let points = strokePoints[touch], let pressures = strokePressures[touch], points.count > 1
+  private func renderSegments(for touch: UITouch, samples: [UITouch], on image: UIImage) {
+    guard !samples.isEmpty else { return }
+    var previousPoint = lastPointByTouch[touch] ?? samples[0].preciseLocation(in: self)
+
+    let format = UIGraphicsImageRendererFormat.default()
+    format.scale = UIScreen.main.scale
+    format.opaque = false
+    let renderer = UIGraphicsImageRenderer(size: bounds.size, format: format)
+
+    let updated = renderer.image { context in
+      image.draw(at: .zero)
+      for sample in samples {
+        let point = sample.preciseLocation(in: self)
+        if point == previousPoint { continue }
+        let path = UIBezierPath()
+        path.move(to: previousPoint)
+        path.addLine(to: point)
+        path.lineCapStyle = .round
+        path.lineJoinStyle = .round
+        path.lineWidth = max(
+          2.0,
+          baseLineWidth * (0.5 + normalizedForce(for: sample)) * tiltWidthFactor(for: sample)
+        )
+        strokePath(path, context: context)
+        previousPoint = point
+      }
+    }
+    renderImageView.image = updated
+    lastPointByTouch[touch] = previousPoint
+  }
+
+  private func appendReplaySamples(for touch: UITouch, samples: [UITouch]) {
+    if strokePaths[touch] == nil {
+      let seed = lastPointByTouch[touch] ?? touch.preciseLocation(in: self)
+      let path = UIBezierPath()
+      path.move(to: seed)
+      strokePaths[touch] = path
+      strokePoints[touch] = [seed]
+      strokePressures[touch] = [normalizedForce(for: touch)]
+    }
+
+    guard var path = strokePaths[touch],
+      var points = strokePoints[touch],
+      var pressures = strokePressures[touch]
+    else { return }
+
+    for sample in samples {
+      let point = sample.preciseLocation(in: self)
+      path.addLine(to: point)
+      points.append(point)
+      pressures.append(normalizedForce(for: sample))
+      lastPointByTouch[touch] = point
+    }
+
+    strokePaths[touch] = path
+    strokePoints[touch] = points
+    strokePressures[touch] = pressures
+  }
+
+  private func renderReplayStroke(for touch: UITouch, on image: UIImage) {
+    guard let points = strokePoints[touch],
+      let pressures = strokePressures[touch],
+      points.count > 1
     else { return }
 
     let format = UIGraphicsImageRendererFormat.default()
     format.scale = UIScreen.main.scale
-    format.opaque = true
+    format.opaque = opaqueCanvas
     let renderer = UIGraphicsImageRenderer(size: bounds.size, format: format)
-    let color = isEraserEnabled ? (backgroundColor ?? .white) : strokeColor
 
-    let updated = renderer.image { _ in
+    let updated = renderer.image { context in
       image.draw(at: .zero)
       for index in 1..<points.count {
         let path = UIBezierPath()
@@ -208,12 +281,33 @@ import UIKit
         path.addLine(to: points[index])
         path.lineCapStyle = .round
         path.lineJoinStyle = .round
-        path.lineWidth = max(2.0, baseLineWidth * (0.5 + pressures[index]) * tiltWidthFactor(for: touch))
-        color.setStroke()
-        path.stroke()
+        path.lineWidth = max(
+          2.0,
+          baseLineWidth * (0.5 + pressures[index]) * tiltWidthFactor(for: touch)
+        )
+        strokePath(path, context: context)
       }
     }
+
     renderImageView.image = updated
+  }
+
+  private func strokePath(_ path: UIBezierPath, context: UIGraphicsImageRendererContext) {
+    if isEraserEnabled {
+      if eraserMode == "paint" {
+        surfaceColor.setStroke()
+        path.stroke()
+      } else {
+        context.cgContext.setBlendMode(.clear)
+        UIColor.clear.setStroke()
+        path.stroke(with: .clear, alpha: 1.0)
+        context.cgContext.setBlendMode(.normal)
+      }
+      return
+    }
+
+    strokeColor.setStroke()
+    path.stroke()
   }
 
   private func normalizedForce(for touch: UITouch) -> CGFloat {
@@ -224,6 +318,13 @@ import UIKit
   private func tiltWidthFactor(for touch: UITouch) -> CGFloat {
     let perpendicularity = max(0.0, min(1.0, touch.altitudeAngle / (.pi / 2.0)))
     return 1.0 + (1.8 - 1.0) * (1.0 - perpendicularity)
+  }
+
+  private func applyCanvasCompositingMode() {
+    backgroundColor = opaqueCanvas ? surfaceColor : .clear
+    isOpaque = opaqueCanvas
+    renderImageView.isOpaque = opaqueCanvas
+    renderImageView.backgroundColor = opaqueCanvas ? surfaceColor : .clear
   }
 
   @objc private func handleHover(_ recognizer: UIHoverGestureRecognizer) {
@@ -275,8 +376,6 @@ import UIKit
   }
 
   func pencilInteractionDidTap(_ interaction: UIPencilInteraction) {
-    isEraserEnabled.toggle()
-    setEraserEnabled(isEraserEnabled)
-    delegate?.stylusViewDidToggleEraser(self, isOn: isEraserEnabled)
+    toggleEraserEnabled()
   }
 }

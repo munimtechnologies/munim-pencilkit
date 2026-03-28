@@ -79,6 +79,7 @@ final class TouchForwardingCanvasView: PKCanvasView {
   private var isApplePencilCaptureActive = false
   private var useCustomStylusView = false
   private var showHoverPreview = true
+  private var squeezeEraserBehavior = "alwaysOn"
 
   private var lastTouchLocation: CGPoint = .zero
   private var lastTouchTimestamp: TimeInterval = 0
@@ -102,7 +103,7 @@ final class TouchForwardingCanvasView: PKCanvasView {
   }
 
   private func setup() {
-    backgroundColor = .systemBackground
+    backgroundColor = .clear
     setupCanvasView()
     setupStylusView()
     setupPencilInteraction()
@@ -149,6 +150,7 @@ final class TouchForwardingCanvasView: PKCanvasView {
   private func setupStylusView() {
     stylusView.translatesAutoresizingMaskIntoConstraints = false
     stylusView.delegate = self
+    stylusView.backgroundColor = .clear
     stylusView.isHidden = true
     addSubview(stylusView)
 
@@ -220,6 +222,18 @@ final class TouchForwardingCanvasView: PKCanvasView {
     if let strokeColorRaw = config["strokeColor"] as? String {
       stylusView.strokeColor = UIColor.fromCssColor(strokeColorRaw) ?? .label
     }
+    if let customStylusRenderMode = config["customStylusRenderMode"] as? String {
+      stylusView.renderMode = customStylusRenderMode
+    }
+    if let customStylusEraserMode = config["customStylusEraserMode"] as? String {
+      stylusView.eraserMode = customStylusEraserMode
+    }
+    if let customStylusOpaqueCanvas = config["customStylusOpaqueCanvas"] as? Bool {
+      stylusView.opaqueCanvas = customStylusOpaqueCanvas
+    }
+    if let customStylusSurfaceColorRaw = config["customStylusSurfaceColor"] as? String {
+      stylusView.surfaceColor = UIColor.fromCssColor(customStylusSurfaceColorRaw) ?? .systemBackground
+    }
     if let enableCapture = config["enableApplePencilData"] as? Bool {
       enableApplePencilData = enableCapture
     }
@@ -240,6 +254,9 @@ final class TouchForwardingCanvasView: PKCanvasView {
     }
     if let hover = config["enableHoverSupport"] as? Bool {
       enableHoverSupport = hover
+    }
+    if let behavior = config["squeezeEraserBehavior"] as? String {
+      squeezeEraserBehavior = behavior
     }
   }
 
@@ -639,6 +656,22 @@ final class TouchForwardingCanvasView: PKCanvasView {
   ) {
     guard enableSqueezeInteraction else { return }
     let preferredAction = mapPreferredAction(UIPencilInteraction.preferredSqueezeAction)
+    if useCustomStylusView, squeeze.phase == .ended {
+      switch squeezeEraserBehavior {
+      case "none":
+        break
+      case "toggle":
+        stylusView.toggleEraserEnabled()
+      case "switchEraserOnly":
+        if preferredAction == "switchEraser" {
+          stylusView.setEraserEnabled(true)
+        }
+      case "alwaysOn":
+        stylusView.setEraserEnabled(true)
+      default:
+        break
+      }
+    }
     onApplePencilPreferredSqueezeAction?([
       "preferredAction": preferredAction,
     ])
