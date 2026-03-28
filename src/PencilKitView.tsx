@@ -258,6 +258,10 @@ function parseDrawingJson(raw: string): PencilKitDrawingData {
   }
 }
 
+function isViewNotFoundError(error: unknown): boolean {
+  return error instanceof Error && error.message.includes('viewNotFound(')
+}
+
 export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
   (props, ref: Ref<PencilKitViewRef>) => {
     const {
@@ -297,9 +301,17 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
       setViewId(id)
       onViewReady?.(id)
       return () => {
-        if (createdIdRef.current != null) {
-          MunimPencilkit.destroyPencilKitView(createdIdRef.current)
-          createdIdRef.current = null
+        const createdId = createdIdRef.current
+        createdIdRef.current = null
+
+        if (createdId != null) {
+          try {
+            MunimPencilkit.destroyPencilKitView(createdId)
+          } catch (error) {
+            if (!isViewNotFoundError(error)) {
+              throw error
+            }
+          }
         }
       }
     }, [onViewReady])

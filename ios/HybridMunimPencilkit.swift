@@ -20,7 +20,8 @@ final class HybridMunimPencilkit: HybridMunimPencilkitSpec {
     try onMain {
       let id = Int(viewId)
       guard let view = PencilKitRegistry.shared.view(for: id) else {
-        throw PencilKitHybridError.viewNotFound(id)
+        PencilKitRegistry.shared.unregister(id: id)
+        return
       }
       view.removeFromSuperview()
       PencilKitRegistry.shared.unregister(id: id)
