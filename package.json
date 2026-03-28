@@ -1,6 +1,6 @@
 {
   "name": "munim-pencilkit",
-  "version": "1.12.32",
+  "version": "1.12.33",
   "description": "munim-pencilkit is a react native package built with Nitro",
   "main": "./lib/commonjs/index.js",
   "module": "./lib/module/index.js",
@@ -43,7 +43,10 @@
   "workspaces": [
     "example"
   ],
-  "repository": "https://github.com/sheehanmunim/munim-pencilkit.git",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sheehanmunim/munim-pencilkit.git"
+  },
   "author": "sheehanmunim",
   "license": "MIT",
   "bugs": "https://github.com/sheehanmunim/munim-pencilkit/issues",
