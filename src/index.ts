@@ -10,8 +10,16 @@ import type {
   ApplePencilPreferredSqueezeActionData,
   ApplePencilPredictedTouchesData,
   ApplePencilSqueezeData,
+  PencilKitCapabilities,
   PencilKitConfig,
+  PencilKitDrawingChangeEvent,
   PencilKitDrawingData,
+  PencilKitExportOptions,
+  PencilKitExportResult,
+  PencilKitHistoryEvent,
+  PencilKitImportOptions,
+  PencilKitToolPickerEvent,
+  PencilKitToolState,
 } from './types'
 
 export type {
@@ -31,28 +39,41 @@ export type {
   ApplePencilSqueezeData,
   CustomStylusEraserMode,
   CustomStylusRenderMode,
+  PencilKitCapabilities,
   PencilKitConfig,
+  PencilKitCropMode,
+  PencilKitDocumentFormat,
+  PencilKitDocumentOutput,
+  PencilKitDrawingChangeEvent,
+  PencilKitDrawingPhaseEvent,
+  PencilKitDrawingSnapshotEvent,
   PencilKitDrawingData,
+  PencilKitExportOptions,
+  PencilKitExportResult,
+  PencilKitHistoryEvent,
+  PencilKitImportOptions,
+  PencilKitInkType,
   PencilKitPoint,
+  PencilKitRect,
   SqueezeEraserBehavior,
   PencilKitStroke,
   PencilKitTool,
+  PencilKitToolPickerEvent,
+  PencilKitToolState,
 } from './types'
 
 export { MunimPencilkit, PencilKitView }
 
 const parseDrawingJson = (raw: string): PencilKitDrawingData => {
-  try {
-    return JSON.parse(raw) as PencilKitDrawingData
-  } catch {
-    return {
-      strokes: [],
-      bounds: { x: 0, y: 0, width: 0, height: 0 },
-    }
-  }
+  return JSON.parse(raw) as PencilKitDrawingData
 }
 
 export const PencilKitUtils = {
+  isSupported: (): boolean => MunimPencilkit.isPencilKitSupported(),
+  getCapabilities: (): PencilKitCapabilities =>
+    JSON.parse(
+      MunimPencilkit.getPencilKitCapabilities()
+    ) as PencilKitCapabilities,
   createView: (): number => MunimPencilkit.createPencilKitView(),
   destroyView: (viewId: number): void => MunimPencilkit.destroyPencilKitView(viewId),
   setConfig: (viewId: number, config: PencilKitConfig): void =>
@@ -75,51 +96,108 @@ export const PencilKitUtils = {
     MunimPencilkit.stopApplePencilDataCapture(viewId),
   isApplePencilCaptureActive: (viewId: number): boolean =>
     MunimPencilkit.isApplePencilDataCaptureActive(viewId),
+  exportDocument: (
+    viewId: number,
+    options: PencilKitExportOptions
+  ): PencilKitExportResult =>
+    JSON.parse(
+      MunimPencilkit.exportPencilKitDocument(viewId, JSON.stringify(options))
+    ) as PencilKitExportResult,
+  importDocument: (viewId: number, options: PencilKitImportOptions): void =>
+    MunimPencilkit.importPencilKitDocument(viewId, JSON.stringify(options)),
+  setTool: (viewId: number, tool: PencilKitToolState): void =>
+    MunimPencilkit.setPencilKitTool(viewId, JSON.stringify(tool)),
+  getTool: (viewId: number): PencilKitToolState =>
+    JSON.parse(MunimPencilkit.getPencilKitTool(viewId)) as PencilKitToolState,
+  setToolPickerVisible: (viewId: number, visible: boolean): void =>
+    MunimPencilkit.setPencilKitToolPickerVisible(viewId, visible),
 
-  addApplePencilListener: (callback: (data: ApplePencilData) => void): (() => void) =>
-    pencilKitEventBus.addApplePencil(callback),
-  removeApplePencilListener: (): void => pencilKitEventBus.clearApplePencil(),
+  addApplePencilListener: (
+    callback: (data: ApplePencilData) => void,
+    viewId?: number
+  ): (() => void) => pencilKitEventBus.addApplePencil(callback, viewId),
+  /** Removes `callback`, or every listener when called without arguments. */
+  removeApplePencilListener: (
+    callback?: (data: ApplePencilData) => void
+  ): void => pencilKitEventBus.removeApplePencil(callback),
   addDrawingChangeListener: (
-    callback: (viewId: number, drawing: PencilKitDrawingData) => void
-  ): (() => void) =>
-    pencilKitEventBus.addDrawing(({ viewId, drawing }) => callback(viewId, drawing)),
-  removeDrawingChangeListener: (): void => pencilKitEventBus.clearDrawing(),
+    callback: (event: PencilKitDrawingChangeEvent) => void,
+    viewId?: number
+  ): (() => void) => pencilKitEventBus.addDrawing(callback, viewId),
+  removeDrawingChangeListener: (
+    callback?: (event: PencilKitDrawingChangeEvent) => void
+  ): void => pencilKitEventBus.removeDrawing(callback),
+  addHistoryChangeListener: (
+    callback: (event: PencilKitHistoryEvent) => void,
+    viewId?: number
+  ): (() => void) => pencilKitEventBus.addHistory(callback, viewId),
+  removeHistoryChangeListener: (
+    callback?: (event: PencilKitHistoryEvent) => void
+  ): void => pencilKitEventBus.removeHistory(callback),
+  addToolPickerChangeListener: (
+    callback: (event: PencilKitToolPickerEvent) => void,
+    viewId?: number
+  ): (() => void) => pencilKitEventBus.addToolPicker(callback, viewId),
+  removeToolPickerChangeListener: (
+    callback?: (event: PencilKitToolPickerEvent) => void
+  ): void => pencilKitEventBus.removeToolPicker(callback),
   addApplePencilCoalescedTouchesListener: (
-    callback: (data: ApplePencilCoalescedTouchesData) => void
-  ): (() => void) => pencilKitEventBus.addCoalesced(callback),
-  removeApplePencilCoalescedTouchesListener: (): void =>
-    pencilKitEventBus.clearCoalesced(),
+    callback: (data: ApplePencilCoalescedTouchesData) => void,
+    viewId?: number
+  ): (() => void) => pencilKitEventBus.addCoalesced(callback, viewId),
+  removeApplePencilCoalescedTouchesListener: (
+    callback?: (data: ApplePencilCoalescedTouchesData) => void
+  ): void => pencilKitEventBus.removeCoalesced(callback),
   addApplePencilPredictedTouchesListener: (
-    callback: (data: ApplePencilPredictedTouchesData) => void
-  ): (() => void) => pencilKitEventBus.addPredicted(callback),
-  removeApplePencilPredictedTouchesListener: (): void =>
-    pencilKitEventBus.clearPredicted(),
+    callback: (data: ApplePencilPredictedTouchesData) => void,
+    viewId?: number
+  ): (() => void) => pencilKitEventBus.addPredicted(callback, viewId),
+  removeApplePencilPredictedTouchesListener: (
+    callback?: (data: ApplePencilPredictedTouchesData) => void
+  ): void => pencilKitEventBus.removePredicted(callback),
   addApplePencilEstimatedPropertiesListener: (
-    callback: (data: ApplePencilEstimatedPropertiesData) => void
-  ): (() => void) => pencilKitEventBus.addEstimated(callback),
-  removeApplePencilEstimatedPropertiesListener: (): void =>
-    pencilKitEventBus.clearEstimated(),
+    callback: (data: ApplePencilEstimatedPropertiesData) => void,
+    viewId?: number
+  ): (() => void) => pencilKitEventBus.addEstimated(callback, viewId),
+  removeApplePencilEstimatedPropertiesListener: (
+    callback?: (data: ApplePencilEstimatedPropertiesData) => void
+  ): void => pencilKitEventBus.removeEstimated(callback),
   addApplePencilMotionListener: (
-    callback: (data: ApplePencilMotionData) => void
-  ): (() => void) => pencilKitEventBus.addMotion(callback),
-  removeApplePencilMotionListener: (): void => pencilKitEventBus.clearMotion(),
+    callback: (data: ApplePencilMotionData) => void,
+    viewId?: number
+  ): (() => void) => pencilKitEventBus.addMotion(callback, viewId),
+  removeApplePencilMotionListener: (
+    callback?: (data: ApplePencilMotionData) => void
+  ): void => pencilKitEventBus.removeMotion(callback),
   addApplePencilHoverListener: (
-    callback: (data: ApplePencilHoverData) => void
-  ): (() => void) => pencilKitEventBus.addHover(callback),
-  removeApplePencilHoverListener: (): void => pencilKitEventBus.clearHover(),
+    callback: (data: ApplePencilHoverData) => void,
+    viewId?: number
+  ): (() => void) => pencilKitEventBus.addHover(callback, viewId),
+  removeApplePencilHoverListener: (
+    callback?: (data: ApplePencilHoverData) => void
+  ): void => pencilKitEventBus.removeHover(callback),
   addApplePencilSqueezeListener: (
-    callback: (data: ApplePencilSqueezeData) => void
-  ): (() => void) => pencilKitEventBus.addSqueeze(callback),
-  removeApplePencilSqueezeListener: (): void => pencilKitEventBus.clearSqueeze(),
+    callback: (data: ApplePencilSqueezeData) => void,
+    viewId?: number
+  ): (() => void) => pencilKitEventBus.addSqueeze(callback, viewId),
+  removeApplePencilSqueezeListener: (
+    callback?: (data: ApplePencilSqueezeData) => void
+  ): void => pencilKitEventBus.removeSqueeze(callback),
   addApplePencilDoubleTapListener: (
-    callback: (data: ApplePencilDoubleTapData) => void
-  ): (() => void) => pencilKitEventBus.addDoubleTap(callback),
-  removeApplePencilDoubleTapListener: (): void => pencilKitEventBus.clearDoubleTap(),
+    callback: (data: ApplePencilDoubleTapData) => void,
+    viewId?: number
+  ): (() => void) => pencilKitEventBus.addDoubleTap(callback, viewId),
+  removeApplePencilDoubleTapListener: (
+    callback?: (data: ApplePencilDoubleTapData) => void
+  ): void => pencilKitEventBus.removeDoubleTap(callback),
   addApplePencilPreferredSqueezeActionListener: (
-    callback: (data: ApplePencilPreferredSqueezeActionData) => void
-  ): (() => void) => pencilKitEventBus.addPreferredSqueezeAction(callback),
-  removeApplePencilPreferredSqueezeActionListener: (): void =>
-    pencilKitEventBus.clearPreferredSqueezeAction(),
+    callback: (data: ApplePencilPreferredSqueezeActionData) => void,
+    viewId?: number
+  ): (() => void) =>
+    pencilKitEventBus.addPreferredSqueezeAction(callback, viewId),
+  removeApplePencilPreferredSqueezeActionListener: (
+    callback?: (data: ApplePencilPreferredSqueezeActionData) => void
+  ): void => pencilKitEventBus.removePreferredSqueezeAction(callback),
 }
 
 export default MunimPencilkit

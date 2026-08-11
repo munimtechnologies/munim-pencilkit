@@ -74,6 +74,22 @@ namespace margelo::nitro::munimpencilkit {
       auto __value = std::move(__result.value());
       return __value;
     }
+    inline bool isPencilKitSupported() override {
+      auto __result = _swiftPart.isPencilKitSupported();
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
+    inline std::string getPencilKitCapabilities() override {
+      auto __result = _swiftPart.getPencilKitCapabilities();
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
     inline double createPencilKitView() override {
       auto __result = _swiftPart.createPencilKitView();
       if (__result.hasError()) [[unlikely]] {
@@ -165,6 +181,40 @@ namespace margelo::nitro::munimpencilkit {
       }
       auto __value = std::move(__result.value());
       return __value;
+    }
+    inline std::string exportPencilKitDocument(double viewId, const std::string& optionsJson) override {
+      auto __result = _swiftPart.exportPencilKitDocument(std::forward<decltype(viewId)>(viewId), optionsJson);
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
+    inline void importPencilKitDocument(double viewId, const std::string& optionsJson) override {
+      auto __result = _swiftPart.importPencilKitDocument(std::forward<decltype(viewId)>(viewId), optionsJson);
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+    }
+    inline void setPencilKitTool(double viewId, const std::string& toolJson) override {
+      auto __result = _swiftPart.setPencilKitTool(std::forward<decltype(viewId)>(viewId), toolJson);
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+    }
+    inline std::string getPencilKitTool(double viewId) override {
+      auto __result = _swiftPart.getPencilKitTool(std::forward<decltype(viewId)>(viewId));
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
+    inline void setPencilKitToolPickerVisible(double viewId, bool visible) override {
+      auto __result = _swiftPart.setPencilKitToolPickerVisible(std::forward<decltype(viewId)>(viewId), std::forward<decltype(visible)>(visible));
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
     }
 
   private:

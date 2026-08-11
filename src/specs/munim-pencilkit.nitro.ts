@@ -2,6 +2,8 @@ import { type HybridObject } from 'react-native-nitro-modules'
 
 export interface MunimPencilkit extends HybridObject<{ ios: 'swift' }> {
   sum(num1: number, num2: number): number
+  isPencilKitSupported(): boolean
+  getPencilKitCapabilities(): string
   createPencilKitView(): number
   destroyPencilKitView(viewId: number): void
   setPencilKitConfig(viewId: number, configJson: string): void
@@ -15,4 +17,9 @@ export interface MunimPencilkit extends HybridObject<{ ios: 'swift' }> {
   startApplePencilDataCapture(viewId: number): void
   stopApplePencilDataCapture(viewId: number): void
   isApplePencilDataCaptureActive(viewId: number): boolean
+  exportPencilKitDocument(viewId: number, optionsJson: string): string
+  importPencilKitDocument(viewId: number, optionsJson: string): void
+  setPencilKitTool(viewId: number, toolJson: string): void
+  getPencilKitTool(viewId: number): string
+  setPencilKitToolPickerVisible(viewId: number, visible: boolean): void
 }

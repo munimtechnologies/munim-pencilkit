@@ -321,7 +321,17 @@ Main React Native component for PencilKit integration with full Apple Pencil Pro
 #### Drawing Props
 
 - `enableToolPicker` (boolean): Show tool picker
-- `onDrawingChange` (function): Drawing change callback
+- `onDrawingChange` (function): Lightweight drawing change callback
+  (`{ viewId, revision, canUndo, canRedo, dirty, bounds }`); fired on every
+  change without serializing the drawing
+- `onDrawingSnapshot` (function): Full serialized drawing, emitted after the
+  drawing settles; enable it with `config.snapshotDebounceMs > 0`
+- `onDrawingBegin` / `onDrawingEnd` (function): Stroke phase callbacks
+  (`{ viewId, revision, canUndo, canRedo, phase, timestamp, timestampClock }`)
+- `onHistoryChange` (function): Undo/redo availability callback
+  (`{ viewId, revision, canUndo, canRedo }`)
+- `onToolPickerChange` (function): Tool picker visibility/selection callback
+  (`{ viewId, visible, selectedTool }`)
 
 ### PencilKitUtils
 
@@ -329,21 +339,74 @@ Utility functions for advanced PencilKit operations.
 
 **Methods:**
 
+#### Feature Detection
+
+- `isSupported()`: `true` when PencilKit is available (iOS)
+- `getCapabilities()`: Detailed `PencilKitCapabilities` object with OS version,
+  supported document formats, ink/eraser tools, telemetry support, and native
+  import/export size limits
+
 #### View Management
 
 - `createView()`: Create a new PencilKit view
 - `destroyView(viewId)`: Destroy a PencilKit view
 - `setConfig(viewId, config)`: Configure PencilKit view
 
+#### Documents and Tools
+
+- `exportDocument(viewId, options)`: Export the drawing. Options
+  (`PencilKitExportOptions`): `format` (`'archive' | 'png' | 'jpeg' | 'pdf'`),
+  `output` (`'base64' | 'fileUrl'`), `crop`
+  (`'drawingBounds' | 'canvas' | 'custom'` with `cropRect`), `scale`
+  (0.1 to 8), `backgroundColor` (`#RRGGBB`/`#RRGGBBAA`), and `quality` (JPEG,
+  0 to 1). Returns a `PencilKitExportResult`
+  (`{ format, output, mimeType, byteLength, width, height, dataBase64? | fileUrl? }`).
+  `fileUrl` exports are written to the app's temporary directory.
+- `importDocument(viewId, options)`: Import a document
+  (`PencilKitImportOptions`). `archive` restores a `PKDrawing` into the
+  PencilKit engine. `png`/`jpeg` are only accepted when
+  `config.useCustomStylusView` is enabled, where the image becomes the raster
+  canvas base — PKCanvasView cannot convert images into strokes. Invalid or
+  mismatched imports throw and leave the current drawing untouched.
+- `setTool(viewId, tool)`: Set the active tool (`PencilKitToolState`): inks
+  (`pen`, `pencil`, `marker`, `monoline`, `fountainPen`, `watercolor`,
+  `crayon`), eraser (`bitmap`/`vector` with optional width), or `lasso`
+- `getTool(viewId)`: Read the active tool back as `PencilKitToolState`
+- `setToolPickerVisible(viewId, visible)`: Programmatically show/hide the tool
+  picker, overriding the `enableToolPicker` prop until the prop next changes
+
+All of the above are also available on `PencilKitViewRef`
+(`exportDocument`, `importDocument`, `setTool`, `getTool`,
+`setToolPickerVisible`).
+
 #### Drawing Operations
 
 - `getDrawing(viewId)`: Get current drawing data
-- `setDrawing(viewId, drawing)`: Set drawing data
+- `setDrawing(viewId, drawing)`: Set drawing data; throws if the import fails validation
 - `clearDrawing(viewId)`: Clear the drawing
 - `undo(viewId)`: Undo last action
 - `redo(viewId)`: Redo last action
 - `canUndo(viewId)`: Check if undo is available
 - `canRedo(viewId)`: Check if redo is available
+
+#### Drawing Import Limits
+
+Native iOS validation applies the following fixed limits to imported configuration and
+drawing data:
+
+- JSON UTF-8 size: 16,777,216 bytes (16 MiB)
+- JSON nesting: 32 collection levels
+- JSON complexity: 10,000 total object entries and array elements
+- Base64 text size: 12,582,912 UTF-8 bytes (12 MiB)
+- Base64-decoded data: 8,388,608 bytes (8 MiB)
+- PencilKit drawing archive: 8,388,608 bytes before `PKDrawing` construction
+- Custom-canvas image: one frame, at most 8,192 pixels on either axis and
+  16,777,216 total pixels
+
+Image dimensions are read from metadata and checked before the image is handed to
+UIKit for decompression or rendering. Malformed or oversized imports throw without
+changing the current drawing. `PencilKitUtils.setDrawing` surfaces the native
+exception directly; `PencilKitViewRef.setDrawing` returns a rejected promise.
 
 #### Apple Pencil Data Capture
 
@@ -353,10 +416,19 @@ Utility functions for advanced PencilKit operations.
 
 #### Event Listeners
 
+Every `add*Listener(callback, viewId?)` returns an unsubscribe function and
+optionally filters by `viewId`. Every `remove*Listener(callback?)` removes only
+the given callback; calling it without arguments keeps the old behavior of
+clearing all listeners for that event.
+
 - `addApplePencilListener(callback)`: Add Apple Pencil data listener
-- `removeApplePencilListener()`: Remove Apple Pencil data listener
+- `removeApplePencilListener(callback?)`: Remove Apple Pencil data listener
 - `addDrawingChangeListener(callback)`: Add drawing change listener
-- `removeDrawingChangeListener()`: Remove drawing change listener
+- `removeDrawingChangeListener(callback?)`: Remove drawing change listener
+- `addHistoryChangeListener(callback)`: Add undo/redo history listener
+- `removeHistoryChangeListener(callback?)`: Remove history listener
+- `addToolPickerChangeListener(callback)`: Add tool picker listener
+- `removeToolPickerChangeListener(callback?)`: Remove tool picker listener
 - `addApplePencilSqueezeListener(callback)`: Add squeeze listener
 - `removeApplePencilSqueezeListener()`: Remove squeeze listener
 - `addApplePencilDoubleTapListener(callback)`: Add double-tap listener

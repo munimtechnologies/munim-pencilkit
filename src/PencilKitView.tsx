@@ -9,10 +9,10 @@ import React, {
   useState,
 } from 'react'
 import {
+  Platform,
   requireNativeComponent,
   type NativeSyntheticEvent,
   type ViewProps,
-  type ViewStyle,
 } from 'react-native'
 import { MunimPencilkit } from './native'
 import type {
@@ -25,136 +25,244 @@ import type {
   ApplePencilPreferredSqueezeActionData,
   ApplePencilPredictedTouchesData,
   ApplePencilSqueezeData,
+  PencilKitDrawingChangeEvent,
+  PencilKitDrawingPhaseEvent,
+  PencilKitDrawingSnapshotEvent,
   PencilKitConfig,
   PencilKitDrawingData,
+  PencilKitExportOptions,
+  PencilKitExportResult,
+  PencilKitHistoryEvent,
+  PencilKitImportOptions,
+  PencilKitToolPickerEvent,
+  PencilKitToolState,
 } from './types'
 
 type NativeEventPayload<T> = NativeSyntheticEvent<T>
 type Listener<T> = (data: T) => void
 
+interface ListenerEntry<T> {
+  original: Listener<T>
+  wrapped: Listener<T>
+}
+
+class ListenerRegistry<T extends { viewId?: number }> {
+  private entries = new Set<ListenerEntry<T>>()
+
+  emit(data: T): void {
+    this.entries.forEach(entry => entry.wrapped(data))
+  }
+
+  add(cb: Listener<T>, viewId?: number): () => void {
+    const entry: ListenerEntry<T> = {
+      original: cb,
+      wrapped: data => {
+        if (viewId == null || data.viewId === viewId) cb(data)
+      },
+    }
+    this.entries.add(entry)
+    return () => this.entries.delete(entry)
+  }
+
+  /** Removes every registration of `cb`, or all listeners when omitted. */
+  remove(cb?: Listener<T>): void {
+    if (cb == null) {
+      this.entries.clear()
+      return
+    }
+    for (const entry of Array.from(this.entries)) {
+      if (entry.original === cb) this.entries.delete(entry)
+    }
+  }
+}
+
 class PencilKitEventBus {
-  private applePencilListeners = new Set<Listener<ApplePencilData>>()
-  private drawingListeners = new Set<
-    Listener<{ viewId: number; drawing: PencilKitDrawingData }>
-  >()
+  private applePencilListeners = new ListenerRegistry<ApplePencilData>()
+  private drawingListeners = new ListenerRegistry<PencilKitDrawingChangeEvent>()
+  private historyListeners = new ListenerRegistry<PencilKitHistoryEvent>()
+  private toolPickerListeners = new ListenerRegistry<PencilKitToolPickerEvent>()
   private coalescedListeners =
-    new Set<Listener<ApplePencilCoalescedTouchesData>>()
+    new ListenerRegistry<ApplePencilCoalescedTouchesData>()
   private predictedListeners =
-    new Set<Listener<ApplePencilPredictedTouchesData>>()
+    new ListenerRegistry<ApplePencilPredictedTouchesData>()
   private estimatedListeners =
-    new Set<Listener<ApplePencilEstimatedPropertiesData>>()
-  private motionListeners = new Set<Listener<ApplePencilMotionData>>()
-  private hoverListeners = new Set<Listener<ApplePencilHoverData>>()
-  private squeezeListeners = new Set<Listener<ApplePencilSqueezeData>>()
-  private doubleTapListeners = new Set<Listener<ApplePencilDoubleTapData>>()
+    new ListenerRegistry<ApplePencilEstimatedPropertiesData>()
+  private motionListeners = new ListenerRegistry<ApplePencilMotionData>()
+  private hoverListeners = new ListenerRegistry<ApplePencilHoverData>()
+  private squeezeListeners = new ListenerRegistry<ApplePencilSqueezeData>()
+  private doubleTapListeners = new ListenerRegistry<ApplePencilDoubleTapData>()
   private preferredSqueezeActionListeners =
-    new Set<Listener<ApplePencilPreferredSqueezeActionData>>()
+    new ListenerRegistry<ApplePencilPreferredSqueezeActionData>()
 
   emitApplePencil(data: ApplePencilData): void {
-    this.applePencilListeners.forEach(cb => cb(data))
+    this.applePencilListeners.emit(data)
   }
-  emitDrawing(viewId: number, drawing: PencilKitDrawingData): void {
-    this.drawingListeners.forEach(cb => cb({ viewId, drawing }))
+  emitDrawing(data: PencilKitDrawingChangeEvent): void {
+    this.drawingListeners.emit(data)
+  }
+  emitHistory(data: PencilKitHistoryEvent): void {
+    this.historyListeners.emit(data)
+  }
+  emitToolPicker(data: PencilKitToolPickerEvent): void {
+    this.toolPickerListeners.emit(data)
   }
   emitCoalesced(data: ApplePencilCoalescedTouchesData): void {
-    this.coalescedListeners.forEach(cb => cb(data))
+    this.coalescedListeners.emit(data)
   }
   emitPredicted(data: ApplePencilPredictedTouchesData): void {
-    this.predictedListeners.forEach(cb => cb(data))
+    this.predictedListeners.emit(data)
   }
   emitEstimated(data: ApplePencilEstimatedPropertiesData): void {
-    this.estimatedListeners.forEach(cb => cb(data))
+    this.estimatedListeners.emit(data)
   }
   emitMotion(data: ApplePencilMotionData): void {
-    this.motionListeners.forEach(cb => cb(data))
+    this.motionListeners.emit(data)
   }
   emitHover(data: ApplePencilHoverData): void {
-    this.hoverListeners.forEach(cb => cb(data))
+    this.hoverListeners.emit(data)
   }
   emitSqueeze(data: ApplePencilSqueezeData): void {
-    this.squeezeListeners.forEach(cb => cb(data))
+    this.squeezeListeners.emit(data)
   }
   emitDoubleTap(data: ApplePencilDoubleTapData): void {
-    this.doubleTapListeners.forEach(cb => cb(data))
+    this.doubleTapListeners.emit(data)
   }
   emitPreferredSqueezeAction(data: ApplePencilPreferredSqueezeActionData): void {
-    this.preferredSqueezeActionListeners.forEach(cb => cb(data))
+    this.preferredSqueezeActionListeners.emit(data)
   }
 
-  addApplePencil(cb: Listener<ApplePencilData>): () => void {
-    this.applePencilListeners.add(cb)
-    return () => this.applePencilListeners.delete(cb)
+  addApplePencil(cb: Listener<ApplePencilData>, viewId?: number): () => void {
+    return this.applePencilListeners.add(cb, viewId)
   }
   addDrawing(
-    cb: Listener<{ viewId: number; drawing: PencilKitDrawingData }>
+    cb: Listener<PencilKitDrawingChangeEvent>,
+    viewId?: number
   ): () => void {
-    this.drawingListeners.add(cb)
-    return () => this.drawingListeners.delete(cb)
+    return this.drawingListeners.add(cb, viewId)
   }
-  addCoalesced(cb: Listener<ApplePencilCoalescedTouchesData>): () => void {
-    this.coalescedListeners.add(cb)
-    return () => this.coalescedListeners.delete(cb)
+  addHistory(cb: Listener<PencilKitHistoryEvent>, viewId?: number): () => void {
+    return this.historyListeners.add(cb, viewId)
   }
-  addPredicted(cb: Listener<ApplePencilPredictedTouchesData>): () => void {
-    this.predictedListeners.add(cb)
-    return () => this.predictedListeners.delete(cb)
+  addToolPicker(
+    cb: Listener<PencilKitToolPickerEvent>,
+    viewId?: number
+  ): () => void {
+    return this.toolPickerListeners.add(cb, viewId)
   }
-  addEstimated(cb: Listener<ApplePencilEstimatedPropertiesData>): () => void {
-    this.estimatedListeners.add(cb)
-    return () => this.estimatedListeners.delete(cb)
+  addCoalesced(
+    cb: Listener<ApplePencilCoalescedTouchesData>,
+    viewId?: number
+  ): () => void {
+    return this.coalescedListeners.add(cb, viewId)
   }
-  addMotion(cb: Listener<ApplePencilMotionData>): () => void {
-    this.motionListeners.add(cb)
-    return () => this.motionListeners.delete(cb)
+  addPredicted(
+    cb: Listener<ApplePencilPredictedTouchesData>,
+    viewId?: number
+  ): () => void {
+    return this.predictedListeners.add(cb, viewId)
   }
-  addHover(cb: Listener<ApplePencilHoverData>): () => void {
-    this.hoverListeners.add(cb)
-    return () => this.hoverListeners.delete(cb)
+  addEstimated(
+    cb: Listener<ApplePencilEstimatedPropertiesData>,
+    viewId?: number
+  ): () => void {
+    return this.estimatedListeners.add(cb, viewId)
   }
-  addSqueeze(cb: Listener<ApplePencilSqueezeData>): () => void {
-    this.squeezeListeners.add(cb)
-    return () => this.squeezeListeners.delete(cb)
+  addMotion(cb: Listener<ApplePencilMotionData>, viewId?: number): () => void {
+    return this.motionListeners.add(cb, viewId)
   }
-  addDoubleTap(cb: Listener<ApplePencilDoubleTapData>): () => void {
-    this.doubleTapListeners.add(cb)
-    return () => this.doubleTapListeners.delete(cb)
+  addHover(cb: Listener<ApplePencilHoverData>, viewId?: number): () => void {
+    return this.hoverListeners.add(cb, viewId)
+  }
+  addSqueeze(cb: Listener<ApplePencilSqueezeData>, viewId?: number): () => void {
+    return this.squeezeListeners.add(cb, viewId)
+  }
+  addDoubleTap(
+    cb: Listener<ApplePencilDoubleTapData>,
+    viewId?: number
+  ): () => void {
+    return this.doubleTapListeners.add(cb, viewId)
   }
   addPreferredSqueezeAction(
-    cb: Listener<ApplePencilPreferredSqueezeActionData>
+    cb: Listener<ApplePencilPreferredSqueezeActionData>,
+    viewId?: number
   ): () => void {
-    this.preferredSqueezeActionListeners.add(cb)
-    return () => this.preferredSqueezeActionListeners.delete(cb)
+    return this.preferredSqueezeActionListeners.add(cb, viewId)
+  }
+
+  removeApplePencil(cb?: Listener<ApplePencilData>): void {
+    this.applePencilListeners.remove(cb)
+  }
+  removeDrawing(cb?: Listener<PencilKitDrawingChangeEvent>): void {
+    this.drawingListeners.remove(cb)
+  }
+  removeHistory(cb?: Listener<PencilKitHistoryEvent>): void {
+    this.historyListeners.remove(cb)
+  }
+  removeToolPicker(cb?: Listener<PencilKitToolPickerEvent>): void {
+    this.toolPickerListeners.remove(cb)
+  }
+  removeCoalesced(cb?: Listener<ApplePencilCoalescedTouchesData>): void {
+    this.coalescedListeners.remove(cb)
+  }
+  removePredicted(cb?: Listener<ApplePencilPredictedTouchesData>): void {
+    this.predictedListeners.remove(cb)
+  }
+  removeEstimated(cb?: Listener<ApplePencilEstimatedPropertiesData>): void {
+    this.estimatedListeners.remove(cb)
+  }
+  removeMotion(cb?: Listener<ApplePencilMotionData>): void {
+    this.motionListeners.remove(cb)
+  }
+  removeHover(cb?: Listener<ApplePencilHoverData>): void {
+    this.hoverListeners.remove(cb)
+  }
+  removeSqueeze(cb?: Listener<ApplePencilSqueezeData>): void {
+    this.squeezeListeners.remove(cb)
+  }
+  removeDoubleTap(cb?: Listener<ApplePencilDoubleTapData>): void {
+    this.doubleTapListeners.remove(cb)
+  }
+  removePreferredSqueezeAction(
+    cb?: Listener<ApplePencilPreferredSqueezeActionData>
+  ): void {
+    this.preferredSqueezeActionListeners.remove(cb)
   }
 
   clearApplePencil(): void {
-    this.applePencilListeners.clear()
+    this.applePencilListeners.remove()
   }
   clearDrawing(): void {
-    this.drawingListeners.clear()
+    this.drawingListeners.remove()
+  }
+  clearHistory(): void {
+    this.historyListeners.remove()
+  }
+  clearToolPicker(): void {
+    this.toolPickerListeners.remove()
   }
   clearCoalesced(): void {
-    this.coalescedListeners.clear()
+    this.coalescedListeners.remove()
   }
   clearPredicted(): void {
-    this.predictedListeners.clear()
+    this.predictedListeners.remove()
   }
   clearEstimated(): void {
-    this.estimatedListeners.clear()
+    this.estimatedListeners.remove()
   }
   clearMotion(): void {
-    this.motionListeners.clear()
+    this.motionListeners.remove()
   }
   clearHover(): void {
-    this.hoverListeners.clear()
+    this.hoverListeners.remove()
   }
   clearSqueeze(): void {
-    this.squeezeListeners.clear()
+    this.squeezeListeners.remove()
   }
   clearDoubleTap(): void {
-    this.doubleTapListeners.clear()
+    this.doubleTapListeners.remove()
   }
   clearPreferredSqueezeAction(): void {
-    this.preferredSqueezeActionListeners.clear()
+    this.preferredSqueezeActionListeners.remove()
   }
 }
 
@@ -171,7 +279,19 @@ interface NativePencilKitViewProps extends ViewProps {
   enableHoverSupport: boolean
   onApplePencilData?: (event: NativeEventPayload<ApplePencilData>) => void
   onPencilKitDrawingChange?: (
-    event: NativeEventPayload<PencilKitDrawingData>
+    event: NativeEventPayload<PencilKitDrawingChangeEvent>
+  ) => void
+  onPencilKitDrawingSnapshot?: (
+    event: NativeEventPayload<PencilKitDrawingSnapshotEvent>
+  ) => void
+  onPencilKitDrawingPhase?: (
+    event: NativeEventPayload<PencilKitDrawingPhaseEvent>
+  ) => void
+  onPencilKitHistoryChange?: (
+    event: NativeEventPayload<PencilKitHistoryEvent>
+  ) => void
+  onPencilKitToolPickerChange?: (
+    event: NativeEventPayload<PencilKitToolPickerEvent>
   ) => void
   onApplePencilCoalescedTouches?: (
     event: NativeEventPayload<ApplePencilCoalescedTouchesData>
@@ -198,7 +318,9 @@ interface NativePencilKitViewProps extends ViewProps {
 }
 
 const NativePencilKitView =
-  requireNativeComponent<NativePencilKitViewProps>('PencilKitView')
+  Platform.OS === 'ios'
+    ? requireNativeComponent<NativePencilKitViewProps>('PencilKitView')
+    : null
 
 export interface PencilKitViewRef {
   getDrawing: () => Promise<PencilKitDrawingData>
@@ -211,13 +333,22 @@ export interface PencilKitViewRef {
   startApplePencilCapture: () => Promise<void>
   stopApplePencilCapture: () => Promise<void>
   isApplePencilCaptureActive: () => Promise<boolean>
+  exportDocument: (options: PencilKitExportOptions) => Promise<PencilKitExportResult>
+  importDocument: (options: PencilKitImportOptions) => Promise<void>
+  setTool: (tool: PencilKitToolState) => Promise<void>
+  getTool: () => Promise<PencilKitToolState>
+  setToolPickerVisible: (visible: boolean) => Promise<void>
 }
 
-export interface PencilKitViewProps {
-  style?: ViewStyle
+export interface PencilKitViewProps extends ViewProps {
   config?: PencilKitConfig
   onApplePencilData?: (data: ApplePencilData) => void
-  onDrawingChange?: (drawing: PencilKitDrawingData) => void
+  onDrawingChange?: (event: PencilKitDrawingChangeEvent) => void
+  onDrawingSnapshot?: (event: PencilKitDrawingSnapshotEvent) => void
+  onDrawingBegin?: (event: PencilKitDrawingPhaseEvent) => void
+  onDrawingEnd?: (event: PencilKitDrawingPhaseEvent) => void
+  onHistoryChange?: (event: PencilKitHistoryEvent) => void
+  onToolPickerChange?: (event: PencilKitToolPickerEvent) => void
   onApplePencilCoalescedTouches?: (
     data: ApplePencilCoalescedTouchesData
   ) => void
@@ -248,18 +379,15 @@ export interface PencilKitViewProps {
 }
 
 function parseDrawingJson(raw: string): PencilKitDrawingData {
-  try {
-    return JSON.parse(raw) as PencilKitDrawingData
-  } catch {
-    return {
-      strokes: [],
-      bounds: { x: 0, y: 0, width: 0, height: 0 },
-    }
-  }
+  return JSON.parse(raw) as PencilKitDrawingData
 }
 
 function isViewNotFoundError(error: unknown): boolean {
-  return error instanceof Error && error.message.includes('viewNotFound(')
+  return (
+    error instanceof Error &&
+    (error.message.includes('viewNotFound(') ||
+      error.message.includes('PencilKit view not found'))
+  )
 }
 
 export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
@@ -269,6 +397,11 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
       config,
       onApplePencilData,
       onDrawingChange,
+      onDrawingSnapshot,
+      onDrawingBegin,
+      onDrawingEnd,
+      onHistoryChange,
+      onToolPickerChange,
       onApplePencilCoalescedTouches,
       onApplePencilPredictedTouches,
       onApplePencilEstimatedProperties,
@@ -288,18 +421,25 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
       enableSqueezeInteraction = true,
       enableDoubleTapInteraction = true,
       enableHoverSupport = true,
+      ...viewProps
     } = props
 
     const [viewId, setViewId] = useState<number | null>(null)
     const createdIdRef = useRef<number | null>(null) as MutableRefObject<
       number | null
     >
+    const onViewReadyRef = useRef(onViewReady)
 
     useEffect(() => {
+      onViewReadyRef.current = onViewReady
+    }, [onViewReady])
+
+    useEffect(() => {
+      if (Platform.OS !== 'ios') return
       const id = MunimPencilkit.createPencilKitView()
       createdIdRef.current = id
       setViewId(id)
-      onViewReady?.(id)
+      onViewReadyRef.current?.(id)
       return () => {
         const createdId = createdIdRef.current
         createdIdRef.current = null
@@ -314,7 +454,7 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
           }
         }
       }
-    }, [onViewReady])
+    }, [])
 
     useEffect(() => {
       if (viewId == null || config == null) return
@@ -364,6 +504,36 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
           if (viewId == null) throw new Error('PencilKit view not ready')
           return MunimPencilkit.isApplePencilDataCaptureActive(viewId)
         },
+        exportDocument: async (options: PencilKitExportOptions) => {
+          if (viewId == null) throw new Error('PencilKit view not ready')
+          return JSON.parse(
+            MunimPencilkit.exportPencilKitDocument(
+              viewId,
+              JSON.stringify(options)
+            )
+          ) as PencilKitExportResult
+        },
+        importDocument: async (options: PencilKitImportOptions) => {
+          if (viewId == null) throw new Error('PencilKit view not ready')
+          MunimPencilkit.importPencilKitDocument(
+            viewId,
+            JSON.stringify(options)
+          )
+        },
+        setTool: async (tool: PencilKitToolState) => {
+          if (viewId == null) throw new Error('PencilKit view not ready')
+          MunimPencilkit.setPencilKitTool(viewId, JSON.stringify(tool))
+        },
+        getTool: async () => {
+          if (viewId == null) throw new Error('PencilKit view not ready')
+          return JSON.parse(
+            MunimPencilkit.getPencilKitTool(viewId)
+          ) as PencilKitToolState
+        },
+        setToolPickerVisible: async (visible: boolean) => {
+          if (viewId == null) throw new Error('PencilKit view not ready')
+          MunimPencilkit.setPencilKitToolPickerVisible(viewId, visible)
+        },
       }),
       [viewId]
     )
@@ -382,13 +552,37 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
           }
         },
         onPencilKitDrawingChange: (
-          event: NativeEventPayload<PencilKitDrawingData>
+          event: NativeEventPayload<PencilKitDrawingChangeEvent>
         ) => {
-          const drawing = event.nativeEvent
-          onDrawingChange?.(drawing)
-          if (viewId != null) {
-            pencilKitEventBus.emitDrawing(viewId, drawing)
-          }
+          const data = event.nativeEvent
+          onDrawingChange?.(data)
+          pencilKitEventBus.emitDrawing(data)
+        },
+        onPencilKitDrawingSnapshot: (
+          event: NativeEventPayload<PencilKitDrawingSnapshotEvent>
+        ) => {
+          onDrawingSnapshot?.(event.nativeEvent)
+        },
+        onPencilKitDrawingPhase: (
+          event: NativeEventPayload<PencilKitDrawingPhaseEvent>
+        ) => {
+          const data = event.nativeEvent
+          if (data.phase === 'began') onDrawingBegin?.(data)
+          if (data.phase === 'ended') onDrawingEnd?.(data)
+        },
+        onPencilKitHistoryChange: (
+          event: NativeEventPayload<PencilKitHistoryEvent>
+        ) => {
+          const data = event.nativeEvent
+          onHistoryChange?.(data)
+          pencilKitEventBus.emitHistory(data)
+        },
+        onPencilKitToolPickerChange: (
+          event: NativeEventPayload<PencilKitToolPickerEvent>
+        ) => {
+          const data = event.nativeEvent
+          onToolPickerChange?.(data)
+          pencilKitEventBus.emitToolPicker(data)
         },
         onApplePencilCoalescedTouches: (
           event: NativeEventPayload<ApplePencilCoalescedTouchesData>
@@ -444,6 +638,11 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
       [
         onApplePencilData,
         onDrawingChange,
+        onDrawingSnapshot,
+        onDrawingBegin,
+        onDrawingEnd,
+        onHistoryChange,
+        onToolPickerChange,
         onApplePencilCoalescedTouches,
         onApplePencilPredictedTouches,
         onApplePencilEstimatedProperties,
@@ -455,14 +654,14 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
         onStylusViewStartDrawing,
         onStylusViewEndDrawing,
         onStylusViewToggleEraser,
-        viewId,
       ]
     )
 
-    if (viewId == null) return null
+    if (viewId == null || NativePencilKitView == null) return null
 
     return (
       <NativePencilKitView
+        {...viewProps}
         style={style}
         viewId={viewId}
         enableApplePencilData={enableApplePencilData}
@@ -474,6 +673,10 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
         enableHoverSupport={enableHoverSupport}
         onApplePencilData={callbacks.onApplePencilData}
         onPencilKitDrawingChange={callbacks.onPencilKitDrawingChange}
+        onPencilKitDrawingSnapshot={callbacks.onPencilKitDrawingSnapshot}
+        onPencilKitDrawingPhase={callbacks.onPencilKitDrawingPhase}
+        onPencilKitHistoryChange={callbacks.onPencilKitHistoryChange}
+        onPencilKitToolPickerChange={callbacks.onPencilKitToolPickerChange}
         onApplePencilCoalescedTouches={callbacks.onApplePencilCoalescedTouches}
         onApplePencilPredictedTouches={callbacks.onApplePencilPredictedTouches}
         onApplePencilEstimatedProperties={

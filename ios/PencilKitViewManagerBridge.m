@@ -21,5 +21,9 @@ RCT_EXPORT_VIEW_PROPERTY(onApplePencilHover, RCTDirectEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(onApplePencilSqueeze, RCTDirectEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(onApplePencilDoubleTap, RCTDirectEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(onApplePencilPreferredSqueezeAction, RCTDirectEventBlock)
+RCT_EXPORT_VIEW_PROPERTY(onPencilKitDrawingSnapshot, RCTDirectEventBlock)
+RCT_EXPORT_VIEW_PROPERTY(onPencilKitDrawingPhase, RCTDirectEventBlock)
+RCT_EXPORT_VIEW_PROPERTY(onPencilKitHistoryChange, RCTDirectEventBlock)
+RCT_EXPORT_VIEW_PROPERTY(onPencilKitToolPickerChange, RCTDirectEventBlock)
 
 @end

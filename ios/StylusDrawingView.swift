@@ -43,6 +43,13 @@ import UIKit
   private let hoverPreviewLayer = CAShapeLayer()
   private var isEraserEnabled: Bool = false
 
+  // Bounded canvas history for undo/redo. Each entry is the rendered canvas
+  // before a committed change; capped to keep memory in check because every
+  // snapshot is a full-size bitmap.
+  private static let maxHistoryEntries = 20
+  private var undoStack: [UIImage?] = []
+  private var redoStack: [UIImage?] = []
+
   override init(frame: CGRect) {
     super.init(frame: frame)
     commonInit()
@@ -90,19 +97,75 @@ import UIKit
   }
 
   @objc func clearCanvas() {
+    recordHistorySnapshot()
     renderImageView.image = emptyImage(size: bounds.size)
-    lastPointByTouch.removeAll()
-    strokePaths.removeAll()
-    strokePoints.removeAll()
-    strokePressures.removeAll()
+    resetInFlightStrokes()
   }
 
   @objc func setCanvasImage(_ image: UIImage?) {
+    recordHistorySnapshot()
     if let image {
       renderImageView.image = image
     } else if bounds.size != .zero {
       renderImageView.image = emptyImage(size: bounds.size)
     }
+    resetInFlightStrokes()
+  }
+
+  @objc var canUndoDrawing: Bool {
+    return !undoStack.isEmpty
+  }
+
+  @objc var canRedoDrawing: Bool {
+    return !redoStack.isEmpty
+  }
+
+  @objc func undoDrawing() -> Bool {
+    guard !undoStack.isEmpty else { return false }
+    let previous = undoStack.removeLast()
+    redoStack.append(renderImageView.image)
+    trimHistory(&redoStack)
+    restoreCanvas(previous)
+    return true
+  }
+
+  @objc func redoDrawing() -> Bool {
+    guard !redoStack.isEmpty else { return false }
+    let next = redoStack.removeLast()
+    undoStack.append(renderImageView.image)
+    trimHistory(&undoStack)
+    restoreCanvas(next)
+    return true
+  }
+
+  private func recordHistorySnapshot() {
+    undoStack.append(renderImageView.image)
+    trimHistory(&undoStack)
+    redoStack.removeAll()
+  }
+
+  private func trimHistory(_ stack: inout [UIImage?]) {
+    if stack.count > Self.maxHistoryEntries {
+      stack.removeFirst(stack.count - Self.maxHistoryEntries)
+    }
+  }
+
+  private func restoreCanvas(_ image: UIImage?) {
+    if let image {
+      renderImageView.image = image
+    } else if bounds.size != .zero {
+      renderImageView.image = emptyImage(size: bounds.size)
+    } else {
+      renderImageView.image = nil
+    }
+    resetInFlightStrokes()
+  }
+
+  private func resetInFlightStrokes() {
+    lastPointByTouch.removeAll()
+    strokePaths.removeAll()
+    strokePoints.removeAll()
+    strokePressures.removeAll()
   }
 
   @objc func snapshotImage() -> UIImage? {
@@ -139,6 +202,9 @@ import UIKit
 
   override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
     for touch in touches where shouldAccept(touch: touch) {
+      if lastPointByTouch.isEmpty {
+        recordHistorySnapshot()
+      }
       let point = touch.preciseLocation(in: self)
       lastPointByTouch[touch] = point
       if renderMode == "replay" {

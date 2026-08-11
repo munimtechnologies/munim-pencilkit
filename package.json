@@ -56,7 +56,6 @@
     "registry": "https://registry.npmjs.org/"
   },
   "devDependencies": {
-    "@jamesacarr/eslint-formatter-github-actions": "^0.2.0",
     "@semantic-release/changelog": "^6.0.3",
     "@semantic-release/git": "^10.0.1",
     "@types/jest": "^29.5.12",
@@ -67,13 +66,16 @@
     "react-native-builder-bob": "^0.40.17",
     "react-native-nitro-modules": "0.33.9",
     "conventional-changelog-conventionalcommits": "^9.1.0",
-    "semantic-release": "^25.0.2",
+    "semantic-release": "^25.0.9",
     "typescript": "^5.8.3"
   },
   "peerDependencies": {
     "react": "*",
     "react-native": "*",
     "react-native-nitro-modules": "*"
+  },
+  "overrides": {
+    "brace-expansion@<=1.1.17": "1.1.18"
   },
   "eslintConfig": {
     "root": true,

@@ -137,6 +137,30 @@ open class HybridMunimPencilkitSpec_cxx {
   }
   
   @inline(__always)
+  public final func isPencilKitSupported() -> bridge.Result_bool_ {
+    do {
+      let __result = try self.__implementation.isPencilKitSupported()
+      let __resultCpp = __result
+      return bridge.create_Result_bool_(__resultCpp)
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_bool_(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func getPencilKitCapabilities() -> bridge.Result_std__string_ {
+    do {
+      let __result = try self.__implementation.getPencilKitCapabilities()
+      let __resultCpp = std.string(__result)
+      return bridge.create_Result_std__string_(__resultCpp)
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_std__string_(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
   public final func createPencilKitView() -> bridge.Result_double_ {
     do {
       let __result = try self.__implementation.createPencilKitView()
@@ -283,6 +307,63 @@ open class HybridMunimPencilkitSpec_cxx {
     } catch (let __error) {
       let __exceptionPtr = __error.toCpp()
       return bridge.create_Result_bool_(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func exportPencilKitDocument(viewId: Double, optionsJson: std.string) -> bridge.Result_std__string_ {
+    do {
+      let __result = try self.__implementation.exportPencilKitDocument(viewId: viewId, optionsJson: String(optionsJson))
+      let __resultCpp = std.string(__result)
+      return bridge.create_Result_std__string_(__resultCpp)
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_std__string_(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func importPencilKitDocument(viewId: Double, optionsJson: std.string) -> bridge.Result_void_ {
+    do {
+      try self.__implementation.importPencilKitDocument(viewId: viewId, optionsJson: String(optionsJson))
+      return bridge.create_Result_void_()
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_void_(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func setPencilKitTool(viewId: Double, toolJson: std.string) -> bridge.Result_void_ {
+    do {
+      try self.__implementation.setPencilKitTool(viewId: viewId, toolJson: String(toolJson))
+      return bridge.create_Result_void_()
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_void_(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func getPencilKitTool(viewId: Double) -> bridge.Result_std__string_ {
+    do {
+      let __result = try self.__implementation.getPencilKitTool(viewId: viewId)
+      let __resultCpp = std.string(__result)
+      return bridge.create_Result_std__string_(__resultCpp)
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_std__string_(__exceptionPtr)
+    }
+  }
+  
+  @inline(__always)
+  public final func setPencilKitToolPickerVisible(viewId: Double, visible: Bool) -> bridge.Result_void_ {
+    do {
+      try self.__implementation.setPencilKitToolPickerVisible(viewId: viewId, visible: visible)
+      return bridge.create_Result_void_()
+    } catch (let __error) {
+      let __exceptionPtr = __error.toCpp()
+      return bridge.create_Result_void_(__exceptionPtr)
     }
   }
 }

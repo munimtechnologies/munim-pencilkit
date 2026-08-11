@@ -21,6 +21,10 @@ export interface ApplePencilData {
   action?: 'drawingStarted' | 'drawingEnded'
   isEraserOn?: boolean
   viewId?: number
+  isPredicted?: boolean
+  isEstimated?: boolean
+  timestampClock?: 'systemUptime'
+  preciseLocationAvailable?: boolean
 }
 
 export interface ApplePencilCoalescedTouchesData {
@@ -49,6 +53,8 @@ export interface ApplePencilMotionData {
   pitchAngle: number
   yawAngle: number
   timestamp: number
+  source: 'deviceMotion'
+  timestampClock: 'systemUptime'
 }
 
 export interface ApplePencilHoverData {
@@ -102,6 +108,7 @@ export interface ApplePencilDoubleTapData {
 }
 
 export interface ApplePencilPreferredSqueezeActionData {
+  viewId: number
   preferredAction: ApplePencilPreferredAction
 }
 
@@ -169,4 +176,138 @@ export interface PencilKitConfig {
   showHoverPreview?: boolean
   strokeColor?: string
   baseLineWidth?: number
+  /**
+   * Emits `onDrawingSnapshot` after drawing settles. Omit or use 0 to disable
+   * automatic serialization.
+   */
+  snapshotDebounceMs?: number
+}
+
+export type PencilKitDocumentFormat = 'archive' | 'png' | 'jpeg' | 'pdf'
+export type PencilKitDocumentOutput = 'base64' | 'fileUrl'
+export type PencilKitCropMode = 'drawingBounds' | 'canvas' | 'custom'
+
+export interface PencilKitRect {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export interface PencilKitExportOptions {
+  version: 1
+  format: PencilKitDocumentFormat
+  output?: PencilKitDocumentOutput
+  crop?: PencilKitCropMode
+  cropRect?: PencilKitRect
+  scale?: number
+  backgroundColor?: string
+  quality?: number
+}
+
+export interface PencilKitExportResult {
+  version: 1
+  format: PencilKitDocumentFormat
+  output: PencilKitDocumentOutput
+  mimeType: string
+  byteLength: number
+  width?: number
+  height?: number
+  dataBase64?: string
+  fileUrl?: string
+}
+
+export interface PencilKitImportOptions {
+  version: 1
+  format: 'archive' | 'png' | 'jpeg'
+  input: PencilKitDocumentOutput
+  dataBase64?: string
+  fileUrl?: string
+}
+
+export type PencilKitInkType =
+  | 'pen'
+  | 'pencil'
+  | 'marker'
+  | 'monoline'
+  | 'fountainPen'
+  | 'watercolor'
+  | 'crayon'
+
+export type PencilKitEraserType = 'bitmap' | 'vector'
+
+export type PencilKitToolState =
+  | {
+      type: 'ink'
+      inkType: PencilKitInkType
+      color: string
+      width: number
+    }
+  | { type: 'eraser'; eraserType?: PencilKitEraserType; width?: number }
+  | { type: 'lasso' }
+
+export interface PencilKitHistoryEvent {
+  viewId: number
+  revision: number
+  canUndo: boolean
+  canRedo: boolean
+}
+
+export interface PencilKitDrawingChangeEvent extends PencilKitHistoryEvent {
+  dirty: boolean
+  bounds: PencilKitRect
+}
+
+export interface PencilKitDrawingPhaseEvent extends PencilKitHistoryEvent {
+  phase: 'began' | 'ended'
+  timestamp: number
+  timestampClock: 'systemUptime'
+}
+
+export interface PencilKitDrawingSnapshotEvent {
+  viewId: number
+  revision: number
+  drawing: PencilKitDrawingData
+}
+
+export interface PencilKitToolPickerEvent {
+  viewId: number
+  visible: boolean
+  selectedTool: PencilKitToolState
+}
+
+export interface PencilKitCapabilities {
+  platform: 'ios' | 'android' | 'other'
+  supported: boolean
+  minimumIOSVersion: string
+  /** Runtime OS version (iOS only). */
+  osVersion?: string
+  documentVersion: 1
+  documentFormats: PencilKitDocumentFormat[]
+  outputKinds: PencilKitDocumentOutput[]
+  importFormats: Array<'archive' | 'png' | 'jpeg'>
+  tools: {
+    ink: PencilKitInkType[]
+    eraser: PencilKitEraserType[]
+    lasso: boolean
+    toolPicker: boolean
+  }
+  telemetry: {
+    pencilTouches: boolean
+    predictedTouches: boolean
+    coalescedTouches: boolean
+    hover: boolean
+    squeeze: boolean
+    barrelRoll: boolean
+    pencilMotion: false
+    deviceMotion: boolean
+  }
+  /** Native import/export size limits, in bytes/pixels (iOS only). */
+  limits?: {
+    maxJSONUTF8Bytes: number
+    maxBase64EncodedBytes: number
+    maxBase64DecodedBytes: number
+    maxImageDimension: number
+    maxImagePixelCount: number
+  }
 }

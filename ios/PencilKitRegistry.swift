@@ -39,6 +39,17 @@ final class PencilKitRegistry {
     lock.unlock()
   }
 
+  /// Unregisters `id` only if the currently registered view is `view` (or has
+  /// already been deallocated). Safe to call multiple times.
+  func unregister(id: Int, view: PencilKitNativeView) {
+    lock.lock()
+    defer { lock.unlock() }
+    guard let weakView = views[id] else { return }
+    if weakView.value == nil || weakView.value === view {
+      views.removeValue(forKey: id)
+    }
+  }
+
   func view(for id: Int) -> PencilKitNativeView? {
     lock.lock()
     defer { lock.unlock() }

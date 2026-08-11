@@ -14,6 +14,8 @@ public protocol HybridMunimPencilkitSpec_protocol: HybridObject {
 
   // Methods
   func sum(num1: Double, num2: Double) throws -> Double
+  func isPencilKitSupported() throws -> Bool
+  func getPencilKitCapabilities() throws -> String
   func createPencilKitView() throws -> Double
   func destroyPencilKitView(viewId: Double) throws -> Void
   func setPencilKitConfig(viewId: Double, configJson: String) throws -> Void
@@ -27,6 +29,11 @@ public protocol HybridMunimPencilkitSpec_protocol: HybridObject {
   func startApplePencilDataCapture(viewId: Double) throws -> Void
   func stopApplePencilDataCapture(viewId: Double) throws -> Void
   func isApplePencilDataCaptureActive(viewId: Double) throws -> Bool
+  func exportPencilKitDocument(viewId: Double, optionsJson: String) throws -> String
+  func importPencilKitDocument(viewId: Double, optionsJson: String) throws -> Void
+  func setPencilKitTool(viewId: Double, toolJson: String) throws -> Void
+  func getPencilKitTool(viewId: Double) throws -> String
+  func setPencilKitToolPickerVisible(viewId: Double, visible: Bool) throws -> Void
 }
 
 public extension HybridMunimPencilkitSpec_protocol {

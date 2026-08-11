@@ -49,6 +49,8 @@ namespace margelo::nitro::munimpencilkit {
     public:
       // Methods
       virtual double sum(double num1, double num2) = 0;
+      virtual bool isPencilKitSupported() = 0;
+      virtual std::string getPencilKitCapabilities() = 0;
       virtual double createPencilKitView() = 0;
       virtual void destroyPencilKitView(double viewId) = 0;
       virtual void setPencilKitConfig(double viewId, const std::string& configJson) = 0;
@@ -62,6 +64,11 @@ namespace margelo::nitro::munimpencilkit {
       virtual void startApplePencilDataCapture(double viewId) = 0;
       virtual void stopApplePencilDataCapture(double viewId) = 0;
       virtual bool isApplePencilDataCaptureActive(double viewId) = 0;
+      virtual std::string exportPencilKitDocument(double viewId, const std::string& optionsJson) = 0;
+      virtual void importPencilKitDocument(double viewId, const std::string& optionsJson) = 0;
+      virtual void setPencilKitTool(double viewId, const std::string& toolJson) = 0;
+      virtual std::string getPencilKitTool(double viewId) = 0;
+      virtual void setPencilKitToolPickerVisible(double viewId, bool visible) = 0;
 
     protected:
       // Hybrid Setup

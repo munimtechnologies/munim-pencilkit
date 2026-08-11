@@ -15,6 +15,8 @@ namespace margelo::nitro::munimpencilkit {
     // load custom methods/properties
     registerHybrids(this, [](Prototype& prototype) {
       prototype.registerHybridMethod("sum", &HybridMunimPencilkitSpec::sum);
+      prototype.registerHybridMethod("isPencilKitSupported", &HybridMunimPencilkitSpec::isPencilKitSupported);
+      prototype.registerHybridMethod("getPencilKitCapabilities", &HybridMunimPencilkitSpec::getPencilKitCapabilities);
       prototype.registerHybridMethod("createPencilKitView", &HybridMunimPencilkitSpec::createPencilKitView);
       prototype.registerHybridMethod("destroyPencilKitView", &HybridMunimPencilkitSpec::destroyPencilKitView);
       prototype.registerHybridMethod("setPencilKitConfig", &HybridMunimPencilkitSpec::setPencilKitConfig);
@@ -28,6 +30,11 @@ namespace margelo::nitro::munimpencilkit {
       prototype.registerHybridMethod("startApplePencilDataCapture", &HybridMunimPencilkitSpec::startApplePencilDataCapture);
       prototype.registerHybridMethod("stopApplePencilDataCapture", &HybridMunimPencilkitSpec::stopApplePencilDataCapture);
       prototype.registerHybridMethod("isApplePencilDataCaptureActive", &HybridMunimPencilkitSpec::isApplePencilDataCaptureActive);
+      prototype.registerHybridMethod("exportPencilKitDocument", &HybridMunimPencilkitSpec::exportPencilKitDocument);
+      prototype.registerHybridMethod("importPencilKitDocument", &HybridMunimPencilkitSpec::importPencilKitDocument);
+      prototype.registerHybridMethod("setPencilKitTool", &HybridMunimPencilkitSpec::setPencilKitTool);
+      prototype.registerHybridMethod("getPencilKitTool", &HybridMunimPencilkitSpec::getPencilKitTool);
+      prototype.registerHybridMethod("setPencilKitToolPickerVisible", &HybridMunimPencilkitSpec::setPencilKitToolPickerVisible);
     });
   }
 
