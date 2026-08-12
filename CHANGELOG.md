@@ -1,3 +1,13 @@
+## [1.13.1](https://github.com/munimtechnologies/munim-pencilkit/compare/v1.13.0...v1.13.1) (2026-08-12)
+
+### 🐛 Bug Fixes
+
+* make PKCanvasView transparent so paper templates behind the canvas stay visible ([68ffecb](https://github.com/munimtechnologies/munim-pencilkit/commit/68ffecb07a58ce26e1242f3536283373fdba5d86))
+
+### 🛠️ Other changes
+
+* sync package-lock version ([309e083](https://github.com/munimtechnologies/munim-pencilkit/commit/309e083269529a0565a68f1a10504e69b61284bf))
+
 ## [1.13.0](https://github.com/munimtechnologies/munim-pencilkit/compare/v1.12.34...v1.13.0) (2026-08-12)
 
 ### ✨ Features
