@@ -1,3 +1,9 @@
+## [1.13.1](https://github.com/munimtechnologies/munim-pencilkit/compare/v1.13.0...v1.13.1) (2026-08-12)
+
+### 🛠️ Other changes
+
+* restore GitHub Actions workflows ([b86a9af](https://github.com/munimtechnologies/munim-pencilkit/commit/b86a9afac0c290ba66a06ee01018b4ac5156ade8))
+
 ## [1.13.0](https://github.com/munimtechnologies/munim-pencilkit/compare/v1.12.34...v1.13.0) (2026-08-12)
 
 ### ✨ Features
