@@ -13,7 +13,8 @@
     "release": "semantic-release",
     "build": "npm run typecheck && bob build",
     "codegen": "nitrogen --logLevel=\"debug\" && npm run build",
-    "postcodegen": "npm --prefix example run pod"
+    "postcodegen": "npm --prefix example run pod",
+    "release:local": "node scripts/release-local.mjs"
   },
   "keywords": [
     "react-native",
