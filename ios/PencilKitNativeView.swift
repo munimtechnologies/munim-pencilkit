@@ -182,6 +182,9 @@ final class TouchForwardingCanvasView: PKCanvasView {
     canvasView.delegate = self
     canvasView.translatesAutoresizingMaskIntoConstraints = false
     canvasView.isMultipleTouchEnabled = true
+    // Transparent canvas so paper templates behind the view stay visible.
+    canvasView.backgroundColor = .clear
+    canvasView.isOpaque = false
     addSubview(canvasView)
 
     NSLayoutConstraint.activate([
