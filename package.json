@@ -49,7 +49,7 @@
     "url": "git+https://github.com/munimtechnologies/munim-pencilkit.git"
   },
   "author": "sheehanmunim",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "bugs": "https://github.com/sheehanmunim/munim-pencilkit/issues",
   "homepage": "https://github.com/sheehanmunim/munim-pencilkit#readme",
   "publishConfig": {
