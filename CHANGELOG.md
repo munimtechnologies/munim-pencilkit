@@ -1,3 +1,9 @@
+## [1.13.2](https://github.com/munimtechnologies/munim-pencilkit/compare/v1.13.1...v1.13.2) (2026-08-15)
+
+### 🛠️ Other changes
+
+* switch license from MIT to Apache-2.0 ([c212bd6](https://github.com/munimtechnologies/munim-pencilkit/commit/c212bd655732cea8841b74495d07e5c8cd726dc5))
+
 ## [1.13.1](https://github.com/munimtechnologies/munim-pencilkit/compare/v1.13.0...v1.13.1) (2026-08-12)
 
 ### 🐛 Bug Fixes
