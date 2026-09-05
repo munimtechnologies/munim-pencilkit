@@ -1,3 +1,18 @@
+## [1.14.0](https://github.com/munimtechnologies/munim-pencilkit/compare/v1.13.2...v1.14.0) (2026-09-05)
+
+### ✨ Features
+
+* **ios:** add scrollEnabled config and support the iOS 26 reed ink ([73aa00c](https://github.com/munimtechnologies/munim-pencilkit/commit/73aa00c3bc8a8502ed4024a85ce56ec9e0c0e6f6))
+
+### 🐛 Bug Fixes
+
+* **deps:** resolve Dependabot alerts in dev/example dependencies ([a77f516](https://github.com/munimtechnologies/munim-pencilkit/commit/a77f516e2db755c6eea02c1e1dd8bd817d3b1480))
+
+### 🛠️ Other changes
+
+* sync package-lock version ([911a9c2](https://github.com/munimtechnologies/munim-pencilkit/commit/911a9c21ff3294d814cd6dedb7b0ce74a02f214f))
+* upgrade Nitro to 0.36.5 and fix repository metadata ([7afc807](https://github.com/munimtechnologies/munim-pencilkit/commit/7afc807cb9b9ba8176dd3f90062f6331c2aeda2e)), closes [margelo/nitro#1573](https://github.com/margelo/nitro/issues/1573)
+
 ## [1.13.2](https://github.com/munimtechnologies/munim-pencilkit/compare/v1.13.1...v1.13.2) (2026-08-15)
 
 ### 🛠️ Other changes
