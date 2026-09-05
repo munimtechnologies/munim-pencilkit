@@ -50,8 +50,8 @@
   },
   "author": "sheehanmunim",
   "license": "Apache-2.0",
-  "bugs": "https://github.com/sheehanmunim/munim-pencilkit/issues",
-  "homepage": "https://github.com/sheehanmunim/munim-pencilkit#readme",
+  "bugs": "https://github.com/munimtechnologies/munim-pencilkit/issues",
+  "homepage": "https://github.com/munimtechnologies/munim-pencilkit#readme",
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
@@ -61,11 +61,11 @@
     "@semantic-release/git": "^10.0.1",
     "@types/jest": "^29.5.12",
     "@types/react": "19.2.0",
-    "nitrogen": "0.33.9",
+    "nitrogen": "0.36.5",
     "react": "19.2.0",
     "react-native": "0.83",
     "react-native-builder-bob": "^0.40.17",
-    "react-native-nitro-modules": "0.33.9",
+    "react-native-nitro-modules": "0.36.5",
     "conventional-changelog-conventionalcommits": "^9.1.0",
     "semantic-release": "^25.0.9",
     "typescript": "^5.8.3"
@@ -73,7 +73,7 @@
   "peerDependencies": {
     "react": "*",
     "react-native": "*",
-    "react-native-nitro-modules": "*"
+    "react-native-nitro-modules": ">=0.36.5 <1"
   },
   "overrides": {
     "brace-expansion@<=1.1.17": "1.1.18"
