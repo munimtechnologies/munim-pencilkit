@@ -175,6 +175,7 @@ final class HybridMunimPencilkit: HybridMunimPencilkitSpec {
     // The pod's minimum deployment target is iOS 17.5, so every iOS 17 ink
     // (monoline, fountainPen, watercolor, crayon) and the iOS 17.5 pencil
     // interactions (squeeze, barrel roll) are always available at runtime.
+    // The iOS 26 reed ink is reported only where the OS provides it.
     let capabilities: [String: Any] = [
       "platform": "ios",
       "supported": true,
@@ -185,9 +186,7 @@ final class HybridMunimPencilkit: HybridMunimPencilkitSpec {
       "outputKinds": ["base64", "fileUrl"],
       "importFormats": ["archive", "png", "jpeg"],
       "tools": [
-        "ink": [
-          "pen", "pencil", "marker", "monoline", "fountainPen", "watercolor", "crayon",
-        ],
+        "ink": PencilKitNativeView.availableInkTypeNames(),
         "eraser": ["bitmap", "vector"],
         "lasso": true,
         "toolPicker": true,

@@ -182,6 +182,11 @@ final class TouchForwardingCanvasView: PKCanvasView {
     canvasView.delegate = self
     canvasView.translatesAutoresizingMaskIntoConstraints = false
     canvasView.isMultipleTouchEnabled = true
+    // Let the surrounding React Native layout own one-finger scrolling. PKCanvasView is a
+    // UIScrollView subclass: if its scroll stays enabled, finger pans never reach a parent
+    // ScrollView even when drawingPolicy is .pencilOnly. `config.scrollEnabled` restores it.
+    canvasView.isScrollEnabled = false
+    canvasView.bounces = false
     // Transparent canvas so paper templates behind the view stay visible.
     canvasView.backgroundColor = .clear
     canvasView.isOpaque = false
@@ -315,6 +320,10 @@ final class TouchForwardingCanvasView: PKCanvasView {
     }
     if let isRulerActive = config["isRulerActive"] as? Bool {
       canvasView.isRulerActive = isRulerActive
+    }
+    if let scrollEnabled = config["scrollEnabled"] as? Bool {
+      canvasView.isScrollEnabled = scrollEnabled
+      canvasView.bounces = scrollEnabled
     }
     if let showHover = config["showHoverPreview"] as? Bool {
       showHoverPreview = showHover
@@ -575,7 +584,7 @@ final class TouchForwardingCanvasView: PKCanvasView {
         let inkType = Self.inkType(fromString: rawInkType)
       else {
         throw PencilKitHybridError.invalidOptions(
-          "inkType must be pen, pencil, marker, monoline, fountainPen, watercolor, or crayon"
+          "inkType must be one of \(Self.availableInkTypeNames().joined(separator: ", "))"
         )
       }
       guard
@@ -650,11 +659,22 @@ final class TouchForwardingCanvasView: PKCanvasView {
     case "fountainPen": return .fountainPen
     case "watercolor": return .watercolor
     case "crayon": return .crayon
+    case "reed":
+      if #available(iOS 26.0, *) { return .reed }
+      return nil
     default: return nil
     }
   }
 
+  /// Ink names the running OS can render, in the order the tool picker shows them.
+  static func availableInkTypeNames() -> [String] {
+    var names = ["pen", "pencil", "marker", "monoline", "fountainPen", "watercolor", "crayon"]
+    if #available(iOS 26.0, *) { names.append("reed") }
+    return names
+  }
+
   static func inkTypeString(_ inkType: PKInkingTool.InkType) -> String {
+    if #available(iOS 26.0, *), inkType == .reed { return "reed" }
     switch inkType {
     case .pen: return "pen"
     case .pencil: return "pencil"
@@ -930,7 +950,7 @@ final class TouchForwardingCanvasView: PKCanvasView {
   }
 
   @objc private func handleHover(_ recognizer: UIHoverGestureRecognizer) {
-    guard showHoverPreview, enableHoverSupport else { return }
+    guard enableHoverSupport else { return }
     let location = recognizer.location(in: self)
     let altitude: CGFloat
     let azimuth: CGFloat

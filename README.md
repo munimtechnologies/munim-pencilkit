@@ -370,7 +370,9 @@ Utility functions for advanced PencilKit operations.
   mismatched imports throw and leave the current drawing untouched.
 - `setTool(viewId, tool)`: Set the active tool (`PencilKitToolState`): inks
   (`pen`, `pencil`, `marker`, `monoline`, `fountainPen`, `watercolor`,
-  `crayon`), eraser (`bitmap`/`vector` with optional width), or `lasso`
+  `crayon`, and `reed` on iOS 26+), eraser (`bitmap`/`vector` with optional
+  width), or `lasso`. `getCapabilities().tools.ink` lists the inks the running
+  OS supports.
 - `getTool(viewId)`: Read the active tool back as `PencilKitToolState`
 - `setToolPickerVisible(viewId, visible)`: Programmatically show/hide the tool
   picker, overriding the `enableToolPicker` prop until the prop next changes
@@ -618,6 +620,8 @@ interface PencilKitConfig {
   showHoverPreview?: boolean; // Hover ring used by custom stylus engine
   strokeColor?: string;
   baseLineWidth?: number;
+  snapshotDebounceMs?: number; // > 0 emits onDrawingSnapshot after drawing settles
+  scrollEnabled?: boolean; // default: false — let a parent ScrollView own finger pans; true restores PKCanvasView's own panning
 }
 ```
 

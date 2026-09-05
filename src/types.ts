@@ -181,6 +181,14 @@ export interface PencilKitConfig {
    * automatic serialization.
    */
   snapshotDebounceMs?: number
+  /**
+   * Lets the PencilKit canvas scroll and bounce on its own. `PKCanvasView` is
+   * a `UIScrollView`, so when this is on, one-finger pans are consumed by the
+   * canvas and never reach a parent React Native `ScrollView`, even with
+   * `drawingPolicy: 'pencilOnly'`. Defaults to false so the surrounding
+   * layout owns scrolling; set true to restore PencilKit's built-in panning.
+   */
+  scrollEnabled?: boolean
 }
 
 export type PencilKitDocumentFormat = 'archive' | 'png' | 'jpeg' | 'pdf'
@@ -233,6 +241,8 @@ export type PencilKitInkType =
   | 'fountainPen'
   | 'watercolor'
   | 'crayon'
+  /** iOS 26+. Check `getCapabilities().tools.ink` before selecting it. */
+  | 'reed'
 
 export type PencilKitEraserType = 'bitmap' | 'vector'
 
