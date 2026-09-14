@@ -1,3 +1,11 @@
+## [1.14.1](https://github.com/munimtechnologies/munim-pencilkit/compare/v1.14.0...v1.14.1) (2026-09-14)
+
+### 🛠️ Other changes
+
+* **deps:** patch js-yaml and joi Dependabot alerts ([193e3fb](https://github.com/munimtechnologies/munim-pencilkit/commit/193e3fb9e257f713ac3c0669a32ab1b9ad2c9e27))
+* **deps:** update browserslist to 4.28.9 for GHSA-c83g-rgw3-j3cx and GHSA-73wf-gq98-2v4g ([d0b8472](https://github.com/munimtechnologies/munim-pencilkit/commit/d0b84728116b59a6510ba1e5aaa02d62c4b766ba))
+* sync package-lock with the release ([ad1685d](https://github.com/munimtechnologies/munim-pencilkit/commit/ad1685d40e0de00f6fd41fd1d4ed928a34b6b609))
+
 ## [1.14.0](https://github.com/munimtechnologies/munim-pencilkit/compare/v1.13.2...v1.14.0) (2026-09-05)
 
 ### ✨ Features
