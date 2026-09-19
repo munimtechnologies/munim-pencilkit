@@ -332,6 +332,23 @@ Main React Native component for PencilKit integration with full Apple Pencil Pro
   (`{ viewId, revision, canUndo, canRedo }`)
 - `onToolPickerChange` (function): Tool picker visibility/selection callback
   (`{ viewId, visible, selectedTool }`)
+- `onToolPickerItemChange` (function, iOS 18+): The selected tool picker item
+  changed, including custom items
+  (`{ viewId, identifier, itemType, reselected, selectedTool? | color?, width? }`)
+- `onToolPickerAccessoryPress` (function, iOS 18+): `config.toolPickerAccessoryItem`
+  was tapped (`{ viewId, identifier }`)
+- `onDidFinishRendering` (function): PencilKit finished rendering all visible
+  content (`canvasViewDidFinishRendering`). Only wired up when you pass it.
+- `onApplePencilHover` events now carry `phase`
+  (`'began' | 'changed' | 'ended' | 'cancelled'`); `ended`/`cancelled` fire
+  once when the pencil leaves hover range.
+
+The tool picker needs the canvas to be first responder, so showing it takes
+focus. That now happens only when the picker goes from hidden to shown (or on
+`setToolPickerVisible(true)`), and never while a text input is focused.
+Starting a stroke brings the picker back after focus has moved away. Set
+`config.autoFocusToolPicker: false` to leave focus alone until the user draws
+or you call `setToolPickerVisible(true)`.
 
 ### PencilKitUtils
 
@@ -349,7 +366,7 @@ Utility functions for advanced PencilKit operations.
 #### View Management
 
 - `createView()`: Create a new PencilKit view
-- `destroyView(viewId)`: Destroy a PencilKit view
+- `destroyView(viewId)`: Release the native state behind a view id (motion tracking, tool picker, pending snapshots). The UIView belongs to React Native and is left in place
 - `setConfig(viewId, config)`: Configure PencilKit view
 
 #### Documents and Tools
@@ -381,10 +398,92 @@ All of the above are also available on `PencilKitViewRef`
 (`exportDocument`, `importDocument`, `setTool`, `getTool`,
 `setToolPickerVisible`).
 
+Export also accepts `appearance` (`'light'` default, `'dark'`, or `'view'` for
+the canvas's current style). PencilKit adapts black/white ink to the interface
+style, and exports render off the main thread, so the style is pinned
+explicitly. PDF exports are raster: PencilKit has no vector export, so the
+page holds the drawing rendered at `scale`, and `width`/`height` report the
+page size in points.
+
+On iOS 18+ `setTool` also moves the tool picker's selection to the matching
+item (or to `itemIdentifier` when given), so the picker no longer resets the
+tool the next time it is used.
+
+#### Async API
+
+The `PencilKitView` ref runs its calls in call order, and `getDrawing`,
+`setDrawing`, `exportDocument`, `importDocument`, and the stroke calls run
+natively off the JS thread. `PencilKitUtils` has the same as
+`getDrawingAsync`, `setDrawingAsync`, `exportDocumentAsync`, and
+`importDocumentAsync`. The synchronous `getDrawing`, `setDrawing`,
+`exportDocument`, and `importDocument` utils still work but are deprecated:
+they block the JS thread until the main thread is free.
+
+#### Strokes
+
+PencilKit engine only (not `useCustomStylusView`). Available on the ref and as
+`PencilKitUtils.*(viewId, ...)`:
+
+- `getStrokes()`: every stroke as `PencilKitStroke`
+- `setStrokes(strokes)`: replace all strokes
+- `appendStrokes(strokes)`: add strokes on top
+- `removeStrokes(indices)`: resolves the number removed
+- `transformStrokes(indices, { a, b, c, d, tx, ty })`: applies the transform
+  in canvas space; resolves the number changed
+
+Every mutation is one undo step. A `PencilKitStroke` keeps the legacy fields
+(`points`, `tool`, `color`, `width`) and adds `ink` (`inkType`, `color`),
+`transform`, `mask` (SVG path data), `randomSeed`, `creationDate`,
+`renderBounds`, and `requiredContentVersion`. Points are the path's control
+points in *stroke space* (apply `transform` for canvas coordinates) with
+`timeOffset`, `size`, `opacity`, `force`, `azimuth`, `altitude`,
+`secondaryScale`, and `threshold` (iOS 26+). Output round-trips through
+`setStrokes`. For input, only `points[].location` is required. See the
+`PencilKitStroke` JSDoc for the defaults.
+
+`getDrawing()` leaves `strokes` empty unless you pass
+`getDrawing({ includeStrokes: true })` or set `config.includeStrokesInDrawing`
+(which also covers `onDrawingSnapshot`), because stroke JSON is much larger
+than the archive. `setDrawing` still prefers `dataBase64`; without it, a
+non-empty `strokes` array is drawn instead.
+
+#### Content version
+
+`config.maximumSupportedContentVersion` (`1`-`5` or `'latest'`, iOS 17+) caps
+the PKContentVersion that new strokes may use, on both the canvas and the tool
+picker. Use it when drawings must open on older OS versions. Drawing payloads
+and archive exports report `requiredContentVersion`, and
+`getCapabilities().contentVersion.maximum` is the newest version the OS
+renders.
+
+#### Custom tool picker (iOS 18+)
+
+```ts
+config={{
+  // ...
+  toolItems: [
+    { type: 'ink', inkType: 'pen', color: '#111827', width: 3, identifier: 'pen' },
+    { type: 'ink', inkType: 'marker', color: '#FACC15', width: 20, identifier: 'highlighter' },
+    { type: 'eraser', eraserType: 'vector' },
+    { type: 'lasso' },
+    { type: 'ruler' },
+    { type: 'custom', identifier: 'stamp', name: 'Stamp', systemImage: 'star.fill' },
+  ],
+  toolPickerAccessoryItem: { systemImage: 'ellipsis.circle', identifier: 'more' },
+}}
+```
+
+Tool items are fixed when a picker is created, so changing them rebuilds the
+picker. `null` restores the system picker. iOS 17 ignores both options.
+PencilKit does not draw with custom items: handle `onToolPickerItemChange` and
+the pencil input yourself.
+
 #### Drawing Operations
 
-- `getDrawing(viewId)`: Get current drawing data
-- `setDrawing(viewId, drawing)`: Set drawing data; throws if the import fails validation
+- `getDrawingAsync(viewId, options?)` / `getDrawing(viewId)` (deprecated):
+  Get current drawing data
+- `setDrawingAsync(viewId, drawing)` / `setDrawing(viewId, drawing)`
+  (deprecated): Set drawing data; rejects/throws if the import fails validation
 - `clearDrawing(viewId)`: Clear the drawing
 - `undo(viewId)`: Undo last action
 - `redo(viewId)`: Redo last action
@@ -399,6 +498,8 @@ drawing data:
 - JSON UTF-8 size: 16,777,216 bytes (16 MiB)
 - JSON nesting: 32 collection levels
 - JSON complexity: 10,000 total object entries and array elements
+  (4,000,000 for drawing and stroke payloads)
+- Strokes: 50,000 per call, 100,000 points per stroke, 500,000 points total
 - Base64 text size: 12,582,912 UTF-8 bytes (12 MiB)
 - Base64-decoded data: 8,388,608 bytes (8 MiB)
 - PencilKit drawing archive: 8,388,608 bytes before `PKDrawing` construction
@@ -622,6 +723,13 @@ interface PencilKitConfig {
   baseLineWidth?: number;
   snapshotDebounceMs?: number; // > 0 emits onDrawingSnapshot after drawing settles
   scrollEnabled?: boolean; // default: false — let a parent ScrollView own finger pans; true restores PKCanvasView's own panning
+  includeStrokesInDrawing?: boolean; // default: false — fill `strokes` in getDrawing()/onDrawingSnapshot
+  maximumSupportedContentVersion?: 1 | 2 | 3 | 4 | 5 | 'latest' | null; // iOS 17+
+  toolItems?: PencilKitToolItem[] | null; // iOS 18+ custom tool picker
+  toolPickerAccessoryItem?: { systemImage?: string; title?: string; identifier?: string } | null; // iOS 18+
+  autoFocusToolPicker?: boolean; // default: true — see "Drawing Props"
+  customStylusHistoryLimit?: number; // custom stylus undo depth, default 20
+  customStylusHistoryMemoryMB?: number; // custom stylus undo+redo bitmap budget, default 96
 }
 ```
 
@@ -636,6 +744,9 @@ interface PencilKitDrawingData {
     width: number;
     height: number;
   };
+  dataBase64?: string; // PencilKit engine: PKDrawing archive
+  imageBase64?: string; // custom stylus engine: PNG
+  requiredContentVersion?: number;
 }
 
 interface PencilKitStroke {
@@ -643,6 +754,13 @@ interface PencilKitStroke {
   tool: PencilKitTool;
   color: string;
   width: number;
+  ink?: { inkType: PencilKitInkType; color: string };
+  transform?: { a: number; b: number; c: number; d: number; tx: number; ty: number };
+  mask?: string; // SVG path data
+  randomSeed?: number;
+  creationDate?: number; // ms since epoch
+  renderBounds?: PencilKitRect; // output only
+  requiredContentVersion?: number; // output only
 }
 
 interface PencilKitPoint {
@@ -650,10 +768,16 @@ interface PencilKitPoint {
     x: number;
     y: number;
   };
-  pressure: number;
+  pressure: number; // = force in native output
   azimuth: number;
   altitude: number;
-  timestamp: number;
+  timestamp: number; // = timeOffset in native output
+  timeOffset?: number;
+  size?: { width: number; height: number };
+  opacity?: number;
+  force?: number;
+  secondaryScale?: number;
+  threshold?: number; // iOS 26+
 }
 
 interface PencilKitTool {
