@@ -4,11 +4,15 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import {
   PencilKitView,
   type PencilKitConfig,
+  type PencilKitContentVersion,
+  type PencilKitStroke,
+  type PencilKitToolItem,
   type PencilKitDrawingChangeEvent,
   type PencilKitDrawingSnapshotEvent,
   type PencilKitExportResult,
@@ -43,6 +47,34 @@ function App(): React.JSX.Element {
     number | null
   >(null);
   const [toolPickerVisible, setToolPickerVisible] = useState(true);
+  const [includeStrokes, setIncludeStrokes] = useState(false);
+  const [customPicker, setCustomPicker] = useState(false);
+  const [contentVersion, setContentVersion] =
+    useState<PencilKitContentVersion>('latest');
+  const [eventLog, setEventLog] = useState('No native events yet');
+  const renderCount = useRef(0);
+
+  const toolItems = useMemo<PencilKitToolItem[] | null>(
+    () =>
+      customPicker
+        ? [
+            { type: 'ink', inkType: 'pen', color: '#111827', width: 3, identifier: 'pen' },
+            { type: 'ink', inkType: 'marker', color: '#FACC15', width: 20, identifier: 'highlighter' },
+            { type: 'eraser', eraserType: 'vector' },
+            { type: 'lasso' },
+            { type: 'ruler' },
+            {
+              type: 'custom',
+              identifier: 'stamp',
+              name: 'Stamp',
+              systemImage: 'star.fill',
+              defaultColor: '#DC2626',
+              controls: ['width'],
+            },
+          ]
+        : null,
+    [customPicker]
+  );
 
   const config: PencilKitConfig = useMemo(
     () => ({
@@ -55,8 +87,14 @@ function App(): React.JSX.Element {
       showHoverPreview: true,
       // Emit onDrawingSnapshot 300ms after the drawing settles.
       snapshotDebounceMs: 300,
+      includeStrokesInDrawing: includeStrokes,
+      maximumSupportedContentVersion: contentVersion,
+      toolItems,
+      toolPickerAccessoryItem: customPicker
+        ? { systemImage: 'ellipsis.circle', title: 'More', identifier: 'more' }
+        : null,
     }),
-    []
+    [contentVersion, customPicker, includeStrokes, toolItems]
   );
 
   const run = useCallback(async (action: () => Promise<string>) => {
@@ -80,6 +118,46 @@ function App(): React.JSX.Element {
       return `eraser(${tool.eraserType ?? 'bitmap'}) width ${tool.width ?? '-'}`;
     }
     return 'lasso';
+  };
+
+  const describeStroke = (stroke: PencilKitStroke): string =>
+    `${stroke.ink?.inkType ?? stroke.tool.type} ${stroke.color}, ` +
+    `${stroke.points.length} pts, width ${stroke.width.toFixed(1)}, ` +
+    `v${stroke.requiredContentVersion ?? '?'}`;
+
+  // A closed wobbly loop built from scratch, to exercise appendStrokes.
+  const makeLoopStroke = (): PencilKitStroke => {
+    const points = Array.from({ length: 48 }, (_, i) => {
+      const angle = (i / 47) * Math.PI * 2;
+      const radius = 60 + 8 * Math.sin(angle * 5);
+      return {
+        location: {
+          x: 160 + radius * Math.cos(angle),
+          y: 140 + radius * Math.sin(angle),
+        },
+        timeOffset: i * 0.01,
+        timestamp: i * 0.01,
+        size: { width: 6, height: 6 },
+        opacity: 1,
+        force: 1,
+        pressure: 1,
+        azimuth: 0,
+        altitude: Math.PI / 2,
+      };
+    });
+    return {
+      points,
+      ink: { inkType: 'monoline', color: '#7C3AED' },
+      tool: { type: 'pen', width: 6, color: '#7C3AED' },
+      color: '#7C3AED',
+      width: 6,
+    };
+  };
+
+  const nextContentVersion: Record<string, PencilKitContentVersion> = {
+    latest: 1,
+    1: 2,
+    2: 'latest',
   };
 
   return (
@@ -228,6 +306,140 @@ function App(): React.JSX.Element {
             }
           />
         </View>
+
+        <Text style={styles.section}>Strokes & picker</Text>
+        <View style={styles.row}>
+          <Button
+            label="Get strokes"
+            onPress={() =>
+              run(async () => {
+                const strokes = (await canvasRef.current?.getStrokes()) ?? [];
+                return strokes.length === 0
+                  ? '0 strokes'
+                  : `${strokes.length} strokes; last: ` +
+                      describeStroke(strokes[strokes.length - 1]!);
+              })
+            }
+          />
+          <Button
+            label="Round-trip strokes"
+            onPress={() =>
+              run(async () => {
+                const canvas = canvasRef.current;
+                const strokes = (await canvas?.getStrokes()) ?? [];
+                await canvas?.setStrokes(strokes);
+                return `Re-set ${strokes.length} strokes (undoable)`;
+              })
+            }
+          />
+          <Button
+            label="Append loop"
+            onPress={() =>
+              run(async () => {
+                await canvasRef.current?.appendStrokes([makeLoopStroke()]);
+                return 'Appended a purple monoline loop';
+              })
+            }
+          />
+          <Button
+            label="Delete last"
+            onPress={() =>
+              run(async () => {
+                const canvas = canvasRef.current;
+                const count = (await canvas?.getStrokes())?.length ?? 0;
+                if (count === 0) return 'Nothing to delete';
+                const removed = await canvas?.removeStrokes([count - 1]);
+                return `Removed ${removed} stroke`;
+              })
+            }
+          />
+          <Button
+            label="Move all +40"
+            onPress={() =>
+              run(async () => {
+                const canvas = canvasRef.current;
+                const count = (await canvas?.getStrokes())?.length ?? 0;
+                const indices = Array.from({ length: count }, (_, i) => i);
+                const changed = await canvas?.transformStrokes(indices, {
+                  a: 1,
+                  b: 0,
+                  c: 0,
+                  d: 1,
+                  tx: 40,
+                  ty: 40,
+                });
+                return `Moved ${changed} strokes`;
+              })
+            }
+          />
+        </View>
+        <View style={styles.row}>
+          <Button
+            label={`Strokes in drawing: ${includeStrokes ? 'on' : 'off'}`}
+            onPress={() => setIncludeStrokes((value) => !value)}
+          />
+          <Button
+            label="getDrawing"
+            onPress={() =>
+              run(async () => {
+                const drawing = await canvasRef.current?.getDrawing();
+                return drawing
+                  ? `drawing: ${drawing.strokes.length} strokes in payload, ` +
+                      `archive ${drawing.dataBase64?.length ?? 0} b64 chars, ` +
+                      `requires v${drawing.requiredContentVersion ?? '?'}`
+                  : 'No drawing';
+              })
+            }
+          />
+          <Button
+            label={`Max content: ${contentVersion}`}
+            onPress={() =>
+              setContentVersion(
+                (value) => nextContentVersion[String(value)] ?? 'latest'
+              )
+            }
+          />
+          <Button
+            label={customPicker ? 'System picker' : 'Custom picker (iOS 18)'}
+            onPress={() => setCustomPicker((value) => !value)}
+          />
+          <Button
+            label="Select highlighter"
+            onPress={() =>
+              run(async () => {
+                await canvasRef.current?.setTool({
+                  type: 'ink',
+                  inkType: 'marker',
+                  color: '#22C55E',
+                  width: 24,
+                  itemIdentifier: 'highlighter',
+                });
+                return 'Tool set: green marker (picker should follow)';
+              })
+            }
+          />
+          <Button
+            label="Export PDF (dark)"
+            onPress={() =>
+              run(async () => {
+                const result = await canvasRef.current?.exportDocument({
+                  version: 1,
+                  format: 'pdf',
+                  output: 'fileUrl',
+                  crop: 'canvas',
+                  scale: 2,
+                  appearance: 'dark',
+                });
+                return result ? describeExport(result) : 'No result';
+              })
+            }
+          />
+        </View>
+        <TextInput
+          style={styles.input}
+          placeholder="Focus me: the canvas must not steal the keyboard"
+        />
+        <Text style={styles.meta}>{eventLog}</Text>
       </ScrollView>
 
       <PencilKitView
@@ -250,6 +462,25 @@ function App(): React.JSX.Element {
         onToolPickerChange={(event) => {
           console.log('Tool picker change', event.visible, event.selectedTool);
         }}
+        onToolPickerItemChange={(event) => {
+          setEventLog(
+            `item: ${event.itemType} "${event.identifier}"` +
+              (event.reselected ? ' (tapped again)' : '') +
+              (event.color ? ` ${event.color} w${event.width}` : '')
+          );
+        }}
+        onToolPickerAccessoryPress={(event) => {
+          setEventLog(`accessory pressed: ${event.identifier}`);
+        }}
+        onDidFinishRendering={() => {
+          renderCount.current += 1;
+          console.log('Finished rendering', renderCount.current);
+        }}
+        onApplePencilHover={(event) => {
+          if (event.phase !== 'changed') {
+            setEventLog(`hover ${event.phase}`);
+          }
+        }}
         onHistoryChange={(event) => {
           console.log('History change', event.revision, event.canUndo);
         }}
@@ -265,7 +496,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   controls: {
-    maxHeight: 280,
+    maxHeight: 420,
     flexGrow: 0,
   },
   controlsContent: {
@@ -287,6 +518,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6b7280',
     marginBottom: 8,
+  },
+  section: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginTop: 8,
+    marginBottom: 6,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginBottom: 6,
+    fontSize: 13,
   },
   row: {
     flexDirection: 'row',
