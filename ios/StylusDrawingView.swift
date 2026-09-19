@@ -348,7 +348,7 @@ import UIKit
       strokePressures[touch] = [normalizedForce(for: touch)]
     }
 
-    guard var path = strokePaths[touch],
+    guard let path = strokePaths[touch],
       var points = strokePoints[touch],
       var pressures = strokePressures[touch]
     else { return }
