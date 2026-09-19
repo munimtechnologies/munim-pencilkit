@@ -1149,7 +1149,10 @@ final class TouchForwardingCanvasView: PKCanvasView {
     case .fountainPen: return "fountainPen"
     case .watercolor: return "watercolor"
     case .crayon: return "crayon"
-    @unknown default: return "pen"
+    // A plain default: InkType is a frozen Swift enum, so `@unknown default`
+    // does not cover `.reed` (handled above) and the switch warns as
+    // non-exhaustive (an error in Swift 6 mode).
+    default: return "pen"
     }
   }
 
