@@ -1126,7 +1126,9 @@ final class TouchForwardingCanvasView: PKCanvasView {
     case "watercolor": return .watercolor
     case "crayon": return .crayon
     case "reed":
+      #if compiler(>=6.2)
       if #available(iOS 26.0, *) { return .reed }
+      #endif
       return nil
     default: return nil
     }
@@ -1135,12 +1137,16 @@ final class TouchForwardingCanvasView: PKCanvasView {
   /// Ink names the running OS can render, in the order the tool picker shows them.
   static func availableInkTypeNames() -> [String] {
     var names = ["pen", "pencil", "marker", "monoline", "fountainPen", "watercolor", "crayon"]
+    #if compiler(>=6.2)
     if #available(iOS 26.0, *) { names.append("reed") }
+    #endif
     return names
   }
 
   static func inkTypeString(_ inkType: PKInkingTool.InkType) -> String {
+    #if compiler(>=6.2)
     if #available(iOS 26.0, *), inkType == .reed { return "reed" }
+    #endif
     switch inkType {
     case .pen: return "pen"
     case .pencil: return "pencil"
