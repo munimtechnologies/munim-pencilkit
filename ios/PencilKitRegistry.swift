@@ -36,6 +36,7 @@ final class PencilKitRegistry {
   func unregister(id: Int) {
     lock.lock()
     views.removeValue(forKey: id)
+    pendingConfigs.removeValue(forKey: id)
     lock.unlock()
   }
 

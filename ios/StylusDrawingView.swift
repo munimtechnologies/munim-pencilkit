@@ -16,7 +16,8 @@ import UIKit
     azimuth: CGFloat,
     azimuthUnitVector: CGVector,
     zOffset: CGFloat,
-    rollAngle: CGFloat
+    rollAngle: CGFloat,
+    phase: String
   )
 }
 
@@ -44,9 +45,17 @@ import UIKit
   private var isEraserEnabled: Bool = false
 
   // Bounded canvas history for undo/redo. Each entry is the rendered canvas
-  // before a committed change; capped to keep memory in check because every
-  // snapshot is a full-size bitmap.
-  private static let maxHistoryEntries = 20
+  // before a committed change. Every entry is a full-size bitmap (about 15 MB
+  // for an 11" iPad canvas at 2x), so history is capped by entry count and by
+  // total bytes; the oldest entries go first.
+  static let defaultHistoryEntryLimit = 20
+  static let defaultHistoryMemoryBudgetBytes = 96 * 1024 * 1024
+  @objc var historyEntryLimit: Int = StylusDrawingView.defaultHistoryEntryLimit {
+    didSet { enforceHistoryBudget() }
+  }
+  @objc var historyMemoryBudgetBytes: Int = StylusDrawingView.defaultHistoryMemoryBudgetBytes {
+    didSet { enforceHistoryBudget() }
+  }
   private var undoStack: [UIImage?] = []
   private var redoStack: [UIImage?] = []
 
@@ -124,7 +133,7 @@ import UIKit
     guard !undoStack.isEmpty else { return false }
     let previous = undoStack.removeLast()
     redoStack.append(renderImageView.image)
-    trimHistory(&redoStack)
+    enforceHistoryBudget()
     restoreCanvas(previous)
     return true
   }
@@ -133,21 +142,42 @@ import UIKit
     guard !redoStack.isEmpty else { return false }
     let next = redoStack.removeLast()
     undoStack.append(renderImageView.image)
-    trimHistory(&undoStack)
+    enforceHistoryBudget()
     restoreCanvas(next)
     return true
   }
 
   private func recordHistorySnapshot() {
-    undoStack.append(renderImageView.image)
-    trimHistory(&undoStack)
     redoStack.removeAll()
+    undoStack.append(renderImageView.image)
+    enforceHistoryBudget()
   }
 
-  private func trimHistory(_ stack: inout [UIImage?]) {
-    if stack.count > Self.maxHistoryEntries {
-      stack.removeFirst(stack.count - Self.maxHistoryEntries)
+  /// Drops the oldest undo entries, then the furthest redo entries, until both
+  /// stacks fit `historyEntryLimit` each and `historyMemoryBudgetBytes` together.
+  /// The newest undo entry is kept even if it alone exceeds the byte budget, so
+  /// a single undo always works unless the entry limit is 0.
+  private func enforceHistoryBudget() {
+    let limit = max(historyEntryLimit, 0)
+    if undoStack.count > limit { undoStack.removeFirst(undoStack.count - limit) }
+    if redoStack.count > limit { redoStack.removeFirst(redoStack.count - limit) }
+
+    var total = (undoStack + redoStack).reduce(0) { $0 + Self.byteCost(of: $1) }
+    let budget = max(historyMemoryBudgetBytes, 0)
+    while total > budget, !redoStack.isEmpty {
+      total -= Self.byteCost(of: redoStack.removeFirst())
     }
+    while total > budget, undoStack.count > 1 {
+      total -= Self.byteCost(of: undoStack.removeFirst())
+    }
+  }
+
+  private static func byteCost(of image: UIImage?) -> Int {
+    guard let image else { return 0 }
+    if let cgImage = image.cgImage {
+      return cgImage.bytesPerRow * cgImage.height
+    }
+    return Int(image.size.width * image.scale * image.size.height * image.scale * 4)
   }
 
   private func restoreCanvas(_ image: UIImage?) {
@@ -422,10 +452,21 @@ import UIKit
         azimuth: azimuth,
         azimuthUnitVector: azimuthUnitVector,
         zOffset: zOffset,
-        rollAngle: rollAngle
+        rollAngle: rollAngle,
+        phase: recognizer.state == .began ? "began" : "changed"
       )
     default:
       hoverPreviewLayer.isHidden = true
+      delegate?.stylusViewDidHover(
+        self,
+        location: location,
+        altitude: 0,
+        azimuth: 0,
+        azimuthUnitVector: CGVector(dx: 0, dy: 0),
+        zOffset: 0,
+        rollAngle: 0,
+        phase: PencilKitNativeView.hoverPhase(recognizer.state)
+      )
     }
   }
 

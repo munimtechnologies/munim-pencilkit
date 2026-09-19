@@ -16,6 +16,8 @@
 
 
 #include <string>
+#include <NitroModules/Promise.hpp>
+#include <vector>
 
 namespace margelo::nitro::munimpencilkit {
 
@@ -55,7 +57,9 @@ namespace margelo::nitro::munimpencilkit {
       virtual void destroyPencilKitView(double viewId) = 0;
       virtual void setPencilKitConfig(double viewId, const std::string& configJson) = 0;
       virtual std::string getPencilKitDrawing(double viewId) = 0;
+      virtual std::shared_ptr<Promise<std::string>> getPencilKitDrawingAsync(double viewId, const std::string& optionsJson) = 0;
       virtual void setPencilKitDrawing(double viewId, const std::string& drawingJson) = 0;
+      virtual std::shared_ptr<Promise<void>> setPencilKitDrawingAsync(double viewId, const std::string& drawingJson) = 0;
       virtual void clearPencilKitDrawing(double viewId) = 0;
       virtual bool undoPencilKitDrawing(double viewId) = 0;
       virtual bool redoPencilKitDrawing(double viewId) = 0;
@@ -65,10 +69,17 @@ namespace margelo::nitro::munimpencilkit {
       virtual void stopApplePencilDataCapture(double viewId) = 0;
       virtual bool isApplePencilDataCaptureActive(double viewId) = 0;
       virtual std::string exportPencilKitDocument(double viewId, const std::string& optionsJson) = 0;
+      virtual std::shared_ptr<Promise<std::string>> exportPencilKitDocumentAsync(double viewId, const std::string& optionsJson) = 0;
       virtual void importPencilKitDocument(double viewId, const std::string& optionsJson) = 0;
+      virtual std::shared_ptr<Promise<void>> importPencilKitDocumentAsync(double viewId, const std::string& optionsJson) = 0;
       virtual void setPencilKitTool(double viewId, const std::string& toolJson) = 0;
       virtual std::string getPencilKitTool(double viewId) = 0;
       virtual void setPencilKitToolPickerVisible(double viewId, bool visible) = 0;
+      virtual std::shared_ptr<Promise<std::string>> getPencilKitStrokes(double viewId) = 0;
+      virtual std::shared_ptr<Promise<void>> setPencilKitStrokes(double viewId, const std::string& strokesJson) = 0;
+      virtual std::shared_ptr<Promise<void>> appendPencilKitStrokes(double viewId, const std::string& strokesJson) = 0;
+      virtual std::shared_ptr<Promise<double>> removePencilKitStrokes(double viewId, const std::vector<double>& indices) = 0;
+      virtual std::shared_ptr<Promise<double>> transformPencilKitStrokes(double viewId, const std::vector<double>& indices, const std::string& transformJson) = 0;
 
     protected:
       // Hybrid Setup

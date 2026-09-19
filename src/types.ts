@@ -59,6 +59,11 @@ export interface ApplePencilMotionData {
 
 export interface ApplePencilHoverData {
   viewId: number
+  /**
+   * Hover gesture phase. `ended`/`cancelled` fire once when the pencil leaves
+   * hover range; their pose fields are not meaningful.
+   */
+  phase?: 'began' | 'changed' | 'ended' | 'cancelled'
   location: { x: number; y: number }
   altitude: number
   azimuth: number
@@ -122,12 +127,32 @@ export type CustomStylusRenderMode = 'incremental' | 'replay'
 
 export type CustomStylusEraserMode = 'clear' | 'paint'
 
+/**
+ * One control point of a stroke path (`PKStrokePoint`), in stroke space:
+ * apply the stroke's `transform` to get canvas coordinates.
+ *
+ * `pressure` and `timestamp` are the legacy names; native output fills them
+ * with `force` and `timeOffset`. On input every field except `location` is
+ * optional and falls back to: `timeOffset` = `timestamp` minus the first
+ * point's `timestamp` (else 0), `size` = the stroke `width`, `opacity` 1,
+ * `force` = `pressure` (else 1), `azimuth` 0, `altitude` pi/2,
+ * `secondaryScale` 1.
+ */
 export interface PencilKitPoint {
   location: { x: number; y: number }
   pressure: number
   azimuth: number
   altitude: number
   timestamp: number
+  /** Seconds since the stroke started. */
+  timeOffset?: number
+  size?: { width: number; height: number }
+  opacity?: number
+  force?: number
+  /** iOS 17+ ink-specific scale (e.g. watercolor, fountain pen). */
+  secondaryScale?: number
+  /** iOS 26+ ink threshold (reed pen). Ignored on older iOS. */
+  threshold?: number
 }
 
 export interface PencilKitTool {
@@ -136,13 +161,64 @@ export interface PencilKitTool {
   color: string
 }
 
+/** Row-major 2D affine transform (`CGAffineTransform`). */
+export interface PencilKitAffineTransform {
+  a: number
+  b: number
+  c: number
+  d: number
+  tx: number
+  ty: number
+}
+
+/**
+ * A PencilKit stroke. The legacy fields (`points`, `tool`, `color`, `width`)
+ * are always present in native output; the rest round-trip `PKStroke`
+ * exactly. `tool.type` only distinguishes pen/pencil/marker (other inks
+ * report `pen`), so `ink.inkType` is authoritative. `width` is the mean point
+ * width; PencilKit itself stores width per point in `size`.
+ *
+ * On input the ink comes from `ink.inkType`, then `tool.type`, else `pen`;
+ * the color from `ink.color`, then `color`, then `tool.color`.
+ */
 export interface PencilKitStroke {
   points: PencilKitPoint[]
   tool: PencilKitTool
   color: string
   width: number
+  ink?: { inkType: PencilKitInkType; color: string }
+  /** Maps `points` into canvas space. Identity when omitted. */
+  transform?: PencilKitAffineTransform
+  /** Clip mask as SVG path data (absolute M/L/Q/C/Z), in stroke space. */
+  mask?: string
+  /** Seed for ink texture randomness (UInt32). Random when omitted. */
+  randomSeed?: number
+  /** Milliseconds since the Unix epoch. */
+  creationDate?: number
+  /** Output only: the rendered bounds in canvas space. */
+  renderBounds?: PencilKitRect
+  /** Output only: the PKContentVersion this stroke needs. */
+  requiredContentVersion?: number
 }
 
+/** PKContentVersion: 1 (iOS 14 inks), 2 (iOS 17 inks), 3 (iOS 17.5 fountain pen), 4 (iOS 26 reed), 5 (iOS 27 render state). */
+export type PencilKitContentVersion = 1 | 2 | 3 | 4 | 5 | 'latest'
+
+export interface PencilKitGetDrawingOptions {
+  /**
+   * Fill `strokes` in the result. Defaults to the view's
+   * `config.includeStrokesInDrawing` (false).
+   */
+  includeStrokes?: boolean
+}
+
+/**
+ * A drawing snapshot. `strokes` is only filled when requested
+ * (`includeStrokesInDrawing` / `getDrawing({ includeStrokes: true })`).
+ *
+ * When passed to `setDrawing`, `dataBase64` (the PKDrawing archive) wins;
+ * without it a non-empty `strokes` array is used instead.
+ */
 export interface PencilKitDrawingData {
   strokes: PencilKitStroke[]
   bounds: {
@@ -153,6 +229,81 @@ export interface PencilKitDrawingData {
   }
   dataBase64?: string
   imageBase64?: string
+  /** PencilKit engine only: the PKContentVersion needed to render this drawing. */
+  requiredContentVersion?: number
+}
+
+/** iOS 18+ custom tool picker items (`PKToolPicker(toolItems:)`). */
+export type PencilKitToolItem =
+  | {
+      type: 'ink'
+      inkType: PencilKitInkType
+      color?: string
+      width?: number
+      identifier?: string
+      allowsColorSelection?: boolean
+    }
+  | { type: 'eraser'; eraserType?: PencilKitEraserType; width?: number }
+  | { type: 'lasso' }
+  | { type: 'ruler' }
+  | { type: 'scribble' }
+  | {
+      /**
+       * App-defined tool. PencilKit does not draw with it: listen to
+       * `onToolPickerItemChange` and handle input yourself.
+       */
+      type: 'custom'
+      identifier: string
+      name: string
+      /** SF Symbol name for the picker image. Defaults to `pencil.tip`. */
+      systemImage?: string
+      defaultColor?: string
+      defaultWidth?: number
+      allowsColorSelection?: boolean
+      controls?: Array<'width' | 'opacity'>
+    }
+
+export interface PencilKitToolPickerAccessoryItem {
+  /** SF Symbol name. Falls back to `title` as a text button. */
+  systemImage?: string
+  title?: string
+  /** Echoed back in `onToolPickerAccessoryPress`. */
+  identifier?: string
+}
+
+export interface PencilKitToolPickerItemEvent {
+  viewId: number
+  identifier: string
+  itemType:
+    | 'ink'
+    | 'eraser'
+    | 'lasso'
+    | 'ruler'
+    | 'scribble'
+    | 'custom'
+    | 'unknown'
+  /**
+   * True when the event is for the item that was already selected (for
+   * example its color or width changed) rather than a switch to another item.
+   */
+  reselected: boolean
+  /** Built-in items. */
+  selectedTool?: PencilKitToolState
+  /** Custom items. */
+  color?: string
+  width?: number
+}
+
+export interface PencilKitToolPickerAccessoryEvent {
+  viewId: number
+  identifier: string
+}
+
+export interface PencilKitRenderEvent {
+  viewId: number
+  revision: number
+  timestamp: number
+  timestampClock: 'systemUptime'
 }
 
 export interface PencilKitConfig {
@@ -189,6 +340,40 @@ export interface PencilKitConfig {
    * layout owns scrolling; set true to restore PencilKit's built-in panning.
    */
   scrollEnabled?: boolean
+  /**
+   * Fill `strokes` in `getDrawing()` results and `onDrawingSnapshot` events.
+   * Off by default: strokes can be many times larger than the archive.
+   */
+  includeStrokesInDrawing?: boolean
+  /**
+   * Highest PKContentVersion new strokes may use (iOS 17+), applied to the
+   * canvas and tool picker. Inks that need a newer version are hidden or
+   * downgraded. Clamped to what the OS supports; `null` restores `latest`.
+   */
+  maximumSupportedContentVersion?: PencilKitContentVersion | null
+  /**
+   * iOS 18+: builds the tool picker from these items instead of the system
+   * set. Ignored on iOS 17. `null` restores the default picker. Changing the
+   * items recreates the picker.
+   */
+  toolItems?: PencilKitToolItem[] | null
+  /** iOS 18+: a button at the end of the tool picker. `null` removes it. */
+  toolPickerAccessoryItem?: PencilKitToolPickerAccessoryItem | null
+  /**
+   * Whether showing the tool picker may make the canvas first responder
+   * (required for the picker to appear). Defaults to true, but focus is only
+   * taken when the picker goes from hidden to shown and never from a focused
+   * text input. With false, the picker appears when the user starts drawing
+   * or on `setToolPickerVisible(true)`.
+   */
+  autoFocusToolPicker?: boolean
+  /** Custom stylus engine: max undo (and redo) entries. Default 20. */
+  customStylusHistoryLimit?: number
+  /**
+   * Custom stylus engine: memory budget for undo + redo bitmaps, in MB.
+   * Default 96. The newest undo entry is always kept.
+   */
+  customStylusHistoryMemoryMB?: number
 }
 
 export type PencilKitDocumentFormat = 'archive' | 'png' | 'jpeg' | 'pdf'
@@ -211,6 +396,11 @@ export interface PencilKitExportOptions {
   scale?: number
   backgroundColor?: string
   quality?: number
+  /**
+   * Light/dark rendering of the ink (PencilKit adapts black/white ink to the
+   * interface style). `view` uses the canvas's current style. Default `light`.
+   */
+  appearance?: 'light' | 'dark' | 'view'
 }
 
 export interface PencilKitExportResult {
@@ -219,8 +409,15 @@ export interface PencilKitExportResult {
   output: PencilKitDocumentOutput
   mimeType: string
   byteLength: number
+  /**
+   * png/jpeg: pixels (points x `scale`). pdf: page size in points; the page
+   * holds a raster image rendered at `scale` (PencilKit has no vector export).
+   * archive: drawing bounds in points.
+   */
   width?: number
   height?: number
+  /** PencilKit engine only: the PKContentVersion needed to render the drawing. */
+  requiredContentVersion?: number
   dataBase64?: string
   fileUrl?: string
 }
@@ -255,6 +452,14 @@ export type PencilKitToolState =
     }
   | { type: 'eraser'; eraserType?: PencilKitEraserType; width?: number }
   | { type: 'lasso' }
+
+/**
+ * Input for `setTool`. On iOS 18+ `itemIdentifier` selects that tool picker
+ * item; otherwise the first item of the same kind is selected.
+ */
+export type PencilKitToolStateInput = PencilKitToolState & {
+  itemIdentifier?: string
+}
 
 export interface PencilKitHistoryEvent {
   viewId: number
@@ -301,6 +506,8 @@ export interface PencilKitCapabilities {
     eraser: PencilKitEraserType[]
     lasso: boolean
     toolPicker: boolean
+    /** iOS 18+: `config.toolItems` is supported. */
+    toolItems?: boolean
   }
   telemetry: {
     pencilTouches: boolean
@@ -312,6 +519,10 @@ export interface PencilKitCapabilities {
     pencilMotion: false
     deviceMotion: boolean
   }
+  /** Stroke read/write APIs are available. */
+  strokes?: boolean
+  /** Highest PKContentVersion the OS can render. */
+  contentVersion?: { maximum: number }
   /** Native import/export size limits, in bytes/pixels (iOS only). */
   limits?: {
     maxJSONUTF8Bytes: number
@@ -319,5 +530,7 @@ export interface PencilKitCapabilities {
     maxBase64DecodedBytes: number
     maxImageDimension: number
     maxImagePixelCount: number
+    maxStrokes?: number
+    maxStrokePoints?: number
   }
 }

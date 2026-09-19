@@ -10,16 +10,20 @@ import type {
   ApplePencilPreferredSqueezeActionData,
   ApplePencilPredictedTouchesData,
   ApplePencilSqueezeData,
+  PencilKitAffineTransform,
   PencilKitCapabilities,
   PencilKitConfig,
   PencilKitDrawingChangeEvent,
   PencilKitDrawingData,
   PencilKitExportOptions,
   PencilKitExportResult,
+  PencilKitGetDrawingOptions,
   PencilKitHistoryEvent,
   PencilKitImportOptions,
+  PencilKitStroke,
   PencilKitToolPickerEvent,
   PencilKitToolState,
+  PencilKitToolStateInput,
 } from './types'
 
 export type {
@@ -27,6 +31,16 @@ export type {
 } from './PencilKitView'
 
 export type {
+  PencilKitAffineTransform,
+  PencilKitContentVersion,
+  PencilKitEraserType,
+  PencilKitGetDrawingOptions,
+  PencilKitRenderEvent,
+  PencilKitToolItem,
+  PencilKitToolPickerAccessoryEvent,
+  PencilKitToolPickerAccessoryItem,
+  PencilKitToolPickerItemEvent,
+  PencilKitToolStateInput,
   ApplePencilCoalescedTouchesData,
   ApplePencilData,
   ApplePencilDoubleTapData,
@@ -68,6 +82,9 @@ const parseDrawingJson = (raw: string): PencilKitDrawingData => {
   return JSON.parse(raw) as PencilKitDrawingData
 }
 
+const parseStrokesJson = (raw: string): PencilKitStroke[] =>
+  (JSON.parse(raw) as { strokes: PencilKitStroke[] }).strokes
+
 export const PencilKitUtils = {
   isSupported: (): boolean => MunimPencilkit.isPencilKitSupported(),
   getCapabilities: (): PencilKitCapabilities =>
@@ -78,10 +95,33 @@ export const PencilKitUtils = {
   destroyView: (viewId: number): void => MunimPencilkit.destroyPencilKitView(viewId),
   setConfig: (viewId: number, config: PencilKitConfig): void =>
     MunimPencilkit.setPencilKitConfig(viewId, JSON.stringify(config)),
+  /**
+   * @deprecated Blocks the JS thread on the main thread. Use
+   * `getDrawingAsync` (or the `PencilKitView` ref).
+   */
   getDrawing: (viewId: number): PencilKitDrawingData =>
     parseDrawingJson(MunimPencilkit.getPencilKitDrawing(viewId)),
+  getDrawingAsync: async (
+    viewId: number,
+    options?: PencilKitGetDrawingOptions
+  ): Promise<PencilKitDrawingData> =>
+    parseDrawingJson(
+      await MunimPencilkit.getPencilKitDrawingAsync(
+        viewId,
+        JSON.stringify(options ?? {})
+      )
+    ),
+  /**
+   * @deprecated Blocks the JS thread on the main thread. Use
+   * `setDrawingAsync` (or the `PencilKitView` ref).
+   */
   setDrawing: (viewId: number, drawing: PencilKitDrawingData): void =>
     MunimPencilkit.setPencilKitDrawing(viewId, JSON.stringify(drawing)),
+  setDrawingAsync: (
+    viewId: number,
+    drawing: PencilKitDrawingData
+  ): Promise<void> =>
+    MunimPencilkit.setPencilKitDrawingAsync(viewId, JSON.stringify(drawing)),
   clearDrawing: (viewId: number): void =>
     MunimPencilkit.clearPencilKitDrawing(viewId),
   undo: (viewId: number): boolean => MunimPencilkit.undoPencilKitDrawing(viewId),
@@ -96,6 +136,10 @@ export const PencilKitUtils = {
     MunimPencilkit.stopApplePencilDataCapture(viewId),
   isApplePencilCaptureActive: (viewId: number): boolean =>
     MunimPencilkit.isApplePencilDataCaptureActive(viewId),
+  /**
+   * @deprecated Blocks the JS thread while rendering. Use
+   * `exportDocumentAsync` (or the `PencilKitView` ref).
+   */
   exportDocument: (
     viewId: number,
     options: PencilKitExportOptions
@@ -103,9 +147,49 @@ export const PencilKitUtils = {
     JSON.parse(
       MunimPencilkit.exportPencilKitDocument(viewId, JSON.stringify(options))
     ) as PencilKitExportResult,
+  exportDocumentAsync: async (
+    viewId: number,
+    options: PencilKitExportOptions
+  ): Promise<PencilKitExportResult> =>
+    JSON.parse(
+      await MunimPencilkit.exportPencilKitDocumentAsync(
+        viewId,
+        JSON.stringify(options)
+      )
+    ) as PencilKitExportResult,
+  /**
+   * @deprecated Blocks the JS thread while decoding. Use
+   * `importDocumentAsync` (or the `PencilKitView` ref).
+   */
   importDocument: (viewId: number, options: PencilKitImportOptions): void =>
     MunimPencilkit.importPencilKitDocument(viewId, JSON.stringify(options)),
-  setTool: (viewId: number, tool: PencilKitToolState): void =>
+  importDocumentAsync: (
+    viewId: number,
+    options: PencilKitImportOptions
+  ): Promise<void> =>
+    MunimPencilkit.importPencilKitDocumentAsync(
+      viewId,
+      JSON.stringify(options)
+    ),
+  getStrokes: async (viewId: number): Promise<PencilKitStroke[]> =>
+    parseStrokesJson(await MunimPencilkit.getPencilKitStrokes(viewId)),
+  setStrokes: (viewId: number, strokes: PencilKitStroke[]): Promise<void> =>
+    MunimPencilkit.setPencilKitStrokes(viewId, JSON.stringify({ strokes })),
+  appendStrokes: (viewId: number, strokes: PencilKitStroke[]): Promise<void> =>
+    MunimPencilkit.appendPencilKitStrokes(viewId, JSON.stringify({ strokes })),
+  removeStrokes: (viewId: number, indices: number[]): Promise<number> =>
+    MunimPencilkit.removePencilKitStrokes(viewId, indices),
+  transformStrokes: (
+    viewId: number,
+    indices: number[],
+    transform: PencilKitAffineTransform
+  ): Promise<number> =>
+    MunimPencilkit.transformPencilKitStrokes(
+      viewId,
+      indices,
+      JSON.stringify(transform)
+    ),
+  setTool: (viewId: number, tool: PencilKitToolStateInput): void =>
     MunimPencilkit.setPencilKitTool(viewId, JSON.stringify(tool)),
   getTool: (viewId: number): PencilKitToolState =>
     JSON.parse(MunimPencilkit.getPencilKitTool(viewId)) as PencilKitToolState,

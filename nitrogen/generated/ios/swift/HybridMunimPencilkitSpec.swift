@@ -20,7 +20,9 @@ public protocol HybridMunimPencilkitSpec_protocol: HybridObject {
   func destroyPencilKitView(viewId: Double) throws -> Void
   func setPencilKitConfig(viewId: Double, configJson: String) throws -> Void
   func getPencilKitDrawing(viewId: Double) throws -> String
+  func getPencilKitDrawingAsync(viewId: Double, optionsJson: String) throws -> Promise<String>
   func setPencilKitDrawing(viewId: Double, drawingJson: String) throws -> Void
+  func setPencilKitDrawingAsync(viewId: Double, drawingJson: String) throws -> Promise<Void>
   func clearPencilKitDrawing(viewId: Double) throws -> Void
   func undoPencilKitDrawing(viewId: Double) throws -> Bool
   func redoPencilKitDrawing(viewId: Double) throws -> Bool
@@ -30,10 +32,17 @@ public protocol HybridMunimPencilkitSpec_protocol: HybridObject {
   func stopApplePencilDataCapture(viewId: Double) throws -> Void
   func isApplePencilDataCaptureActive(viewId: Double) throws -> Bool
   func exportPencilKitDocument(viewId: Double, optionsJson: String) throws -> String
+  func exportPencilKitDocumentAsync(viewId: Double, optionsJson: String) throws -> Promise<String>
   func importPencilKitDocument(viewId: Double, optionsJson: String) throws -> Void
+  func importPencilKitDocumentAsync(viewId: Double, optionsJson: String) throws -> Promise<Void>
   func setPencilKitTool(viewId: Double, toolJson: String) throws -> Void
   func getPencilKitTool(viewId: Double) throws -> String
   func setPencilKitToolPickerVisible(viewId: Double, visible: Bool) throws -> Void
+  func getPencilKitStrokes(viewId: Double) throws -> Promise<String>
+  func setPencilKitStrokes(viewId: Double, strokesJson: String) throws -> Promise<Void>
+  func appendPencilKitStrokes(viewId: Double, strokesJson: String) throws -> Promise<Void>
+  func removePencilKitStrokes(viewId: Double, indices: [Double]) throws -> Promise<Double>
+  func transformPencilKitStrokes(viewId: Double, indices: [Double], transformJson: String) throws -> Promise<Double>
 }
 
 public extension HybridMunimPencilkitSpec_protocol {
