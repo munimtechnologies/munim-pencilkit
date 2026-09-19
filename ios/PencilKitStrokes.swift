@@ -49,9 +49,11 @@ enum PencilKitStrokeCodec {
         "pressure": point.force,
         "timestamp": point.timeOffset,
       ]
+      #if compiler(>=6.2)
       if #available(iOS 26.0, *) {
         encoded["threshold"] = point.threshold
       }
+      #endif
       points.append(encoded)
     }
     let width = points.isEmpty ? 0 : Double(widthSum / CGFloat(points.count))
@@ -260,6 +262,7 @@ enum PencilKitStrokeCodec {
     let altitude = try finiteNumber(object["altitude"], context: "\(context).altitude") ?? (.pi / 2)
     let secondaryScale = try finiteNumber(object["secondaryScale"], context: "\(context).secondaryScale") ?? 1
 
+    #if compiler(>=6.2)
     if #available(iOS 26.0, *),
       let threshold = try finiteNumber(object["threshold"], context: "\(context).threshold")
     {
@@ -275,6 +278,7 @@ enum PencilKitStrokeCodec {
         threshold: CGFloat(threshold)
       )
     }
+    #endif
     return PKStrokePoint(
       location: CGPoint(x: x, y: y),
       timeOffset: timeOffset ?? 0,
