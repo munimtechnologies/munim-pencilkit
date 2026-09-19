@@ -8,7 +8,7 @@ PODS:
   - hermes-engine (0.14.1):
     - hermes-engine/Pre-built (= 0.14.1)
   - hermes-engine/Pre-built (0.14.1)
-  - MunimPencilkit (1.13.2):
+  - MunimPencilkit (1.14.1):
     - boost
     - DoubleConversion
     - fast_float
@@ -2857,7 +2857,7 @@ SPEC CHECKSUMS:
   fmt: a40bb5bd0294ea969aaaba240a927bd33d878cdd
   glog: 5683914934d5b6e4240e497e0f4a3b42d1854183
   hermes-engine: 37ec7a2a15692045651a3dc220e8692b7b2440f2
-  MunimPencilkit: f6404b1df30834627b37268bba88303c8619d1ee
+  MunimPencilkit: 5dcd12dab451fc3c6c8162994de96c208097e583
   NitroModules: 5115360c2954442d8a6a4fafe836f7a5458815df
   RCT-Folly: 59ec0ac1f2f39672a0c6e6cecdd39383b764646f
   RCTDeprecation: 3b915a7b166f7d04eaeb4ae30aaf24236a016551
