@@ -30,6 +30,22 @@ struct PencilKitExportSource {
   let rasterImage: UIImage?
   let canvasSize: CGSize
   let drawingBounds: CGRect
+  /// The view's resolved light/dark style, for `appearance: 'view'` exports.
+  let userInterfaceStyle: UIUserInterfaceStyle
+}
+
+/// Drawing state captured on the main thread so it can be serialized off it.
+struct PencilKitDrawingCapture {
+  let drawing: PKDrawing?
+  let rasterImage: UIImage?
+  let canvasSize: CGSize
+  let includeStrokes: Bool
+}
+
+struct PencilMotionState {
+  var location: CGPoint = .zero
+  var timestamp: TimeInterval = 0
+  var velocity: Double = 0
 }
 
 enum PreparedPencilKitDocumentImport {
@@ -78,6 +94,12 @@ final class TouchForwardingCanvasView: PKCanvasView {
       let id = viewId.intValue
       if id > 0 {
         PencilKitRegistry.shared.register(view: self, id: id)
+        if oldId != id {
+          // A new id after destroyPencilKitView (e.g. a React remount that
+          // reuses this native view) restores what tearDown() stopped.
+          updateMotionTracking()
+          updateToolPickerVisibility()
+        }
       }
     }
   }
@@ -85,6 +107,9 @@ final class TouchForwardingCanvasView: PKCanvasView {
   @objc var enableApplePencilData: Bool = false
   @objc var enableToolPicker: Bool = true {
     didSet {
+      // Config updates re-send this prop; only a real change should reset an
+      // explicit setToolPickerVisible() override or touch the picker.
+      guard oldValue != enableToolPicker else { return }
       toolPickerVisibleOverride = nil
       updateToolPickerVisibility()
     }
@@ -111,6 +136,9 @@ final class TouchForwardingCanvasView: PKCanvasView {
   @objc var onPencilKitDrawingPhase: RCTDirectEventBlock?
   @objc var onPencilKitHistoryChange: RCTDirectEventBlock?
   @objc var onPencilKitToolPickerChange: RCTDirectEventBlock?
+  @objc var onPencilKitToolPickerItemChange: RCTDirectEventBlock?
+  @objc var onPencilKitToolPickerAccessoryPress: RCTDirectEventBlock?
+  @objc var onPencilKitDidFinishRendering: RCTDirectEventBlock?
 
   private let importedImageView = UIImageView()
   private let canvasView = TouchForwardingCanvasView()
@@ -125,10 +153,20 @@ final class TouchForwardingCanvasView: PKCanvasView {
   private var showHoverPreview = true
   private var squeezeEraserBehavior = "alwaysOn"
   private var toolPickerVisibleOverride: Bool?
+  /// Whether the picker was shown on the last visibility pass. Focus is only
+  /// taken when the picker goes from hidden to shown, never on every pass.
+  private var isToolPickerShown = false
+  private var autoFocusToolPicker = true
+  private var toolItemsConfig: [[String: Any]]?
+  private var toolItemsSignature: String?
+  private var accessoryItemConfig: [String: Any]?
+  private var maximumContentVersion: PKContentVersion?
+  private var lastToolPickerPayload: NSDictionary?
+  private var lastSelectedToolItemIdentifier: String?
+  private var includeStrokesInDrawing = false
 
-  private var lastTouchLocation: CGPoint = .zero
-  private var lastTouchTimestamp: TimeInterval = 0
-  private var lastVelocity: Double = 0
+  /// Kinematics of the last *real* pencil sample, for velocity/acceleration.
+  private var motionState = PencilMotionState()
   private var revision = 0
   private var isDirty = false
   private var isDrawing = false
@@ -242,47 +280,127 @@ final class TouchForwardingCanvasView: PKCanvasView {
     return toolPickerVisibleOverride ?? enableToolPicker
   }
 
-  private func updateToolPickerVisibility() {
+  /// Shows or hides the tool picker.
+  ///
+  /// PKToolPicker only appears while its responder (the canvas) is first
+  /// responder, so showing it means taking focus. That used to happen on every
+  /// pass (every didMoveToWindow and config update), which stole focus from
+  /// text inputs. Focus is now taken only when the picker goes from hidden to
+  /// shown, never from a focused text input unless `explicit` (an app call to
+  /// setToolPickerVisible(true)), and never when `autoFocusToolPicker` is off.
+  private func updateToolPickerVisibility(explicit: Bool = false) {
     guard desiredToolPickerVisibility() else {
       toolPicker?.setVisible(false, forFirstResponder: canvasView)
+      isToolPickerShown = false
       emitToolPickerChange()
       return
     }
     guard let window else { return }
-    toolPicker?.removeObserver(self)
-    toolPicker?.removeObserver(canvasView)
+    guard let picker = ensureToolPicker(for: window) else { return }
+    picker.setVisible(true, forFirstResponder: canvasView)
+    let becameVisible = !isToolPickerShown
+    isToolPickerShown = true
+    if explicit || (becameVisible && autoFocusToolPicker) {
+      focusCanvasForToolPicker(overridingTextInput: explicit)
+    }
+    emitToolPickerChange()
+  }
+
+  private func ensureToolPicker(for window: UIWindow) -> PKToolPicker? {
+    if let toolPicker { return toolPicker }
     let picker: PKToolPicker
     if #available(iOS 18.0, *) {
-      // iOS 18+ supports per-view tool picker instances.
-      picker = toolPicker ?? PKToolPicker()
+      // iOS 18+ supports per-view tool picker instances, optionally with a
+      // custom item set.
+      if let items = makeToolPickerItems(), !items.isEmpty {
+        picker = PKToolPicker(toolItems: items)
+      } else {
+        picker = PKToolPicker()
+      }
+      picker.accessoryItem = makeAccessoryItem()
     } else {
-      guard let shared = PKToolPicker.shared(for: window) else { return }
+      guard let shared = PKToolPicker.shared(for: window) else { return nil }
       picker = shared
+    }
+    if let maximumContentVersion {
+      picker.maximumSupportedContentVersion = maximumContentVersion
     }
     picker.addObserver(canvasView)
     picker.addObserver(self)
-    picker.setVisible(true, forFirstResponder: canvasView)
     toolPicker = picker
+    if #available(iOS 18.0, *) {
+      lastSelectedToolItemIdentifier = picker.selectedToolItem.identifier
+    }
+    return picker
+  }
+
+  /// Drops the current picker so the next visibility pass builds a fresh one
+  /// (tool items and the accessory item can only be set at creation).
+  private func rebuildToolPicker() {
+    guard let picker = toolPicker else { return }
+    picker.setVisible(false, forFirstResponder: canvasView)
+    picker.removeObserver(self)
+    picker.removeObserver(canvasView)
+    toolPicker = nil
+    isToolPickerShown = false
+    lastToolPickerPayload = nil
+    updateToolPickerVisibility()
+  }
+
+  private func focusCanvasForToolPicker(overridingTextInput: Bool) {
+    guard !canvasView.isFirstResponder else { return }
+    if !overridingTextInput, Self.isTextInputFocused() { return }
     canvasView.becomeFirstResponder()
-    emitToolPickerChange()
+  }
+
+  private static weak var capturedFirstResponder: UIResponder?
+
+  /// True when a text field / text view (anything adopting UITextInput) is
+  /// first responder, i.e. the keyboard belongs to someone else.
+  private static func isTextInputFocused() -> Bool {
+    capturedFirstResponder = nil
+    UIApplication.shared.sendAction(
+      #selector(UIResponder.munimPencilKitCaptureFirstResponder(_:)),
+      to: nil,
+      from: nil,
+      for: nil
+    )
+    defer { capturedFirstResponder = nil }
+    return capturedFirstResponder is UITextInput
+  }
+
+  static func recordFirstResponder(_ responder: UIResponder) {
+    capturedFirstResponder = responder
   }
 
   func setToolPickerVisible(_ visible: Bool) {
     toolPickerVisibleOverride = visible
-    updateToolPickerVisibility()
+    updateToolPickerVisibility(explicit: visible)
   }
 
   private func emitToolPickerChange() {
     guard viewId.intValue > 0 else { return }
-    onPencilKitToolPickerChange?([
+    let payload: [String: Any] = [
       "viewId": viewId.intValue,
       "visible": desiredToolPickerVisibility() && toolPicker != nil,
       "selectedTool": currentToolStatePayload(),
-    ])
+    ]
+    // iOS 18 reports a tool change through both the deprecated and the
+    // tool-item observer callbacks; send each distinct state once.
+    let dictionary = payload as NSDictionary
+    if let lastToolPickerPayload, lastToolPickerPayload.isEqual(dictionary) { return }
+    lastToolPickerPayload = dictionary
+    onPencilKitToolPickerChange?(payload)
   }
 
   func toolPickerSelectedToolDidChange(_ toolPicker: PKToolPicker) {
     emitToolPickerChange()
+  }
+
+  @available(iOS 18.0, *)
+  func toolPickerSelectedToolItemDidChange(_ toolPicker: PKToolPicker) {
+    emitToolPickerChange()
+    emitToolPickerItemChange(toolPicker.selectedToolItem)
   }
 
   func toolPickerVisibilityDidChange(_ toolPicker: PKToolPicker) {
@@ -291,7 +409,199 @@ final class TouchForwardingCanvasView: PKCanvasView {
 
   override func didMoveToWindow() {
     super.didMoveToWindow()
+    if window == nil {
+      // Coming back to a window counts as showing the picker again.
+      isToolPickerShown = false
+      return
+    }
     updateToolPickerVisibility()
+  }
+
+  // MARK: iOS 18 tool items
+
+  @available(iOS 18.0, *)
+  private func makeToolPickerItems() -> [PKToolPickerItem]? {
+    guard let toolItemsConfig else { return nil }
+    var items: [PKToolPickerItem] = []
+    for (index, config) in toolItemsConfig.enumerated() {
+      if let item = Self.makeToolPickerItem(config) {
+        items.append(item)
+      } else {
+        NSLog("[munim-pencilkit] ignoring invalid toolItems[%d]", index)
+      }
+    }
+    return items
+  }
+
+  @available(iOS 18.0, *)
+  private static func makeToolPickerItem(_ config: [String: Any]) -> PKToolPickerItem? {
+    guard let type = config["type"] as? String else { return nil }
+    let identifier = config["identifier"] as? String
+    let width = (config["width"] as? NSNumber).map { CGFloat($0.doubleValue) }
+    let validWidth = width.flatMap { $0.isFinite && $0 > 0 && $0 <= 512 ? $0 : nil }
+    switch type {
+    case "ink":
+      guard
+        let rawInkType = config["inkType"] as? String,
+        let parsedInkType = Self.inkType(fromString: rawInkType)
+      else { return nil }
+      let color = (config["color"] as? String).flatMap(UIColor.pencilKitCSSColor)
+      let item = PKToolPickerInkingItem(
+        type: parsedInkType,
+        color: color,
+        width: validWidth,
+        identifier: identifier
+      )
+      if let allowsColorSelection = config["allowsColorSelection"] as? Bool {
+        item.allowsColorSelection = allowsColorSelection
+      }
+      return item
+    case "eraser":
+      let eraserType: PKEraserTool.EraserType =
+        (config["eraserType"] as? String) == "vector" ? .vector : .bitmap
+      if let validWidth {
+        return PKToolPickerEraserItem(type: eraserType, width: validWidth)
+      }
+      return PKToolPickerEraserItem(type: eraserType)
+    case "lasso":
+      return PKToolPickerLassoItem()
+    #if !os(visionOS)
+      case "ruler":
+        return PKToolPickerRulerItem()
+      case "scribble":
+        return PKToolPickerScribbleItem()
+    #endif
+    case "custom":
+      guard
+        let identifier, !identifier.isEmpty,
+        let name = config["name"] as? String, !name.isEmpty
+      else { return nil }
+      var configuration = PKToolPickerCustomItem.Configuration(identifier: identifier, name: name)
+      let systemImage = config["systemImage"] as? String ?? "pencil.tip"
+      configuration.imageProvider = { item in
+        let image = UIImage(systemName: systemImage)
+          ?? UIImage(systemName: "questionmark.square.dashed")
+          ?? UIImage()
+        return image.withTintColor(item.color, renderingMode: .alwaysOriginal)
+      }
+      if let color = (config["defaultColor"] as? String).flatMap(UIColor.pencilKitCSSColor) {
+        configuration.defaultColor = color
+      }
+      if let defaultWidth = (config["defaultWidth"] as? NSNumber)?.doubleValue,
+        defaultWidth.isFinite, defaultWidth > 0
+      {
+        configuration.defaultWidth = CGFloat(defaultWidth)
+      }
+      if let allowsColorSelection = config["allowsColorSelection"] as? Bool {
+        configuration.allowsColorSelection = allowsColorSelection
+      }
+      if let controls = config["controls"] as? [String] {
+        var options: PKToolPickerCustomItem.ControlOptions = []
+        if controls.contains("width") { options.insert(.width) }
+        if controls.contains("opacity") { options.insert(.opacity) }
+        configuration.toolAttributeControls = options
+      }
+      return PKToolPickerCustomItem(configuration: configuration)
+    default:
+      return nil
+    }
+  }
+
+  @available(iOS 18.0, *)
+  private func makeAccessoryItem() -> UIBarButtonItem? {
+    guard let accessoryItemConfig else { return nil }
+    let identifier = accessoryItemConfig["identifier"] as? String ?? "accessory"
+    let action = UIAction { [weak self] _ in
+      guard let self, self.viewId.intValue > 0 else { return }
+      self.onPencilKitToolPickerAccessoryPress?([
+        "viewId": self.viewId.intValue,
+        "identifier": identifier,
+      ])
+    }
+    let item: UIBarButtonItem
+    if let systemImage = accessoryItemConfig["systemImage"] as? String,
+      let image = UIImage(systemName: systemImage)
+    {
+      item = UIBarButtonItem(image: image, primaryAction: action)
+    } else {
+      item = UIBarButtonItem(primaryAction: action)
+      item.title = accessoryItemConfig["title"] as? String ?? "More"
+    }
+    if let title = accessoryItemConfig["title"] as? String {
+      item.accessibilityLabel = title
+    }
+    return item
+  }
+
+  @available(iOS 18.0, *)
+  private func emitToolPickerItemChange(_ item: PKToolPickerItem) {
+    guard viewId.intValue > 0 else { return }
+    let previous = lastSelectedToolItemIdentifier
+    lastSelectedToolItemIdentifier = item.identifier
+    var payload: [String: Any] = [
+      "viewId": viewId.intValue,
+      "identifier": item.identifier,
+      "itemType": Self.toolItemType(item),
+      "reselected": previous == item.identifier,
+    ]
+    if let customItem = item as? PKToolPickerCustomItem {
+      payload["color"] = customItem.color.pencilKitHexRGBA
+      payload["width"] = Double(customItem.width)
+    } else {
+      payload["selectedTool"] = currentToolStatePayload()
+    }
+    onPencilKitToolPickerItemChange?(payload)
+  }
+
+  @available(iOS 18.0, *)
+  private static func toolItemType(_ item: PKToolPickerItem) -> String {
+    switch item {
+    case is PKToolPickerInkingItem: return "ink"
+    case is PKToolPickerEraserItem: return "eraser"
+    case is PKToolPickerLassoItem: return "lasso"
+    case is PKToolPickerCustomItem: return "custom"
+    default:
+      #if !os(visionOS)
+        if item is PKToolPickerRulerItem { return "ruler" }
+        if item is PKToolPickerScribbleItem { return "scribble" }
+      #endif
+      return "unknown"
+    }
+  }
+
+  /// Points the picker at `tool` so it doesn't override a programmatic
+  /// `canvasView.tool` change the next time it's used.
+  private func syncToolPickerSelection(to tool: PKTool, itemIdentifier: String?) {
+    guard let picker = toolPicker else { return }
+    if #available(iOS 18.0, *) {
+      let items = picker.toolItems
+      let match = itemIdentifier.flatMap { id in items.first { $0.identifier == id } }
+        ?? Self.toolItem(matching: tool, in: items)
+      if let match, picker.selectedToolItem.identifier != match.identifier {
+        picker.selectedToolItem = match
+      }
+    }
+    // Carries color/width over to the matching item; the canvas observes the
+    // picker, so this also keeps the two in step.
+    picker.selectedTool = tool
+  }
+
+  @available(iOS 18.0, *)
+  private static func toolItem(matching tool: PKTool, in items: [PKToolPickerItem]) -> PKToolPickerItem? {
+    if let inkingTool = tool as? PKInkingTool {
+      return items.first {
+        ($0 as? PKToolPickerInkingItem)?.inkingTool.inkType == inkingTool.inkType
+      }
+    }
+    if let eraserTool = tool as? PKEraserTool {
+      return items.first {
+        ($0 as? PKToolPickerEraserItem)?.eraserTool.eraserType == eraserTool.eraserType
+      } ?? items.first { $0 is PKToolPickerEraserItem }
+    }
+    if tool is PKLassoTool {
+      return items.first { $0 is PKToolPickerLassoItem }
+    }
+    return nil
   }
 
   func applyConfig(_ config: [String: Any]) {
@@ -380,34 +690,119 @@ final class TouchForwardingCanvasView: PKCanvasView {
         snapshotWorkItem = nil
       }
     }
+    if let includeStrokes = config["includeStrokesInDrawing"] as? Bool {
+      includeStrokesInDrawing = includeStrokes
+    }
+    if let autoFocus = config["autoFocusToolPicker"] as? Bool {
+      autoFocusToolPicker = autoFocus
+    }
+    if let limit = config["customStylusHistoryLimit"] as? NSNumber {
+      stylusView.historyEntryLimit = min(max(limit.intValue, 0), 200)
+    }
+    if let megabytes = config["customStylusHistoryMemoryMB"] as? NSNumber,
+      megabytes.doubleValue.isFinite
+    {
+      let bytes = min(max(megabytes.doubleValue, 0), 2048) * 1024 * 1024
+      stylusView.historyMemoryBudgetBytes = Int(bytes)
+    }
+    if config.keys.contains("maximumSupportedContentVersion") {
+      applyMaximumContentVersion(config["maximumSupportedContentVersion"])
+    }
+    if config.keys.contains("toolItems") || config.keys.contains("toolPickerAccessoryItem") {
+      applyToolItemsConfig(config)
+    }
   }
 
-  func getDrawingData() -> [String: Any] {
+  private func applyMaximumContentVersion(_ raw: Any?) {
+    let version: PKContentVersion
+    if raw == nil || raw is NSNull {
+      version = .latest
+    } else {
+      do {
+        guard let parsed = try PKContentVersion.pencilKitParse(raw) else { return }
+        version = parsed
+      } catch {
+        NSLog("[munim-pencilkit] %@", error.localizedDescription)
+        return
+      }
+    }
+    maximumContentVersion = raw == nil || raw is NSNull ? nil : version
+    canvasView.maximumSupportedContentVersion = version
+    toolPicker?.maximumSupportedContentVersion = version
+  }
+
+  private func applyToolItemsConfig(_ config: [String: Any]) {
+    let items = config.keys.contains("toolItems")
+      ? config["toolItems"] as? [[String: Any]]
+      : toolItemsConfig
+    let accessory = config.keys.contains("toolPickerAccessoryItem")
+      ? config["toolPickerAccessoryItem"] as? [String: Any]
+      : accessoryItemConfig
+    let signatureObject: [Any] = [items ?? NSNull(), accessory ?? NSNull()]
+    let signature = (try? JSONSerialization.data(withJSONObject: signatureObject, options: [.sortedKeys]))
+      .flatMap { String(data: $0, encoding: .utf8) }
+    guard signature != toolItemsSignature else { return }
+    toolItemsSignature = signature
+    toolItemsConfig = items
+    accessoryItemConfig = accessory
+    if #available(iOS 18.0, *) {
+      // Tool items and the accessory item are fixed at PKToolPicker creation.
+      rebuildToolPicker()
+    }
+  }
+
+  /// Must be called on the main thread.
+  func captureDrawing(includeStrokes: Bool? = nil) -> PencilKitDrawingCapture {
     if useCustomStylusView {
-      let imageBase64 = stylusView.snapshotImage()?.pngData()?.base64EncodedString()
+      return PencilKitDrawingCapture(
+        drawing: nil,
+        rasterImage: stylusView.snapshotImage(),
+        canvasSize: bounds.size,
+        includeStrokes: false
+      )
+    }
+    return PencilKitDrawingCapture(
+      drawing: canvasView.drawing,
+      rasterImage: nil,
+      canvasSize: bounds.size,
+      includeStrokes: includeStrokes ?? includeStrokesInDrawing
+    )
+  }
+
+  /// Builds the `PencilKitDrawingData` payload. Safe to call off the main thread.
+  static func drawingPayload(from capture: PencilKitDrawingCapture) -> [String: Any] {
+    guard let drawing = capture.drawing else {
+      let imageBase64 = capture.rasterImage?.pngData()?.base64EncodedString()
       return [
         "strokes": [],
         "bounds": [
           "x": 0,
           "y": 0,
-          "width": bounds.width,
-          "height": bounds.height,
+          "width": capture.canvasSize.width,
+          "height": capture.canvasSize.height,
         ],
         "imageBase64": imageBase64 as Any,
       ]
     }
 
-    let data = canvasView.drawing.dataRepresentation().base64EncodedString()
+    let drawingBounds = drawing.bounds.isNull || drawing.bounds.isInfinite ? .zero : drawing.bounds
     return [
-      "strokes": [],
+      // Strokes are opt-in (includeStrokesInDrawing / getDrawing({ includeStrokes }))
+      // because they can be many times larger than the archive.
+      "strokes": capture.includeStrokes ? PencilKitStrokeCodec.encode(drawing.strokes) : [],
       "bounds": [
-        "x": canvasView.drawing.bounds.origin.x,
-        "y": canvasView.drawing.bounds.origin.y,
-        "width": canvasView.drawing.bounds.width,
-        "height": canvasView.drawing.bounds.height,
+        "x": drawingBounds.origin.x,
+        "y": drawingBounds.origin.y,
+        "width": drawingBounds.width,
+        "height": drawingBounds.height,
       ],
-      "dataBase64": data,
+      "dataBase64": drawing.dataRepresentation().base64EncodedString(),
+      "requiredContentVersion": drawing.requiredContentVersion.rawValue,
     ]
+  }
+
+  func getDrawingData(includeStrokes: Bool? = nil) -> [String: Any] {
+    return Self.drawingPayload(from: captureDrawing(includeStrokes: includeStrokes))
   }
 
   var drawingImportMode: PencilKitDrawingImportMode {
@@ -428,7 +823,11 @@ final class TouchForwardingCanvasView: PKCanvasView {
       return .customImage(image)
     case .pencilKit:
       guard let base64 = drawing["dataBase64"] as? String else {
-        throw PencilKitHybridError.invalidDrawing("dataBase64 is required")
+        // Without an archive, fall back to building the drawing from strokes.
+        if let strokes = drawing["strokes"] as? [Any], !strokes.isEmpty {
+          return .pencilKit(PKDrawing(strokes: try PencilKitStrokeCodec.decodeStrokes(from: drawing)))
+        }
+        throw PencilKitHybridError.invalidDrawing("dataBase64 or a non-empty strokes array is required")
       }
       let data = try PencilKitDataValidator.decodeBase64(base64, fieldName: "dataBase64")
       guard data.count <= PencilKitImportLimits.maxBase64DecodedBytes else {
@@ -472,6 +871,60 @@ final class TouchForwardingCanvasView: PKCanvasView {
     } else {
       importedImageView.image = nil
       canvasView.drawing = PKDrawing()
+    }
+  }
+
+  /// The live PencilKit drawing. Throws in custom-stylus mode, which has no strokes.
+  func pencilKitDrawing() throws -> PKDrawing {
+    guard !useCustomStylusView else {
+      throw PencilKitHybridError.invalidOptions(
+        "stroke access requires the PencilKit engine; disable useCustomStylusView"
+      )
+    }
+    return canvasView.drawing
+  }
+
+  /// Replaces the drawing's strokes with `transform(strokes)` as one undoable step.
+  func mutateStrokes(
+    actionName: String,
+    _ transform: ([PKStroke]) throws -> [PKStroke]
+  ) throws {
+    var drawing = try pencilKitDrawing()
+    drawing.strokes = try transform(drawing.strokes)
+    replaceDrawingUndoably(drawing, actionName: actionName)
+  }
+
+  private func replaceDrawingUndoably(_ drawing: PKDrawing, actionName: String) {
+    let previous = canvasView.drawing
+    if let undoManager = canvasView.undoManager {
+      undoManager.registerUndo(withTarget: self) { target in
+        // Registering from inside an undo lands on the redo stack.
+        target.replaceDrawingUndoably(previous, actionName: actionName)
+      }
+      undoManager.setActionName(actionName)
+    }
+    importedImageView.image = nil
+    canvasView.drawing = drawing
+  }
+
+  /// Releases native state for destroyPencilKitView. The view stays in the
+  /// hierarchy (React owns it) and works again if it gets a new viewId.
+  func tearDown() {
+    snapshotWorkItem?.cancel()
+    snapshotWorkItem = nil
+    isApplePencilCaptureActive = false
+    stopMotionTracking()
+    canvasView.undoManager?.removeAllActions(withTarget: self)
+    if let picker = toolPicker {
+      picker.setVisible(false, forFirstResponder: canvasView)
+      picker.removeObserver(self)
+      picker.removeObserver(canvasView)
+      toolPicker = nil
+    }
+    isToolPickerShown = false
+    lastToolPickerPayload = nil
+    if canvasView.isFirstResponder {
+      canvasView.resignFirstResponder()
     }
   }
 
@@ -529,7 +982,8 @@ final class TouchForwardingCanvasView: PKCanvasView {
         drawing: nil,
         rasterImage: stylusView.snapshotImage(),
         canvasSize: bounds.size,
-        drawingBounds: CGRect(origin: .zero, size: bounds.size)
+        drawingBounds: CGRect(origin: .zero, size: bounds.size),
+        userInterfaceStyle: traitCollection.userInterfaceStyle
       )
     }
     let drawing = canvasView.drawing
@@ -540,7 +994,8 @@ final class TouchForwardingCanvasView: PKCanvasView {
       drawing: drawing,
       rasterImage: nil,
       canvasSize: canvasView.bounds.size,
-      drawingBounds: drawingBounds
+      drawingBounds: drawingBounds,
+      userInterfaceStyle: traitCollection.userInterfaceStyle
     )
   }
 
@@ -577,6 +1032,7 @@ final class TouchForwardingCanvasView: PKCanvasView {
       throw PencilKitHybridError.invalidOptions("tool type must be ink, eraser, or lasso")
     }
 
+    let newTool: PKTool
     switch type {
     case "ink":
       guard
@@ -599,7 +1055,7 @@ final class TouchForwardingCanvasView: PKCanvasView {
       guard width.isFinite, width > 0, width <= 512 else {
         throw PencilKitHybridError.invalidOptions("ink width must be finite and between 0 and 512")
       }
-      canvasView.tool = PKInkingTool(inkType, color: color, width: width)
+      newTool = PKInkingTool(inkType, color: color, width: width)
     case "eraser":
       let rawEraserType = object["eraserType"] as? String ?? "bitmap"
       let eraserType: PKEraserTool.EraserType
@@ -618,15 +1074,19 @@ final class TouchForwardingCanvasView: PKCanvasView {
             "eraser width must be finite and between 0 and 512"
           )
         }
-        canvasView.tool = PKEraserTool(eraserType, width: width)
+        newTool = PKEraserTool(eraserType, width: width)
       } else {
-        canvasView.tool = PKEraserTool(eraserType)
+        newTool = PKEraserTool(eraserType)
       }
     case "lasso":
-      canvasView.tool = PKLassoTool()
+      newTool = PKLassoTool()
     default:
       throw PencilKitHybridError.invalidOptions("tool type must be ink, eraser, or lasso")
     }
+    // Update the picker first: the canvas observes it, and a picker left on
+    // the old tool would put it back the next time it's shown or tapped.
+    syncToolPickerSelection(to: newTool, itemIdentifier: object["itemIdentifier"] as? String)
+    canvasView.tool = newTool
     emitToolPickerChange()
   }
 
@@ -819,7 +1279,23 @@ final class TouchForwardingCanvasView: PKCanvasView {
 
   func canvasViewDidBeginUsingTool(_ canvasView: PKCanvasView) {
     isDrawing = true
+    // Drawing brings the picker back once focus has left the canvas (e.g. a
+    // text input was focused and then dismissed). A text input that is still
+    // focused keeps its keyboard.
+    if desiredToolPickerVisibility(), toolPicker != nil {
+      focusCanvasForToolPicker(overridingTextInput: false)
+    }
     emitDrawingPhase("began")
+  }
+
+  func canvasViewDidFinishRendering(_ canvasView: PKCanvasView) {
+    guard viewId.intValue > 0 else { return }
+    onPencilKitDidFinishRendering?([
+      "viewId": viewId.intValue,
+      "revision": revision,
+      "timestamp": ProcessInfo.processInfo.systemUptime,
+      "timestampClock": "systemUptime",
+    ])
   }
 
   func canvasViewDidEndUsingTool(_ canvasView: PKCanvasView) {
@@ -831,11 +1307,18 @@ final class TouchForwardingCanvasView: PKCanvasView {
     guard enableApplePencilData, isApplePencilCaptureActive else { return }
 
     for touch in touches where touch.type == .pencil {
-      let data = convertTouchToDictionary(touch: touch, phase: phase)
+      // Coalesced samples lead up to `touch`, so chain their kinematics from
+      // the state before it; predicted samples extrapolate past it. Only the
+      // real touch advances the stored velocity state.
+      let stateBeforeTouch = motionState
+      let data = convertTouchToDictionary(touch: touch, phase: phase, state: &motionState)
       onApplePencilData?(data)
 
       if let coalesced = event?.coalescedTouches(for: touch), !coalesced.isEmpty {
-        let touchesData = coalesced.map { convertTouchToDictionary(touch: $0, phase: phase) }
+        var coalescedState = stateBeforeTouch
+        let touchesData = coalesced.map {
+          convertTouchToDictionary(touch: $0, phase: phase, state: &coalescedState)
+        }
         onApplePencilCoalescedTouches?([
           "viewId": viewId.intValue,
           "touches": touchesData,
@@ -844,7 +1327,10 @@ final class TouchForwardingCanvasView: PKCanvasView {
       }
 
       if let predicted = event?.predictedTouches(for: touch), !predicted.isEmpty {
-        let touchesData = predicted.map { convertTouchToDictionary(touch: $0, phase: phase) }
+        var predictedState = motionState
+        let touchesData = predicted.map {
+          convertTouchToDictionary(touch: $0, phase: .moved, state: &predictedState)
+        }
         onApplePencilPredictedTouches?([
           "viewId": viewId.intValue,
           "touches": touchesData,
@@ -857,19 +1343,26 @@ final class TouchForwardingCanvasView: PKCanvasView {
   func handleEstimatedPropertiesUpdated(_ touches: Set<UITouch>) {
     guard enableApplePencilData, isApplePencilCaptureActive else { return }
     for touch in touches where touch.type == .pencil {
+      // Estimated-property updates revise an earlier sample; they must not
+      // move the velocity state forward.
+      var scratchState = motionState
       let updated = estimatePropertyNames(mask: touch.estimatedProperties)
       if updated.isEmpty { continue }
       onApplePencilEstimatedProperties?([
         "viewId": viewId.intValue,
         "touchId": touch.hash,
         "updatedProperties": updated,
-        "newData": convertTouchToDictionary(touch: touch, phase: touch.phase),
+        "newData": convertTouchToDictionary(touch: touch, phase: touch.phase, state: &scratchState),
         "timestamp": touch.timestamp,
       ])
     }
   }
 
-  private func convertTouchToDictionary(touch: UITouch, phase: UITouch.Phase) -> [String: Any] {
+  private func convertTouchToDictionary(
+    touch: UITouch,
+    phase: UITouch.Phase,
+    state: inout PencilMotionState
+  ) -> [String: Any] {
     let location = touch.location(in: self)
     let previousLocation = touch.previousLocation(in: self)
     let preciseLocation = touch.preciseLocation(in: self)
@@ -879,24 +1372,22 @@ final class TouchForwardingCanvasView: PKCanvasView {
     let curvedPressure = pow(min(max(pressure, 0), 1), 0.7)
     let nowVelocity: Double
     let acceleration: Double
-    if lastTouchTimestamp > 0, phase != .began {
-      let dt = touch.timestamp - lastTouchTimestamp
+    if state.timestamp > 0, phase != .began {
+      let dt = touch.timestamp - state.timestamp
       if dt > 0 {
-        let dx = Double(location.x - lastTouchLocation.x)
-        let dy = Double(location.y - lastTouchLocation.y)
+        let dx = Double(location.x - state.location.x)
+        let dy = Double(location.y - state.location.y)
         nowVelocity = sqrt((dx * dx) + (dy * dy)) / dt
-        acceleration = (nowVelocity - lastVelocity) / dt
+        acceleration = (nowVelocity - state.velocity) / dt
       } else {
-        nowVelocity = 0
+        nowVelocity = state.velocity
         acceleration = 0
       }
     } else {
       nowVelocity = 0
       acceleration = 0
     }
-    lastTouchLocation = location
-    lastTouchTimestamp = touch.timestamp
-    lastVelocity = nowVelocity
+    state = PencilMotionState(location: location, timestamp: touch.timestamp, velocity: nowVelocity)
 
     let azimuthVector = touch.azimuthUnitVector(in: self)
     let rollAngle: CGFloat
@@ -978,6 +1469,7 @@ final class TouchForwardingCanvasView: PKCanvasView {
     }
     onApplePencilHover?([
       "viewId": viewId.intValue,
+      "phase": Self.hoverPhase(recognizer.state),
       "location": ["x": location.x, "y": location.y],
       "altitude": altitude,
       "azimuth": azimuth,
@@ -986,6 +1478,15 @@ final class TouchForwardingCanvasView: PKCanvasView {
       "rollAngle": rollAngle,
       "timestamp": ProcessInfo.processInfo.systemUptime,
     ])
+  }
+
+  static func hoverPhase(_ state: UIGestureRecognizer.State) -> String {
+    switch state {
+    case .began: return "began"
+    case .changed: return "changed"
+    case .ended: return "ended"
+    default: return "cancelled"
+    }
   }
 
   private func triggerHapticFeedback(_ style: UIImpactFeedbackGenerator.FeedbackStyle) {
@@ -1165,7 +1666,10 @@ final class TouchForwardingCanvasView: PKCanvasView {
     let pencilTouches = touches.filter { $0.type == .pencil }
     if pencilTouches.isEmpty { return }
 
-    let touchesData = pencilTouches.map { convertTouchToDictionary(touch: $0, phase: .moved) }
+    // In custom-stylus mode the coalesced samples are the real input.
+    let touchesData = pencilTouches.map {
+      convertTouchToDictionary(touch: $0, phase: .moved, state: &motionState)
+    }
     onApplePencilCoalescedTouches?([
       "viewId": viewId.intValue,
       "touches": touchesData,
@@ -1180,10 +1684,13 @@ final class TouchForwardingCanvasView: PKCanvasView {
     azimuth: CGFloat,
     azimuthUnitVector: CGVector,
     zOffset: CGFloat,
-    rollAngle: CGFloat
+    rollAngle: CGFloat,
+    phase: String
   ) {
+    guard enableHoverSupport else { return }
     onApplePencilHover?([
       "viewId": viewId.intValue,
+      "phase": phase,
       "location": ["x": location.x, "y": location.y],
       "altitude": altitude,
       "azimuth": azimuth,
@@ -1192,5 +1699,12 @@ final class TouchForwardingCanvasView: PKCanvasView {
       "rollAngle": rollAngle,
       "timestamp": ProcessInfo.processInfo.systemUptime,
     ])
+  }
+}
+
+extension UIResponder {
+  /// Target of a nil-targeted action used to find the current first responder.
+  @objc func munimPencilKitCaptureFirstResponder(_ sender: Any?) {
+    PencilKitNativeView.recordFirstResponder(self)
   }
 }

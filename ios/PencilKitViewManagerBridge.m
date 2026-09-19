@@ -25,5 +25,8 @@ RCT_EXPORT_VIEW_PROPERTY(onPencilKitDrawingSnapshot, RCTDirectEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(onPencilKitDrawingPhase, RCTDirectEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(onPencilKitHistoryChange, RCTDirectEventBlock)
 RCT_EXPORT_VIEW_PROPERTY(onPencilKitToolPickerChange, RCTDirectEventBlock)
+RCT_EXPORT_VIEW_PROPERTY(onPencilKitToolPickerItemChange, RCTDirectEventBlock)
+RCT_EXPORT_VIEW_PROPERTY(onPencilKitToolPickerAccessoryPress, RCTDirectEventBlock)
+RCT_EXPORT_VIEW_PROPERTY(onPencilKitDidFinishRendering, RCTDirectEventBlock)
 
 @end

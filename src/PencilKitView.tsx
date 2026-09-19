@@ -28,14 +28,21 @@ import type {
   PencilKitDrawingChangeEvent,
   PencilKitDrawingPhaseEvent,
   PencilKitDrawingSnapshotEvent,
+  PencilKitAffineTransform,
   PencilKitConfig,
   PencilKitDrawingData,
   PencilKitExportOptions,
   PencilKitExportResult,
+  PencilKitGetDrawingOptions,
   PencilKitHistoryEvent,
   PencilKitImportOptions,
+  PencilKitRenderEvent,
+  PencilKitStroke,
+  PencilKitToolPickerAccessoryEvent,
   PencilKitToolPickerEvent,
+  PencilKitToolPickerItemEvent,
   PencilKitToolState,
+  PencilKitToolStateInput,
 } from './types'
 
 type NativeEventPayload<T> = NativeSyntheticEvent<T>
@@ -293,6 +300,15 @@ interface NativePencilKitViewProps extends ViewProps {
   onPencilKitToolPickerChange?: (
     event: NativeEventPayload<PencilKitToolPickerEvent>
   ) => void
+  onPencilKitToolPickerItemChange?: (
+    event: NativeEventPayload<PencilKitToolPickerItemEvent>
+  ) => void
+  onPencilKitToolPickerAccessoryPress?: (
+    event: NativeEventPayload<PencilKitToolPickerAccessoryEvent>
+  ) => void
+  onPencilKitDidFinishRendering?: (
+    event: NativeEventPayload<PencilKitRenderEvent>
+  ) => void
   onApplePencilCoalescedTouches?: (
     event: NativeEventPayload<ApplePencilCoalescedTouchesData>
   ) => void
@@ -322,8 +338,15 @@ const NativePencilKitView =
     ? requireNativeComponent<NativePencilKitViewProps>('PencilKitView')
     : null
 
+/**
+ * Imperative handle. Calls run in the order they are made (each waits for
+ * the previous one), and the drawing/export/stroke calls run natively off
+ * the JS thread.
+ */
 export interface PencilKitViewRef {
-  getDrawing: () => Promise<PencilKitDrawingData>
+  getDrawing: (
+    options?: PencilKitGetDrawingOptions
+  ) => Promise<PencilKitDrawingData>
   setDrawing: (drawing: PencilKitDrawingData) => Promise<void>
   clearDrawing: () => Promise<void>
   undo: () => Promise<boolean>
@@ -335,9 +358,25 @@ export interface PencilKitViewRef {
   isApplePencilCaptureActive: () => Promise<boolean>
   exportDocument: (options: PencilKitExportOptions) => Promise<PencilKitExportResult>
   importDocument: (options: PencilKitImportOptions) => Promise<void>
-  setTool: (tool: PencilKitToolState) => Promise<void>
+  setTool: (tool: PencilKitToolStateInput) => Promise<void>
   getTool: () => Promise<PencilKitToolState>
   setToolPickerVisible: (visible: boolean) => Promise<void>
+  /** PencilKit engine only. See `PencilKitStroke` for the coordinate spaces. */
+  getStrokes: () => Promise<PencilKitStroke[]>
+  /** Replaces every stroke. Undoable. PencilKit engine only. */
+  setStrokes: (strokes: PencilKitStroke[]) => Promise<void>
+  /** Adds strokes on top. Undoable. PencilKit engine only. */
+  appendStrokes: (strokes: PencilKitStroke[]) => Promise<void>
+  /** Removes strokes by index. Resolves the count removed. Undoable. */
+  removeStrokes: (indices: number[]) => Promise<number>
+  /**
+   * Applies `transform` in canvas space to the strokes at `indices`.
+   * Resolves the count changed. Undoable.
+   */
+  transformStrokes: (
+    indices: number[],
+    transform: PencilKitAffineTransform
+  ) => Promise<number>
 }
 
 export interface PencilKitViewProps extends ViewProps {
@@ -349,6 +388,14 @@ export interface PencilKitViewProps extends ViewProps {
   onDrawingEnd?: (event: PencilKitDrawingPhaseEvent) => void
   onHistoryChange?: (event: PencilKitHistoryEvent) => void
   onToolPickerChange?: (event: PencilKitToolPickerEvent) => void
+  /** iOS 18+: the selected tool picker item changed (including custom items). */
+  onToolPickerItemChange?: (event: PencilKitToolPickerItemEvent) => void
+  /** iOS 18+: `config.toolPickerAccessoryItem` was tapped. */
+  onToolPickerAccessoryPress?: (
+    event: PencilKitToolPickerAccessoryEvent
+  ) => void
+  /** PencilKit finished rendering all visible content (`canvasViewDidFinishRendering`). */
+  onDidFinishRendering?: (event: PencilKitRenderEvent) => void
   onApplePencilCoalescedTouches?: (
     data: ApplePencilCoalescedTouchesData
   ) => void
@@ -382,6 +429,12 @@ function parseDrawingJson(raw: string): PencilKitDrawingData {
   return JSON.parse(raw) as PencilKitDrawingData
 }
 
+function parseStrokesJson(raw: string): PencilKitStroke[] {
+  return (JSON.parse(raw) as { strokes: PencilKitStroke[] }).strokes
+}
+
+const noop = (): void => {}
+
 function isViewNotFoundError(error: unknown): boolean {
   return (
     error instanceof Error &&
@@ -402,6 +455,9 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
       onDrawingEnd,
       onHistoryChange,
       onToolPickerChange,
+      onToolPickerItemChange,
+      onToolPickerAccessoryPress,
+      onDidFinishRendering,
       onApplePencilCoalescedTouches,
       onApplePencilPredictedTouches,
       onApplePencilEstimatedProperties,
@@ -461,82 +517,106 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
       MunimPencilkit.setPencilKitConfig(viewId, JSON.stringify(config))
     }, [viewId, config])
 
-    useImperativeHandle(
-      ref,
-      () => ({
-        getDrawing: async () => {
-          if (viewId == null) throw new Error('PencilKit view not ready')
-          return parseDrawingJson(MunimPencilkit.getPencilKitDrawing(viewId))
-        },
-        setDrawing: async (drawing: PencilKitDrawingData) => {
-          if (viewId == null) throw new Error('PencilKit view not ready')
-          MunimPencilkit.setPencilKitDrawing(viewId, JSON.stringify(drawing))
-        },
-        clearDrawing: async () => {
-          if (viewId == null) throw new Error('PencilKit view not ready')
-          MunimPencilkit.clearPencilKitDrawing(viewId)
-        },
-        undo: async () => {
-          if (viewId == null) throw new Error('PencilKit view not ready')
-          return MunimPencilkit.undoPencilKitDrawing(viewId)
-        },
-        redo: async () => {
-          if (viewId == null) throw new Error('PencilKit view not ready')
-          return MunimPencilkit.redoPencilKitDrawing(viewId)
-        },
-        canUndo: async () => {
-          if (viewId == null) throw new Error('PencilKit view not ready')
-          return MunimPencilkit.canUndoPencilKitDrawing(viewId)
-        },
-        canRedo: async () => {
-          if (viewId == null) throw new Error('PencilKit view not ready')
-          return MunimPencilkit.canRedoPencilKitDrawing(viewId)
-        },
-        startApplePencilCapture: async () => {
-          if (viewId == null) throw new Error('PencilKit view not ready')
-          MunimPencilkit.startApplePencilDataCapture(viewId)
-        },
-        stopApplePencilCapture: async () => {
-          if (viewId == null) throw new Error('PencilKit view not ready')
-          MunimPencilkit.stopApplePencilDataCapture(viewId)
-        },
-        isApplePencilCaptureActive: async () => {
-          if (viewId == null) throw new Error('PencilKit view not ready')
-          return MunimPencilkit.isApplePencilDataCaptureActive(viewId)
-        },
-        exportDocument: async (options: PencilKitExportOptions) => {
-          if (viewId == null) throw new Error('PencilKit view not ready')
-          return JSON.parse(
-            MunimPencilkit.exportPencilKitDocument(
-              viewId,
+    // Ref calls form one ordered queue: the async natives would otherwise let
+    // a later synchronous call (e.g. undo) overtake an earlier setDrawing.
+    const queueRef = useRef<Promise<void>>(Promise.resolve())
+
+    useImperativeHandle(ref, () => {
+      const run = <T,>(op: (id: number) => T | Promise<T>): Promise<T> => {
+        const id = viewId
+        if (id == null) {
+          return Promise.reject(new Error('PencilKit view not ready'))
+        }
+        const task = () => op(id)
+        const result = queueRef.current.then(task, task)
+        queueRef.current = result.then(noop, noop)
+        return result
+      }
+
+      return {
+        getDrawing: (options?: PencilKitGetDrawingOptions) =>
+          run(async (id) =>
+            parseDrawingJson(
+              await MunimPencilkit.getPencilKitDrawingAsync(
+                id,
+                JSON.stringify(options ?? {})
+              )
+            )
+          ),
+        setDrawing: (drawing: PencilKitDrawingData) =>
+          run((id) =>
+            MunimPencilkit.setPencilKitDrawingAsync(id, JSON.stringify(drawing))
+          ),
+        clearDrawing: () =>
+          run((id) => MunimPencilkit.clearPencilKitDrawing(id)),
+        undo: () => run((id) => MunimPencilkit.undoPencilKitDrawing(id)),
+        redo: () => run((id) => MunimPencilkit.redoPencilKitDrawing(id)),
+        canUndo: () => run((id) => MunimPencilkit.canUndoPencilKitDrawing(id)),
+        canRedo: () => run((id) => MunimPencilkit.canRedoPencilKitDrawing(id)),
+        startApplePencilCapture: () =>
+          run((id) => MunimPencilkit.startApplePencilDataCapture(id)),
+        stopApplePencilCapture: () =>
+          run((id) => MunimPencilkit.stopApplePencilDataCapture(id)),
+        isApplePencilCaptureActive: () =>
+          run((id) => MunimPencilkit.isApplePencilDataCaptureActive(id)),
+        exportDocument: (options: PencilKitExportOptions) =>
+          run(
+            async (id) =>
+              JSON.parse(
+                await MunimPencilkit.exportPencilKitDocumentAsync(
+                  id,
+                  JSON.stringify(options)
+                )
+              ) as PencilKitExportResult
+          ),
+        importDocument: (options: PencilKitImportOptions) =>
+          run((id) =>
+            MunimPencilkit.importPencilKitDocumentAsync(
+              id,
               JSON.stringify(options)
             )
-          ) as PencilKitExportResult
-        },
-        importDocument: async (options: PencilKitImportOptions) => {
-          if (viewId == null) throw new Error('PencilKit view not ready')
-          MunimPencilkit.importPencilKitDocument(
-            viewId,
-            JSON.stringify(options)
-          )
-        },
-        setTool: async (tool: PencilKitToolState) => {
-          if (viewId == null) throw new Error('PencilKit view not ready')
-          MunimPencilkit.setPencilKitTool(viewId, JSON.stringify(tool))
-        },
-        getTool: async () => {
-          if (viewId == null) throw new Error('PencilKit view not ready')
-          return JSON.parse(
-            MunimPencilkit.getPencilKitTool(viewId)
-          ) as PencilKitToolState
-        },
-        setToolPickerVisible: async (visible: boolean) => {
-          if (viewId == null) throw new Error('PencilKit view not ready')
-          MunimPencilkit.setPencilKitToolPickerVisible(viewId, visible)
-        },
-      }),
-      [viewId]
-    )
+          ),
+        setTool: (tool: PencilKitToolStateInput) =>
+          run((id) => MunimPencilkit.setPencilKitTool(id, JSON.stringify(tool))),
+        getTool: () =>
+          run(
+            (id) =>
+              JSON.parse(
+                MunimPencilkit.getPencilKitTool(id)
+              ) as PencilKitToolState
+          ),
+        setToolPickerVisible: (visible: boolean) =>
+          run((id) => MunimPencilkit.setPencilKitToolPickerVisible(id, visible)),
+        getStrokes: () =>
+          run(async (id) =>
+            parseStrokesJson(await MunimPencilkit.getPencilKitStrokes(id))
+          ),
+        setStrokes: (strokes: PencilKitStroke[]) =>
+          run((id) =>
+            MunimPencilkit.setPencilKitStrokes(id, JSON.stringify({ strokes }))
+          ),
+        appendStrokes: (strokes: PencilKitStroke[]) =>
+          run((id) =>
+            MunimPencilkit.appendPencilKitStrokes(
+              id,
+              JSON.stringify({ strokes })
+            )
+          ),
+        removeStrokes: (indices: number[]) =>
+          run((id) => MunimPencilkit.removePencilKitStrokes(id, indices)),
+        transformStrokes: (
+          indices: number[],
+          transform: PencilKitAffineTransform
+        ) =>
+          run((id) =>
+            MunimPencilkit.transformPencilKitStrokes(
+              id,
+              indices,
+              JSON.stringify(transform)
+            )
+          ),
+      }
+    }, [viewId])
 
     const callbacks = useMemo(
       () => ({
@@ -583,6 +663,21 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
           const data = event.nativeEvent
           onToolPickerChange?.(data)
           pencilKitEventBus.emitToolPicker(data)
+        },
+        onPencilKitToolPickerItemChange: (
+          event: NativeEventPayload<PencilKitToolPickerItemEvent>
+        ) => {
+          onToolPickerItemChange?.(event.nativeEvent)
+        },
+        onPencilKitToolPickerAccessoryPress: (
+          event: NativeEventPayload<PencilKitToolPickerAccessoryEvent>
+        ) => {
+          onToolPickerAccessoryPress?.(event.nativeEvent)
+        },
+        onPencilKitDidFinishRendering: (
+          event: NativeEventPayload<PencilKitRenderEvent>
+        ) => {
+          onDidFinishRendering?.(event.nativeEvent)
         },
         onApplePencilCoalescedTouches: (
           event: NativeEventPayload<ApplePencilCoalescedTouchesData>
@@ -643,6 +738,9 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
         onDrawingEnd,
         onHistoryChange,
         onToolPickerChange,
+        onToolPickerItemChange,
+        onToolPickerAccessoryPress,
+        onDidFinishRendering,
         onApplePencilCoalescedTouches,
         onApplePencilPredictedTouches,
         onApplePencilEstimatedProperties,
@@ -677,6 +775,22 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
         onPencilKitDrawingPhase={callbacks.onPencilKitDrawingPhase}
         onPencilKitHistoryChange={callbacks.onPencilKitHistoryChange}
         onPencilKitToolPickerChange={callbacks.onPencilKitToolPickerChange}
+        onPencilKitToolPickerItemChange={
+          onToolPickerItemChange
+            ? callbacks.onPencilKitToolPickerItemChange
+            : undefined
+        }
+        onPencilKitToolPickerAccessoryPress={
+          onToolPickerAccessoryPress
+            ? callbacks.onPencilKitToolPickerAccessoryPress
+            : undefined
+        }
+        // Rendering finishes often; only cross the bridge when someone listens.
+        onPencilKitDidFinishRendering={
+          onDidFinishRendering
+            ? callbacks.onPencilKitDidFinishRendering
+            : undefined
+        }
         onApplePencilCoalescedTouches={callbacks.onApplePencilCoalescedTouches}
         onApplePencilPredictedTouches={callbacks.onApplePencilPredictedTouches}
         onApplePencilEstimatedProperties={

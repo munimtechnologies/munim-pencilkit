@@ -98,6 +98,8 @@ struct PencilKitDocumentExportOptions {
   let scale: CGFloat
   let backgroundColor: UIColor?
   let quality: CGFloat
+  /// "light" (default), "dark", or "view" (the canvas's current style).
+  let appearance: String
 
   init(_ object: [String: Any]) throws {
     guard (object["version"] as? NSNumber)?.intValue == 1 else {
@@ -149,6 +151,12 @@ struct PencilKitDocumentExportOptions {
       }
       backgroundColor = color
     }
+
+    let appearance = object["appearance"] as? String ?? "light"
+    guard ["light", "dark", "view"].contains(appearance) else {
+      throw PencilKitHybridError.invalidOptions("appearance must be light, dark, or view")
+    }
+    self.appearance = appearance
 
     self.format = format
     self.output = output
@@ -258,6 +266,9 @@ enum PencilKitDocumentRenderer {
         height: Double(rect.height * options.scale)
       )
     case .pdf:
+      // PencilKit has no vector export, so the page holds the raster rendered
+      // at `scale`. width/height report the page size in points (the PDF's
+      // own unit); the embedded image is width*scale x height*scale pixels.
       let pageBounds = CGRect(origin: .zero, size: rect.size)
       let renderer = UIGraphicsPDFRenderer(bounds: pageBounds)
       let data = renderer.pdfData { context in
@@ -334,7 +345,20 @@ enum PencilKitDocumentRenderer {
         context.fill(target)
       }
       if let drawing = source.drawing {
-        drawing.image(from: rect, scale: options.scale).draw(in: target)
+        // PKDrawing.image resolves ink colors against the *current* trait
+        // collection (dark mode inverts black/white ink). Off the main thread
+        // that is an unspecified default, so pin it explicitly.
+        let style: UIUserInterfaceStyle
+        switch options.appearance {
+        case "dark": style = .dark
+        case "view": style = source.userInterfaceStyle == .dark ? .dark : .light
+        default: style = .light
+        }
+        var image: UIImage?
+        UITraitCollection(userInterfaceStyle: style).performAsCurrent {
+          image = drawing.image(from: rect, scale: options.scale)
+        }
+        image?.draw(in: target)
       } else if let rasterImage = source.rasterImage {
         rasterImage.draw(
           in: CGRect(

@@ -21,7 +21,9 @@ namespace margelo::nitro::munimpencilkit {
       prototype.registerHybridMethod("destroyPencilKitView", &HybridMunimPencilkitSpec::destroyPencilKitView);
       prototype.registerHybridMethod("setPencilKitConfig", &HybridMunimPencilkitSpec::setPencilKitConfig);
       prototype.registerHybridMethod("getPencilKitDrawing", &HybridMunimPencilkitSpec::getPencilKitDrawing);
+      prototype.registerHybridMethod("getPencilKitDrawingAsync", &HybridMunimPencilkitSpec::getPencilKitDrawingAsync);
       prototype.registerHybridMethod("setPencilKitDrawing", &HybridMunimPencilkitSpec::setPencilKitDrawing);
+      prototype.registerHybridMethod("setPencilKitDrawingAsync", &HybridMunimPencilkitSpec::setPencilKitDrawingAsync);
       prototype.registerHybridMethod("clearPencilKitDrawing", &HybridMunimPencilkitSpec::clearPencilKitDrawing);
       prototype.registerHybridMethod("undoPencilKitDrawing", &HybridMunimPencilkitSpec::undoPencilKitDrawing);
       prototype.registerHybridMethod("redoPencilKitDrawing", &HybridMunimPencilkitSpec::redoPencilKitDrawing);
@@ -31,10 +33,17 @@ namespace margelo::nitro::munimpencilkit {
       prototype.registerHybridMethod("stopApplePencilDataCapture", &HybridMunimPencilkitSpec::stopApplePencilDataCapture);
       prototype.registerHybridMethod("isApplePencilDataCaptureActive", &HybridMunimPencilkitSpec::isApplePencilDataCaptureActive);
       prototype.registerHybridMethod("exportPencilKitDocument", &HybridMunimPencilkitSpec::exportPencilKitDocument);
+      prototype.registerHybridMethod("exportPencilKitDocumentAsync", &HybridMunimPencilkitSpec::exportPencilKitDocumentAsync);
       prototype.registerHybridMethod("importPencilKitDocument", &HybridMunimPencilkitSpec::importPencilKitDocument);
+      prototype.registerHybridMethod("importPencilKitDocumentAsync", &HybridMunimPencilkitSpec::importPencilKitDocumentAsync);
       prototype.registerHybridMethod("setPencilKitTool", &HybridMunimPencilkitSpec::setPencilKitTool);
       prototype.registerHybridMethod("getPencilKitTool", &HybridMunimPencilkitSpec::getPencilKitTool);
       prototype.registerHybridMethod("setPencilKitToolPickerVisible", &HybridMunimPencilkitSpec::setPencilKitToolPickerVisible);
+      prototype.registerHybridMethod("getPencilKitStrokes", &HybridMunimPencilkitSpec::getPencilKitStrokes);
+      prototype.registerHybridMethod("setPencilKitStrokes", &HybridMunimPencilkitSpec::setPencilKitStrokes);
+      prototype.registerHybridMethod("appendPencilKitStrokes", &HybridMunimPencilkitSpec::appendPencilKitStrokes);
+      prototype.registerHybridMethod("removePencilKitStrokes", &HybridMunimPencilkitSpec::removePencilKitStrokes);
+      prototype.registerHybridMethod("transformPencilKitStrokes", &HybridMunimPencilkitSpec::transformPencilKitStrokes);
     });
   }
 

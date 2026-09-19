@@ -13,10 +13,12 @@ namespace margelo::nitro::munimpencilkit { class HybridMunimPencilkitSpec; }
 
 // Include C++ defined types
 #include "HybridMunimPencilkitSpec.hpp"
+#include <NitroModules/Promise.hpp>
 #include <NitroModules/Result.hpp>
 #include <exception>
 #include <memory>
 #include <string>
+#include <vector>
 
 // C++ helpers for Swift
 #include "MunimPencilkit-Swift-Cxx-Bridge.hpp"

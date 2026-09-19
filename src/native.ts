@@ -13,7 +13,7 @@ const unsupportedNativeModule = new Proxy(
       JSON.stringify({
         platform: Platform.OS,
         supported: false,
-        minimumIOSVersion: '14.0',
+        minimumIOSVersion: '17.5',
         documentVersion: 1,
         documentFormats: [],
         outputKinds: [],
