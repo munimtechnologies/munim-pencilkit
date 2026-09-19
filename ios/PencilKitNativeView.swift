@@ -349,7 +349,7 @@ final class TouchForwardingCanvasView: PKCanvasView {
 
   private func focusCanvasForToolPicker(overridingTextInput: Bool) {
     guard !canvasView.isFirstResponder else { return }
-    if !overridingTextInput, Self.isTextInputFocused() { return }
+    if !overridingTextInput, Self.isTextInputFocused(in: window) { return }
     canvasView.becomeFirstResponder()
   }
 
@@ -357,7 +357,9 @@ final class TouchForwardingCanvasView: PKCanvasView {
 
   /// True when a text field / text view (anything adopting UITextInput) is
   /// first responder, i.e. the keyboard belongs to someone else.
-  private static func isTextInputFocused() -> Bool {
+  /// Only counts a text input in `window`: nil-targeted actions go to the key
+  /// window, which under the UIScene lifecycle can belong to another scene.
+  private static func isTextInputFocused(in window: UIWindow?) -> Bool {
     capturedFirstResponder = nil
     UIApplication.shared.sendAction(
       #selector(UIResponder.munimPencilKitCaptureFirstResponder(_:)),
@@ -366,7 +368,11 @@ final class TouchForwardingCanvasView: PKCanvasView {
       for: nil
     )
     defer { capturedFirstResponder = nil }
-    return capturedFirstResponder is UITextInput
+    guard let responder = capturedFirstResponder, responder is UITextInput else { return false }
+    if let view = responder as? UIView, let window {
+      return view.window === window
+    }
+    return true
   }
 
   static func recordFirstResponder(_ responder: UIResponder) {
