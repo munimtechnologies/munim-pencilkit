@@ -215,9 +215,17 @@ import UIKit
     setEraserEnabled(!isEraserEnabled)
   }
 
+  /// Scale of the screen this view is on. UIScreen.main is deprecated and
+  /// meaningless under the UIScene lifecycle, so ask the view's own scene.
+  private var renderScale: CGFloat {
+    if let scale = window?.windowScene?.screen.scale, scale > 0 { return scale }
+    let traitScale = traitCollection.displayScale
+    return traitScale > 0 ? traitScale : 2
+  }
+
   private func emptyImage(size: CGSize) -> UIImage {
     let format = UIGraphicsImageRendererFormat.default()
-    format.scale = UIScreen.main.scale
+    format.scale = renderScale
     format.opaque = opaqueCanvas
     let renderer = UIGraphicsImageRenderer(size: size, format: format)
     return renderer.image { context in
@@ -304,7 +312,7 @@ import UIKit
     var previousPoint = lastPointByTouch[touch] ?? samples[0].preciseLocation(in: self)
 
     let format = UIGraphicsImageRendererFormat.default()
-    format.scale = UIScreen.main.scale
+    format.scale = renderScale
     format.opaque = false
     let renderer = UIGraphicsImageRenderer(size: bounds.size, format: format)
 
@@ -365,7 +373,7 @@ import UIKit
     else { return }
 
     let format = UIGraphicsImageRendererFormat.default()
-    format.scale = UIScreen.main.scale
+    format.scale = renderScale
     format.opaque = opaqueCanvas
     let renderer = UIGraphicsImageRenderer(size: bounds.size, format: format)
 
