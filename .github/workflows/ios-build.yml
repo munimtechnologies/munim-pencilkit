@@ -17,7 +17,7 @@ on:
       - 'cpp/**'
       - 'ios/**'
       - '**/Podfile.lock'
-      - '**/bun.lock'
+      - 'package-lock.json'
       - '**/*.podspec'
       - '**/react-native.config.js'
       - '**/nitro.json'
@@ -32,7 +32,7 @@ on:
       - 'cpp/**'
       - 'ios/**'
       - '**/Podfile.lock'
-      - '**/bun.lock'
+      - 'package-lock.json'
       - '**/*.podspec'
       - '**/react-native.config.js'
       - '**/nitro.json'
@@ -47,26 +47,31 @@ concurrency:
 
 jobs:
   build:
-    name: Build iOS Example App (${{ matrix.arch }})
-    runs-on: macos-26
+    name: Build iOS Example App (Xcode ${{ matrix.xcode }})
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
-        arch: [new]
+        include:
+          # iOS 26 SDK: the iOS 27 APIs compile out (#if compiler(>=6.4)).
+          - runner: macos-26
+            xcode: '26.6'
+          # iOS 27 SDK (GitHub's xcode-27 preview image).
+          - runner: xcode-27
+            xcode: '27.0'
     steps:
       - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
       - name: Setup Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: 26.4
+          xcode-version: ${{ matrix.xcode }}
 
-      - name: Install dependencies (bun)
-        run: bun install
-
-      - name: Disable new architecture in Podfile
-        if: matrix.arch == 'old'
-        run: sed -i "" "s/ENV\['RCT_NEW_ARCH_ENABLED'\] = '1'/ENV['RCT_NEW_ARCH_ENABLED'] = '0'/g" example/ios/Podfile
+      - name: Install dependencies
+        run: npm ci
 
       - name: Setup Ruby (bundle)
         uses: ruby/setup-ruby@v1
@@ -84,9 +89,9 @@ jobs:
           path: |
             ~/.cocoapods/repos
             example/ios/Pods
-          key: ${{ runner.os }}-pods-${{ hashFiles('example/ios/Podfile.lock') }}
+          key: ${{ runner.os }}-xcode${{ matrix.xcode }}-pods-${{ hashFiles('example/ios/Podfile.lock') }}
           restore-keys: |
-            ${{ runner.os }}-pods-
+            ${{ runner.os }}-xcode${{ matrix.xcode }}-pods-
 
       - name: Install Pods
         working-directory: example/ios

@@ -1,4 +1,10 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   Pressable,
   ScrollView,
@@ -16,9 +22,11 @@ import {
   type PencilKitDrawingChangeEvent,
   type PencilKitDrawingSnapshotEvent,
   type PencilKitExportResult,
+  type PencilKitSelectionChangeEvent,
   type PencilKitToolState,
   type PencilKitViewRef,
 } from 'munim-pencilkit';
+import { runSelfTest, selfTestAutoRun } from './SelfTest';
 
 function Button({
   label,
@@ -53,6 +61,48 @@ function App(): React.JSX.Element {
     useState<PencilKitContentVersion>('latest');
   const [eventLog, setEventLog] = useState('No native events yet');
   const renderCount = useRef(0);
+  const viewIdRef = useRef<number | null>(null);
+  const selectionEvents = useRef<PencilKitSelectionChangeEvent[]>([]);
+  const [viewReady, setViewReady] = useState(false);
+
+  const startSelfTest = useCallback(async () => {
+    const canvas = canvasRef.current;
+    const viewId = viewIdRef.current;
+    if (!canvas || viewId == null) {
+      setStatus('Self-test: canvas not ready');
+      return;
+    }
+    setStatus('Self-test running...');
+    selectionEvents.current = [];
+    try {
+      const result = await runSelfTest(canvas, viewId, selectionEvents.current);
+      const failures = result.checks
+        .filter((entry) => !entry.pass)
+        .map((entry) => entry.name);
+      setStatus(
+        `Self-test: ${result.passed}/${result.checks.length} passed` +
+          (failures.length ? ` (failed: ${failures.join('; ')})` : '') +
+          (result.outputPath ? ` -> ${result.outputPath}` : '')
+      );
+    } catch (error) {
+      setStatus(`Self-test crashed: ${String(error)}`);
+    }
+  }, []);
+
+  // `-selftest` launch argument: run once the canvas is mounted.
+  useEffect(() => {
+    if (!viewReady) return;
+    let cancelled = false;
+    selfTestAutoRun().then((autoRun) => {
+      if (!autoRun || cancelled) return;
+      setTimeout(() => {
+        if (!cancelled) startSelfTest();
+      }, 1500);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [startSelfTest, viewReady]);
 
   const toolItems = useMemo<PencilKitToolItem[] | null>(
     () =>
@@ -181,6 +231,7 @@ function App(): React.JSX.Element {
         </Text>
 
         <View style={styles.row}>
+          <Button label="Run self-test" onPress={startSelfTest} />
           <Button
             label="Undo"
             onPress={() =>
@@ -483,6 +534,14 @@ function App(): React.JSX.Element {
         }}
         onHistoryChange={(event) => {
           console.log('History change', event.revision, event.canUndo);
+        }}
+        onSelectionChange={(event) => {
+          selectionEvents.current.push(event);
+          setEventLog(`selection: ${event.strokeIds.length} stroke(s)`);
+        }}
+        onViewReady={(id) => {
+          viewIdRef.current = id;
+          setViewReady(true);
         }}
       />
     </View>
