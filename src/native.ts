@@ -9,6 +9,14 @@ const unsupported = (): never => {
 const unsupportedNativeModule = new Proxy(
   {
     isPencilKitSupported: () => false,
+    getPencilKitRecognitionInfo: () =>
+      Promise.resolve(
+        JSON.stringify({
+          supported: false,
+          supportedLanguages: [],
+          recognitionVersion: null,
+        })
+      ),
     getPencilKitCapabilities: () =>
       JSON.stringify({
         platform: Platform.OS,

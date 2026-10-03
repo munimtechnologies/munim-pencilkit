@@ -44,6 +44,13 @@ namespace margelo::nitro::munimpencilkit {
       prototype.registerHybridMethod("appendPencilKitStrokes", &HybridMunimPencilkitSpec::appendPencilKitStrokes);
       prototype.registerHybridMethod("removePencilKitStrokes", &HybridMunimPencilkitSpec::removePencilKitStrokes);
       prototype.registerHybridMethod("transformPencilKitStrokes", &HybridMunimPencilkitSpec::transformPencilKitStrokes);
+      prototype.registerHybridMethod("getPencilKitStrokesWithOptions", &HybridMunimPencilkitSpec::getPencilKitStrokesWithOptions);
+      prototype.registerHybridMethod("getPencilKitSelection", &HybridMunimPencilkitSpec::getPencilKitSelection);
+      prototype.registerHybridMethod("setPencilKitSelection", &HybridMunimPencilkitSpec::setPencilKitSelection);
+      prototype.registerHybridMethod("erasePencilKitPath", &HybridMunimPencilkitSpec::erasePencilKitPath);
+      prototype.registerHybridMethod("recognizePencilKitText", &HybridMunimPencilkitSpec::recognizePencilKitText);
+      prototype.registerHybridMethod("searchPencilKitText", &HybridMunimPencilkitSpec::searchPencilKitText);
+      prototype.registerHybridMethod("getPencilKitRecognitionInfo", &HybridMunimPencilkitSpec::getPencilKitRecognitionInfo);
     });
   }
 

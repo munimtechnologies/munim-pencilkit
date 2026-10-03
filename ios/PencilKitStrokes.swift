@@ -24,11 +24,11 @@ enum PencilKitStrokeLimits {
 enum PencilKitStrokeCodec {
   // MARK: Encoding
 
-  static func encode(_ strokes: [PKStroke]) -> [[String: Any]] {
-    return strokes.map(encode)
+  static func encode(_ strokes: [PKStroke], includeBezierPaths: Bool = false) -> [[String: Any]] {
+    return strokes.map { encode($0, includeBezierPaths: includeBezierPaths) }
   }
 
-  static func encode(_ stroke: PKStroke) -> [String: Any] {
+  static func encode(_ stroke: PKStroke, includeBezierPaths: Bool = false) -> [String: Any] {
     let inkType = PencilKitNativeView.inkTypeString(stroke.ink.inkType)
     let color = stroke.ink.color.pencilKitHexRGBA
     var points: [[String: Any]] = []
@@ -52,6 +52,11 @@ enum PencilKitStrokeCodec {
       #if compiler(>=6.2)
       if #available(iOS 26.0, *) {
         encoded["threshold"] = point.threshold
+      }
+      #endif
+      #if compiler(>=6.4)
+      if #available(iOS 27.0, *) {
+        encoded["lateralJitter"] = point.lateralJitter
       }
       #endif
       points.append(encoded)
@@ -89,6 +94,25 @@ enum PencilKitStrokeCodec {
     if let mask = stroke.mask {
       result["mask"] = PencilKitPathCodec.encode(mask.cgPath)
     }
+    #if compiler(>=6.4)
+    if #available(iOS 27.0, *) {
+      result["id"] = stroke.id.uuidString
+      result["pathId"] = stroke.path.id.uuidString
+      if let renderGroupID = stroke.renderGroupID {
+        result["renderGroupId"] = renderGroupID.uuidString
+      }
+      if let renderState = stroke.renderState {
+        var state: [String: Any] = [:]
+        if let grainOffset = renderState.grainOffset {
+          state["grainOffset"] = ["x": grainOffset.x, "y": grainOffset.y]
+        }
+        result["renderState"] = state
+      }
+      if includeBezierPaths {
+        result["bezierPath"] = PencilKitPathCodec.encode(stroke.path.bezierRepresentation)
+      }
+    }
+    #endif
     return result
   }
 
@@ -191,6 +215,30 @@ enum PencilKitStrokeCodec {
       )
     }
 
+    // iOS 27 identity fields. Parsed (and validated) on every OS so a bad id
+    // fails the same way everywhere; older OS versions then ignore them.
+    let strokeID = try uuid(object["id"], context: "\(context).id")
+    let pathID = try uuid(object["pathId"], context: "\(context).pathId")
+    let renderGroupID = try uuid(object["renderGroupId"], context: "\(context).renderGroupId")
+    var grainOffset: CGPoint?
+    var hasRenderState = false
+    if let rawState = object["renderState"], !(rawState is NSNull) {
+      guard let state = rawState as? [String: Any] else {
+        throw PencilKitHybridError.invalidOptions("\(context).renderState must be an object")
+      }
+      hasRenderState = true
+      if let rawOffset = state["grainOffset"], !(rawOffset is NSNull) {
+        guard
+          let offset = rawOffset as? [String: Any],
+          let x = try finiteNumber(offset["x"], context: "\(context).renderState.grainOffset.x"),
+          let y = try finiteNumber(offset["y"], context: "\(context).renderState.grainOffset.y")
+        else {
+          throw PencilKitHybridError.invalidOptions("\(context).renderState.grainOffset must be { x, y }")
+        }
+        grainOffset = CGPoint(x: x, y: y)
+      }
+    }
+
     let creationDate: Date
     if let milliseconds = try finiteNumber(object["creationDate"], context: "\(context).creationDate") {
       creationDate = Date(timeIntervalSince1970: milliseconds / 1000)
@@ -210,17 +258,69 @@ enum PencilKitStrokeCodec {
     }
 
     let pkInk = PKInk(inkType, color: color)
+    var randomSeed: UInt32?
     if let seedNumber = object["randomSeed"] as? NSNumber {
       let seed = seedNumber.doubleValue
       guard seed.isFinite, seed >= 0, seed <= Double(UInt32.max), seed.rounded() == seed else {
         throw PencilKitHybridError.invalidOptions("\(context).randomSeed must be a UInt32")
       }
-      return PKStroke(ink: pkInk, path: path, transform: transform, mask: mask, randomSeed: UInt32(seed))
+      randomSeed = UInt32(seed)
+    }
+
+    #if compiler(>=6.4)
+    if #available(iOS 27.0, *),
+      strokeID != nil || pathID != nil || renderGroupID != nil || hasRenderState
+    {
+      let identifiedPath = pathID.map {
+        PKStrokePath(controlPoints: points, creationDate: creationDate, id: $0)
+      } ?? path
+      return PKStroke(
+        ink: pkInk,
+        path: identifiedPath,
+        transform: transform,
+        mask: mask,
+        randomSeed: randomSeed ?? UInt32.random(in: 0...UInt32.max),
+        id: strokeID ?? UUID(),
+        renderGroupID: renderGroupID,
+        renderState: hasRenderState ? PKStroke.RenderState(grainOffset: grainOffset) : nil
+      )
+    }
+    #else
+    _ = (strokeID, pathID, renderGroupID, grainOffset, hasRenderState)
+    #endif
+    if let randomSeed {
+      return PKStroke(ink: pkInk, path: path, transform: transform, mask: mask, randomSeed: randomSeed)
     }
     return PKStroke(ink: pkInk, path: path, transform: transform, mask: mask)
   }
 
-  private static func decodePoint(
+  /// Returns nil when absent; throws when present but not a UUID string.
+  static func uuid(_ value: Any?, context: String) throws -> UUID? {
+    guard let value, !(value is NSNull) else { return nil }
+    guard let string = value as? String, let uuid = UUID(uuidString: string) else {
+      throw PencilKitHybridError.invalidOptions("\(context) must be a UUID string")
+    }
+    return uuid
+  }
+
+  /// Parses a `strokeIds` array of UUID strings.
+  static func uuidSet(_ values: [String], context: String) throws -> Set<UUID> {
+    guard values.count <= PencilKitStrokeLimits.maxStrokes else {
+      throw PencilKitHybridError.invalidOptions(
+        "\(context) exceeds the \(PencilKitStrokeLimits.maxStrokes)-id limit"
+      )
+    }
+    var result = Set<UUID>()
+    for (index, value) in values.enumerated() {
+      guard let uuid = UUID(uuidString: value) else {
+        throw PencilKitHybridError.invalidOptions("\(context)[\(index)] must be a UUID string")
+      }
+      result.insert(uuid)
+    }
+    return result
+  }
+
+  static func decodePoint(
     _ object: [String: Any],
     context: String,
     fallbackWidth: CGFloat,
@@ -262,6 +362,25 @@ enum PencilKitStrokeCodec {
     let altitude = try finiteNumber(object["altitude"], context: "\(context).altitude") ?? (.pi / 2)
     let secondaryScale = try finiteNumber(object["secondaryScale"], context: "\(context).secondaryScale") ?? 1
 
+    #if compiler(>=6.4)
+    if #available(iOS 27.0, *),
+      let lateralJitter = try finiteNumber(object["lateralJitter"], context: "\(context).lateralJitter")
+    {
+      let threshold = try finiteNumber(object["threshold"], context: "\(context).threshold") ?? 0
+      return PKStrokePoint(
+        location: CGPoint(x: x, y: y),
+        timeOffset: timeOffset ?? 0,
+        size: size,
+        opacity: CGFloat(opacity),
+        force: CGFloat(force),
+        azimuth: CGFloat(azimuth),
+        altitude: CGFloat(altitude),
+        secondaryScale: CGFloat(secondaryScale),
+        threshold: CGFloat(threshold),
+        lateralJitter: CGFloat(lateralJitter)
+      )
+    }
+    #endif
     #if compiler(>=6.2)
     if #available(iOS 26.0, *),
       let threshold = try finiteNumber(object["threshold"], context: "\(context).threshold")
@@ -309,9 +428,9 @@ enum PencilKitStrokeCodec {
   }
 
   /// Returns nil when the value is absent; throws when it is present but not a finite number.
-  private static func finiteNumber(_ value: Any?, context: String) throws -> Double? {
+  static func finiteNumber(_ value: Any?, context: String) throws -> Double? {
     guard let value, !(value is NSNull) else { return nil }
-    guard let number = value as? NSNumber, !(value is Bool) else {
+    guard let number = value as? NSNumber, !number.pencilKitIsBoolean else {
       throw PencilKitHybridError.invalidOptions("\(context) must be a number")
     }
     let double = number.doubleValue
@@ -467,7 +586,7 @@ extension PKContentVersion {
       }
       return .latest
     }
-    guard let number = raw as? NSNumber, !(raw is Bool) else {
+    guard let number = raw as? NSNumber, !number.pencilKitIsBoolean else {
       throw PencilKitHybridError.invalidOptions(
         "maximumSupportedContentVersion must be 1-5 or \"latest\""
       )
@@ -480,5 +599,103 @@ extension PKContentVersion {
     }
     let clamped = min(value, pencilKitMaximumAvailable.rawValue)
     return PKContentVersion(rawValue: clamped) ?? pencilKitMaximumAvailable
+  }
+}
+
+#if compiler(>=6.4)
+@available(iOS 27.0, *)
+enum PencilKitStrokeIdentity {
+  /// Keeps every stroke's id unless it is already taken (by `existing` or an
+  /// earlier stroke in `strokes`); those get a fresh id, so selection and
+  /// recognition by id stay unambiguous.
+  static func uniquified(_ strokes: [PKStroke], existing: [PKStroke] = []) -> [PKStroke] {
+    var seen = Set(existing.map(\.id))
+    return strokes.map { stroke in
+      var stroke = stroke
+      if !seen.insert(stroke.id).inserted {
+        stroke.id = UUID()
+        seen.insert(stroke.id)
+      }
+      return stroke
+    }
+  }
+}
+#endif
+
+/// A parsed `PencilKitErasePathOptions`: an eraser stroke path in canvas space.
+struct PencilKitEraseRequest {
+  static let defaultWidth: Double = 20
+
+  let path: PKStrokePath
+  let mask: UIBezierPath?
+  let transform: CGAffineTransform
+
+  init(_ object: [String: Any]) throws {
+    let width = try PencilKitStrokeCodec.finiteNumber(object["width"], context: "width")
+      ?? Self.defaultWidth
+    guard width > 0, width <= 1024 else {
+      throw PencilKitHybridError.invalidOptions("width must be between 0 and 1024")
+    }
+    guard let rawPoints = object["points"] as? [Any], !rawPoints.isEmpty else {
+      throw PencilKitHybridError.invalidOptions("points must be a non-empty array")
+    }
+    guard rawPoints.count <= PencilKitStrokeLimits.maxPointsPerStroke else {
+      throw PencilKitHybridError.invalidOptions(
+        "points exceeds the \(PencilKitStrokeLimits.maxPointsPerStroke)-point limit"
+      )
+    }
+    var points: [PKStrokePoint] = []
+    points.reserveCapacity(rawPoints.count)
+    for (index, rawPoint) in rawPoints.enumerated() {
+      guard var point = rawPoint as? [String: Any] else {
+        throw PencilKitHybridError.invalidOptions("points[\(index)] must be an object")
+      }
+      // Accept bare { x, y } as well as stroke-point objects.
+      if point["location"] == nil, point["x"] != nil || point["y"] != nil {
+        point["location"] = ["x": point["x"] as Any, "y": point["y"] as Any]
+      }
+      // Space samples evenly in time unless the caller timed them.
+      if point["timeOffset"] == nil, point["timestamp"] == nil {
+        point["timeOffset"] = Double(index) / 120
+      }
+      points.append(
+        try PencilKitStrokeCodec.decodePoint(
+          point,
+          context: "points[\(index)]",
+          fallbackWidth: CGFloat(width),
+          firstTimestamp: (rawPoints.first as? [String: Any]).flatMap {
+            ($0["timestamp"] as? NSNumber)?.doubleValue
+          }
+        )
+      )
+    }
+    path = PKStrokePath(controlPoints: points, creationDate: Date())
+
+    if let rawMask = object["mask"] as? String {
+      mask = UIBezierPath(cgPath: try PencilKitPathCodec.decode(rawMask, context: "mask"))
+    } else {
+      mask = nil
+    }
+    if let rawTransform = object["transform"], !(rawTransform is NSNull) {
+      transform = try PencilKitStrokeCodec.decodeTransform(rawTransform, context: "transform")
+    } else {
+      transform = .identity
+    }
+  }
+
+  #if compiler(>=6.4)
+  @available(iOS 27.0, *)
+  func apply(to drawing: PKDrawing) -> PKDrawing {
+    return drawing.erasingPath(path, mask: mask, transform: transform)
+  }
+  #endif
+}
+
+extension NSNumber {
+  /// True only for JSON `true`/`false`. `value is Bool` cannot tell them
+  /// apart: Swift bridges any NSNumber holding 0 or 1 to Bool, so it would
+  /// reject numeric 0 and 1.
+  var pencilKitIsBoolean: Bool {
+    return CFGetTypeID(self) == CFBooleanGetTypeID()
   }
 }

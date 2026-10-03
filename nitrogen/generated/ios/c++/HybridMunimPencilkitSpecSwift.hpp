@@ -290,6 +290,62 @@ namespace margelo::nitro::munimpencilkit {
       auto __value = std::move(__result.value());
       return __value;
     }
+    inline std::shared_ptr<Promise<std::string>> getPencilKitStrokesWithOptions(double viewId, const std::string& optionsJson) override {
+      auto __result = _swiftPart.getPencilKitStrokesWithOptions(std::forward<decltype(viewId)>(viewId), optionsJson);
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
+    inline std::shared_ptr<Promise<std::string>> getPencilKitSelection(double viewId) override {
+      auto __result = _swiftPart.getPencilKitSelection(std::forward<decltype(viewId)>(viewId));
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
+    inline std::shared_ptr<Promise<void>> setPencilKitSelection(double viewId, const std::string& selectionJson) override {
+      auto __result = _swiftPart.setPencilKitSelection(std::forward<decltype(viewId)>(viewId), selectionJson);
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
+    inline std::shared_ptr<Promise<std::string>> erasePencilKitPath(double viewId, const std::string& eraseJson) override {
+      auto __result = _swiftPart.erasePencilKitPath(std::forward<decltype(viewId)>(viewId), eraseJson);
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
+    inline std::shared_ptr<Promise<std::string>> recognizePencilKitText(double viewId, const std::string& optionsJson) override {
+      auto __result = _swiftPart.recognizePencilKitText(std::forward<decltype(viewId)>(viewId), optionsJson);
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
+    inline std::shared_ptr<Promise<std::string>> searchPencilKitText(double viewId, const std::string& query, const std::string& optionsJson) override {
+      auto __result = _swiftPart.searchPencilKitText(std::forward<decltype(viewId)>(viewId), query, optionsJson);
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
+    inline std::shared_ptr<Promise<std::string>> getPencilKitRecognitionInfo() override {
+      auto __result = _swiftPart.getPencilKitRecognitionInfo();
+      if (__result.hasError()) [[unlikely]] {
+        std::rethrow_exception(__result.error());
+      }
+      auto __value = std::move(__result.value());
+      return __value;
+    }
 
   private:
     MunimPencilkit::HybridMunimPencilkitSpec_cxx _swiftPart;

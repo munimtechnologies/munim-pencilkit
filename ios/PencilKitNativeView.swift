@@ -139,6 +139,7 @@ final class TouchForwardingCanvasView: PKCanvasView {
   @objc var onPencilKitToolPickerItemChange: RCTDirectEventBlock?
   @objc var onPencilKitToolPickerAccessoryPress: RCTDirectEventBlock?
   @objc var onPencilKitDidFinishRendering: RCTDirectEventBlock?
+  @objc var onPencilKitSelectionChange: RCTDirectEventBlock?
 
   private let importedImageView = UIImageView()
   private let canvasView = TouchForwardingCanvasView()
@@ -161,6 +162,9 @@ final class TouchForwardingCanvasView: PKCanvasView {
   private var toolItemsSignature: String?
   private var accessoryItemConfig: [String: Any]?
   private var maximumContentVersion: PKContentVersion?
+  /// iOS 26+: `PKToolPicker.colorMaximumLinearExposure` (HDR ink colors).
+  private var colorMaximumLinearExposure: CGFloat?
+  private var pickerDefaultColorMaximumLinearExposure: CGFloat?
   private var lastToolPickerPayload: NSDictionary?
   private var lastSelectedToolItemIdentifier: String?
   private var includeStrokesInDrawing = false
@@ -325,6 +329,7 @@ final class TouchForwardingCanvasView: PKCanvasView {
     if let maximumContentVersion {
       picker.maximumSupportedContentVersion = maximumContentVersion
     }
+    applyColorMaximumLinearExposure(to: picker)
     picker.addObserver(canvasView)
     picker.addObserver(self)
     toolPicker = picker
@@ -714,9 +719,39 @@ final class TouchForwardingCanvasView: PKCanvasView {
     if config.keys.contains("maximumSupportedContentVersion") {
       applyMaximumContentVersion(config["maximumSupportedContentVersion"])
     }
+    if config.keys.contains("toolPickerColorMaximumLinearExposure") {
+      let raw = config["toolPickerColorMaximumLinearExposure"]
+      if let number = raw as? NSNumber, !number.pencilKitIsBoolean, number.doubleValue.isFinite {
+        // 1 = SDR; PencilKit clamps to what the display supports.
+        colorMaximumLinearExposure = CGFloat(min(max(number.doubleValue, 1), 64))
+      } else {
+        colorMaximumLinearExposure = nil
+      }
+      if let toolPicker { applyColorMaximumLinearExposure(to: toolPicker) }
+    }
     if config.keys.contains("toolItems") || config.keys.contains("toolPickerAccessoryItem") {
       applyToolItemsConfig(config)
     }
+  }
+
+  private func applyColorMaximumLinearExposure(to picker: PKToolPicker) {
+    #if compiler(>=6.2)
+    if #available(iOS 26.0, *) {
+      if pickerDefaultColorMaximumLinearExposure == nil {
+        pickerDefaultColorMaximumLinearExposure = picker.colorMaximumLinearExposure
+      }
+      if let value = colorMaximumLinearExposure ?? pickerDefaultColorMaximumLinearExposure {
+        picker.colorMaximumLinearExposure = value
+      }
+    }
+    #endif
+  }
+
+  static var isHDRToolPickerColorAvailable: Bool {
+    #if compiler(>=6.2)
+    if #available(iOS 26.0, *) { return true }
+    #endif
+    return false
   }
 
   private func applyMaximumContentVersion(_ raw: Any?) {
@@ -900,7 +935,8 @@ final class TouchForwardingCanvasView: PKCanvasView {
     replaceDrawingUndoably(drawing, actionName: actionName)
   }
 
-  private func replaceDrawingUndoably(_ drawing: PKDrawing, actionName: String) {
+  /// Replaces the whole drawing as one undoable step. Main thread only.
+  func replaceDrawingUndoably(_ drawing: PKDrawing, actionName: String) {
     let previous = canvasView.drawing
     if let undoManager = canvasView.undoManager {
       undoManager.registerUndo(withTarget: self) { target in
@@ -1302,6 +1338,41 @@ final class TouchForwardingCanvasView: PKCanvasView {
     }
     emitDrawingPhase("began")
   }
+
+  /// iOS 27+ delegate callback; never called on older systems.
+  func canvasViewSelectionDidChange(_ canvasView: PKCanvasView) {
+    #if compiler(>=6.4)
+    if #available(iOS 27.0, *) {
+      emitSelectionChange(canvasView.selection)
+    }
+    #endif
+  }
+
+  #if compiler(>=6.4)
+  @available(iOS 27.0, *)
+  private func emitSelectionChange(_ selection: Set<UUID>) {
+    guard viewId.intValue > 0 else { return }
+    onPencilKitSelectionChange?([
+      "viewId": viewId.intValue,
+      "revision": revision,
+      "strokeIds": selection.map(\.uuidString).sorted(),
+    ])
+  }
+
+  /// The selected stroke ids. Main thread only; PencilKit engine only.
+  @available(iOS 27.0, *)
+  func selectedStrokeIDs() throws -> Set<UUID> {
+    _ = try pencilKitDrawing()
+    return canvasView.selection
+  }
+
+  /// Selects the strokes with these ids. Main thread only; PencilKit engine only.
+  @available(iOS 27.0, *)
+  func setSelectedStrokeIDs(_ ids: Set<UUID>) throws {
+    _ = try pencilKitDrawing()
+    canvasView.selection = ids
+  }
+  #endif
 
   func canvasViewDidFinishRendering(_ canvasView: PKCanvasView) {
     guard viewId.intValue > 0 else { return }

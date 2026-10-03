@@ -15,12 +15,20 @@ import type {
   PencilKitConfig,
   PencilKitDrawingChangeEvent,
   PencilKitDrawingData,
+  PencilKitErasePathOptions,
+  PencilKitErasePathResult,
   PencilKitExportOptions,
   PencilKitExportResult,
   PencilKitGetDrawingOptions,
+  PencilKitGetStrokesOptions,
   PencilKitHistoryEvent,
   PencilKitImportOptions,
+  PencilKitRecognitionInfo,
+  PencilKitRecognizedText,
+  PencilKitRecognizeTextOptions,
+  PencilKitSearchTextOptions,
   PencilKitStroke,
+  PencilKitTextSearchResult,
   PencilKitToolPickerEvent,
   PencilKitToolState,
   PencilKitToolStateInput,
@@ -34,7 +42,17 @@ export type {
   PencilKitAffineTransform,
   PencilKitContentVersion,
   PencilKitEraserType,
+  PencilKitErasePathOptions,
+  PencilKitErasePathPoint,
+  PencilKitErasePathResult,
   PencilKitGetDrawingOptions,
+  PencilKitGetStrokesOptions,
+  PencilKitRecognitionInfo,
+  PencilKitRecognizedText,
+  PencilKitRecognizeTextOptions,
+  PencilKitSearchTextOptions,
+  PencilKitSelectionChangeEvent,
+  PencilKitTextSearchResult,
   PencilKitRenderEvent,
   PencilKitToolItem,
   PencilKitToolPickerAccessoryEvent,
@@ -84,6 +102,9 @@ const parseDrawingJson = (raw: string): PencilKitDrawingData => {
 
 const parseStrokesJson = (raw: string): PencilKitStroke[] =>
   (JSON.parse(raw) as { strokes: PencilKitStroke[] }).strokes
+
+const parseSelectionJson = (raw: string): string[] =>
+  (JSON.parse(raw) as { strokeIds: string[] }).strokeIds
 
 export const PencilKitUtils = {
   isSupported: (): boolean => MunimPencilkit.isPencilKitSupported(),
@@ -171,8 +192,18 @@ export const PencilKitUtils = {
       viewId,
       JSON.stringify(options)
     ),
-  getStrokes: async (viewId: number): Promise<PencilKitStroke[]> =>
-    parseStrokesJson(await MunimPencilkit.getPencilKitStrokes(viewId)),
+  getStrokes: async (
+    viewId: number,
+    options?: PencilKitGetStrokesOptions
+  ): Promise<PencilKitStroke[]> =>
+    parseStrokesJson(
+      options == null
+        ? await MunimPencilkit.getPencilKitStrokes(viewId)
+        : await MunimPencilkit.getPencilKitStrokesWithOptions(
+            viewId,
+            JSON.stringify(options)
+          )
+    ),
   setStrokes: (viewId: number, strokes: PencilKitStroke[]): Promise<void> =>
     MunimPencilkit.setPencilKitStrokes(viewId, JSON.stringify({ strokes })),
   appendStrokes: (viewId: number, strokes: PencilKitStroke[]): Promise<void> =>
@@ -189,6 +220,51 @@ export const PencilKitUtils = {
       indices,
       JSON.stringify(transform)
     ),
+  /** iOS 27+: the ids of the lasso-selected strokes. */
+  getSelection: async (viewId: number): Promise<string[]> =>
+    parseSelectionJson(await MunimPencilkit.getPencilKitSelection(viewId)),
+  /** iOS 27+: selects the strokes with these ids (unknown ids are ignored). */
+  setSelection: (viewId: number, strokeIds: string[]): Promise<void> =>
+    MunimPencilkit.setPencilKitSelection(viewId, JSON.stringify({ strokeIds })),
+  /** iOS 27+: erases along a path, splitting or trimming strokes. Undoable. */
+  erasePath: async (
+    viewId: number,
+    options: PencilKitErasePathOptions
+  ): Promise<PencilKitErasePathResult> =>
+    JSON.parse(
+      await MunimPencilkit.erasePencilKitPath(viewId, JSON.stringify(options))
+    ) as PencilKitErasePathResult,
+  /** iOS 27+: recognizes the handwriting in all (or some) strokes. */
+  recognizeText: async (
+    viewId: number,
+    options?: PencilKitRecognizeTextOptions
+  ): Promise<PencilKitRecognizedText> =>
+    JSON.parse(
+      await MunimPencilkit.recognizePencilKitText(
+        viewId,
+        JSON.stringify(options ?? {})
+      )
+    ) as PencilKitRecognizedText,
+  /** iOS 27+: finds `query` in the recognized handwriting. */
+  searchText: async (
+    viewId: number,
+    query: string,
+    options?: PencilKitSearchTextOptions
+  ): Promise<PencilKitTextSearchResult[]> =>
+    (
+      JSON.parse(
+        await MunimPencilkit.searchPencilKitText(
+          viewId,
+          query,
+          JSON.stringify(options ?? {})
+        )
+      ) as { results: PencilKitTextSearchResult[] }
+    ).results,
+  /** Handwriting recognition support. `supported: false` before iOS 27. */
+  getRecognitionInfo: async (): Promise<PencilKitRecognitionInfo> =>
+    JSON.parse(
+      await MunimPencilkit.getPencilKitRecognitionInfo()
+    ) as PencilKitRecognitionInfo,
   setTool: (viewId: number, tool: PencilKitToolStateInput): void =>
     MunimPencilkit.setPencilKitTool(viewId, JSON.stringify(tool)),
   getTool: (viewId: number): PencilKitToolState =>

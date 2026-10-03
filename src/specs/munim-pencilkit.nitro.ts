@@ -71,4 +71,47 @@ export interface MunimPencilkit extends HybridObject<{ ios: 'swift' }> {
     indices: number[],
     transformJson: string
   ): Promise<number>
+  /**
+   * Like `getPencilKitStrokes`, with `optionsJson` a
+   * `PencilKitGetStrokesOptions` (e.g. `includeBezierPaths`).
+   */
+  getPencilKitStrokesWithOptions(
+    viewId: number,
+    optionsJson: string
+  ): Promise<string>
+
+  // iOS 27+ (reject with an "iOS 27" error on older systems; check
+  // `getPencilKitCapabilities().features` first).
+
+  /** Resolves `{"strokeIds": string[]}`, the lasso selection. */
+  getPencilKitSelection(viewId: number): Promise<string>
+  /**
+   * `selectionJson` is `{"strokeIds": string[]}`. Selects those strokes;
+   * unknown ids are ignored.
+   */
+  setPencilKitSelection(viewId: number, selectionJson: string): Promise<void>
+  /**
+   * `eraseJson` is a `PencilKitErasePathOptions`. Resolves a
+   * `PencilKitErasePathResult`. Undoable.
+   */
+  erasePencilKitPath(viewId: number, eraseJson: string): Promise<string>
+  /**
+   * Handwriting recognition. `optionsJson` is a
+   * `PencilKitRecognizeTextOptions`; resolves a `PencilKitRecognizedText`.
+   */
+  recognizePencilKitText(viewId: number, optionsJson: string): Promise<string>
+  /**
+   * Searches the recognized handwriting. `optionsJson` is a
+   * `PencilKitSearchTextOptions`; resolves `{"results": PencilKitTextSearchResult[]}`.
+   */
+  searchPencilKitText(
+    viewId: number,
+    query: string,
+    optionsJson: string
+  ): Promise<string>
+  /**
+   * Resolves a `PencilKitRecognitionInfo`. Never rejects: reports
+   * `supported: false` before iOS 27.
+   */
+  getPencilKitRecognitionInfo(): Promise<string>
 }
