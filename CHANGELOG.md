@@ -1,3 +1,13 @@
+## [1.16.0](https://github.com/munimtechnologies/munim-pencilkit/compare/v1.15.0...v1.16.0) (2026-10-03)
+
+### ✨ Features
+
+* iOS 27 PencilKit stroke ids, selection, erasePath, Bezier paths and handwriting recognition ([#16](https://github.com/munimtechnologies/munim-pencilkit/issues/16)) ([f04a03d](https://github.com/munimtechnologies/munim-pencilkit/commit/f04a03d8fe87c04f7593c68c5b4165818a0d58e4))
+
+### 🛠️ Other changes
+
+* **deps:** React Native CLI 20.2 in the example (fast-xml-parser 5, GHSA fix) ([72ebe08](https://github.com/munimtechnologies/munim-pencilkit/commit/72ebe08e73b591f6b0f4bf644d42016621146d73))
+
 ## [1.15.0](https://github.com/munimtechnologies/munim-pencilkit/compare/v1.14.1...v1.15.0) (2026-09-19)
 
 ### ✨ Features
