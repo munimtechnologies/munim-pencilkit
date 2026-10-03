@@ -26,6 +26,7 @@ enum PencilKitHybridError: LocalizedError {
   case invalidOptions(String)
   case invalidFileURL(String)
   case exportFailed(String)
+  case unsupported(String)
 
   var errorDescription: String? {
     switch self {
@@ -55,6 +56,8 @@ enum PencilKitHybridError: LocalizedError {
       return "Invalid file URL: \(reason)"
     case .exportFailed(let reason):
       return "Export failed: \(reason)"
+    case .unsupported(let feature):
+      return "\(feature) requires iOS 27 or later and an app built with the iOS 27 SDK (Xcode 27)"
     }
   }
 }
@@ -240,6 +243,15 @@ final class HybridMunimPencilkit: HybridMunimPencilkitSpec {
         "deviceMotion": true,
       ],
       "strokes": true,
+      "features": [
+        "strokeIds": Self.isIOS27FeatureSetAvailable,
+        "selection": Self.isIOS27FeatureSetAvailable,
+        "selectionChangeEvents": Self.isIOS27FeatureSetAvailable,
+        "erasePath": Self.isIOS27FeatureSetAvailable,
+        "bezierPaths": Self.isIOS27FeatureSetAvailable,
+        "handwritingRecognition": Self.isIOS27FeatureSetAvailable,
+        "toolPickerHDRColors": PencilKitNativeView.isHDRToolPickerColorAvailable,
+      ],
       "contentVersion": [
         "maximum": PKContentVersion.pencilKitMaximumAvailable.rawValue
       ],
@@ -385,6 +397,7 @@ final class HybridMunimPencilkit: HybridMunimPencilkitSpec {
       let id = Int(viewId)
       PencilKitRegistry.shared.view(for: id)?.tearDown()
       PencilKitRegistry.shared.unregister(id: id)
+      Self.recognizers[id] = nil
     }
   }
 
@@ -515,7 +528,9 @@ final class HybridMunimPencilkit: HybridMunimPencilkitSpec {
     return Promise.parallel(Self.asyncQueue) {
       let strokes = try Self.decodeStrokes(strokesJson)
       try Self.onMain {
-        try Self.view(id).mutateStrokes(actionName: "Set Strokes") { _ in strokes }
+        try Self.view(id).mutateStrokes(actionName: "Set Strokes") { _ in
+          Self.uniquifiedIDs(strokes, existing: [])
+        }
       }
     }
   }
@@ -525,7 +540,9 @@ final class HybridMunimPencilkit: HybridMunimPencilkitSpec {
     return Promise.parallel(Self.asyncQueue) {
       let strokes = try Self.decodeStrokes(strokesJson)
       try Self.onMain {
-        try Self.view(id).mutateStrokes(actionName: "Add Strokes") { $0 + strokes }
+        try Self.view(id).mutateStrokes(actionName: "Add Strokes") {
+          $0 + Self.uniquifiedIDs(strokes, existing: $0)
+        }
       }
     }
   }
@@ -571,6 +588,16 @@ final class HybridMunimPencilkit: HybridMunimPencilkitSpec {
     }
   }
 
+  /// iOS 27: keeps incoming stroke ids, re-identifying only duplicates.
+  private static func uniquifiedIDs(_ strokes: [PKStroke], existing: [PKStroke]) -> [PKStroke] {
+    #if compiler(>=6.4)
+    if #available(iOS 27.0, *) {
+      return PencilKitStrokeIdentity.uniquified(strokes, existing: existing)
+    }
+    #endif
+    return strokes
+  }
+
   private static func decodeStrokes(_ json: String) throws -> [PKStroke] {
     let object = try PencilKitJSONValidator.parseObject(
       json,
@@ -591,6 +618,255 @@ final class HybridMunimPencilkit: HybridMunimPencilkitSpec {
       result.insert(Int(raw))
     }
     return result
+  }
+
+  // MARK: iOS 27: stroke ids, selection, erasing, recognition
+
+  /// PKStroke.id, canvas selection, erasePath, Bézier paths and
+  /// PKStrokeRecognizer: iOS 27 at runtime, and the iOS 27 SDK at build time.
+  static var isIOS27FeatureSetAvailable: Bool {
+    #if compiler(>=6.4)
+    if #available(iOS 27.0, *) { return true }
+    #endif
+    return false
+  }
+
+  /// One recognizer per view, reused while the language preference is the
+  /// same so recognition stays incremental. Main thread only.
+  nonisolated(unsafe) private static var recognizers: [Int: (key: String, recognizer: AnyObject)] = [:]
+
+  func getPencilKitStrokesWithOptions(viewId: Double, optionsJson: String) throws -> Promise<String> {
+    let id = Int(viewId)
+    return Promise.parallel(Self.asyncQueue) {
+      let options = try Self.parseOptionalObject(optionsJson, fieldName: "optionsJson")
+      let includeBezierPaths = options["includeBezierPaths"] as? Bool ?? false
+      let drawing = try Self.onMain { try Self.view(id).pencilKitDrawing() }
+      return try Self.encodeJSONObject(
+        [
+          "strokes": PencilKitStrokeCodec.encode(
+            drawing.strokes,
+            includeBezierPaths: includeBezierPaths
+          ),
+          "requiredContentVersion": drawing.requiredContentVersion.rawValue,
+        ],
+        context: "strokes"
+      )
+    }
+  }
+
+  func getPencilKitSelection(viewId: Double) throws -> Promise<String> {
+    let id = Int(viewId)
+    return Promise.parallel(Self.asyncQueue) {
+      #if compiler(>=6.4)
+      if #available(iOS 27.0, *) {
+        let selection = try Self.onMain { try Self.view(id).selectedStrokeIDs() }
+        return try Self.encodeJSONObject(
+          ["strokeIds": selection.map(\.uuidString).sorted()],
+          context: "selection"
+        )
+      }
+      #endif
+      throw PencilKitHybridError.unsupported("Stroke selection")
+    }
+  }
+
+  func setPencilKitSelection(viewId: Double, selectionJson: String) throws -> Promise<Void> {
+    let id = Int(viewId)
+    return Promise.parallel(Self.asyncQueue) {
+      #if compiler(>=6.4)
+      if #available(iOS 27.0, *) {
+        let object = try PencilKitJSONValidator.parseObject(
+          selectionJson,
+          fieldName: "selectionJson",
+          maxCollectionEntries: PencilKitStrokeLimits.maxStrokes + 1
+        )
+        guard let rawIDs = object["strokeIds"] as? [String] else {
+          throw PencilKitHybridError.invalidOptions("strokeIds must be an array of UUID strings")
+        }
+        let ids = try PencilKitStrokeCodec.uuidSet(rawIDs, context: "strokeIds")
+        try Self.onMain { try Self.view(id).setSelectedStrokeIDs(ids) }
+        return
+      }
+      #endif
+      throw PencilKitHybridError.unsupported("Stroke selection")
+    }
+  }
+
+  func erasePencilKitPath(viewId: Double, eraseJson: String) throws -> Promise<String> {
+    let id = Int(viewId)
+    return Promise.parallel(Self.asyncQueue) {
+      #if compiler(>=6.4)
+      if #available(iOS 27.0, *) {
+        let object = try PencilKitJSONValidator.parseObject(
+          eraseJson,
+          fieldName: "eraseJson",
+          maxCollectionEntries: PencilKitStrokeLimits.maxJSONCollectionEntries
+        )
+        let request = try PencilKitEraseRequest(object)
+        let original = try Self.onMain { try Self.view(id).pencilKitDrawing() }
+        // Erasing is expensive, so it runs here rather than on main.
+        let erased = request.apply(to: original)
+        return try Self.onMain { () -> String in
+          let view = try Self.view(id)
+          let current = try view.pencilKitDrawing()
+          // If the drawing changed meanwhile, erase the live drawing instead.
+          let result = current == original ? erased : request.apply(to: current)
+          let changed = result != current
+          if changed {
+            view.replaceDrawingUndoably(result, actionName: "Erase")
+          }
+          return try Self.encodeJSONObject(
+            [
+              "changed": changed,
+              "strokeCountBefore": current.strokes.count,
+              "strokeCountAfter": result.strokes.count,
+            ],
+            context: "erase result"
+          )
+        }
+      }
+      #endif
+      throw PencilKitHybridError.unsupported("erasePath")
+    }
+  }
+
+  func recognizePencilKitText(viewId: Double, optionsJson: String) throws -> Promise<String> {
+    #if compiler(>=6.4)
+    if #available(iOS 27.0, *) {
+      let id = Int(viewId)
+      return Promise.async {
+        let options = try Self.parseOptionalObject(optionsJson, fieldName: "optionsJson")
+        let languages = try Self.parseLanguages(options["preferredLanguages"])
+        var strokeIDs: Set<UUID>?
+        if let raw = options["strokeIds"], !(raw is NSNull) {
+          guard let strings = raw as? [String] else {
+            throw PencilKitHybridError.invalidOptions("strokeIds must be an array of UUID strings")
+          }
+          strokeIDs = try PencilKitStrokeCodec.uuidSet(strings, context: "strokeIds")
+        }
+        let includeIndexableContent = options["includeIndexableContent"] as? Bool ?? false
+
+        let recognizer = try await Self.preparedRecognizer(id: id, languages: languages)
+        let text = await recognizer.recognizedText(strokeIDs: strokeIDs)
+        let recognizerLanguages = await recognizer.languages
+        var result: [String: Any] = [
+          "text": text ?? NSNull(),
+          "languages": recognizerLanguages.map(\.minimalIdentifier),
+          "recognitionVersion": PKStrokeRecognizer.recognitionVersion,
+        ]
+        if includeIndexableContent {
+          result["indexableContent"] = await recognizer.indexableContent ?? NSNull()
+        }
+        return try Self.encodeJSONObject(result, context: "recognized text")
+      }
+    }
+    #endif
+    return Promise.rejected(withError: PencilKitHybridError.unsupported("Handwriting recognition"))
+  }
+
+  func searchPencilKitText(viewId: Double, query: String, optionsJson: String) throws -> Promise<String> {
+    #if compiler(>=6.4)
+    if #available(iOS 27.0, *) {
+      let id = Int(viewId)
+      return Promise.async {
+        guard !query.isEmpty, query.count <= 1_000 else {
+          throw PencilKitHybridError.invalidOptions("query must be 1-1000 characters")
+        }
+        let options = try Self.parseOptionalObject(optionsJson, fieldName: "optionsJson")
+        let languages = try Self.parseLanguages(options["preferredLanguages"])
+        let fullWordsOnly = options["fullWordsOnly"] as? Bool ?? false
+        let caseMatchingOnly = options["caseMatchingOnly"] as? Bool ?? false
+
+        let recognizer = try await Self.preparedRecognizer(id: id, languages: languages)
+        let matches = await recognizer.search(
+          query,
+          fullWordsOnly: fullWordsOnly,
+          caseMatchingOnly: caseMatchingOnly
+        )
+        let results: [[String: Any]] = matches.map { match in
+          [
+            "strokeIds": match.strokes.map(\.uuidString).sorted(),
+            "bounds": [
+              "x": match.bounds.origin.x,
+              "y": match.bounds.origin.y,
+              "width": match.bounds.width,
+              "height": match.bounds.height,
+            ],
+          ]
+        }
+        return try Self.encodeJSONObject(["results": results], context: "search results")
+      }
+    }
+    #endif
+    return Promise.rejected(withError: PencilKitHybridError.unsupported("Handwriting search"))
+  }
+
+  func getPencilKitRecognitionInfo() throws -> Promise<String> {
+    return Promise.parallel(Self.asyncQueue) {
+      var info: [String: Any] = [
+        "supported": false,
+        "supportedLanguages": [String](),
+        "recognitionVersion": NSNull(),
+      ]
+      #if compiler(>=6.4)
+      if #available(iOS 27.0, *) {
+        info = [
+          "supported": true,
+          "supportedLanguages": PKStrokeRecognizer.supportedLanguages.map(\.minimalIdentifier).sorted(),
+          "recognitionVersion": PKStrokeRecognizer.recognitionVersion,
+        ]
+      }
+      #endif
+      return try Self.encodeJSONObject(info, context: "recognition info")
+    }
+  }
+
+  #if compiler(>=6.4)
+  /// The view's cached recognizer, brought up to date with its drawing.
+  @available(iOS 27.0, *)
+  private static func preparedRecognizer(
+    id: Int,
+    languages: [Locale.Language]?
+  ) async throws -> PKStrokeRecognizer {
+    let key = languages?.map(\.maximalIdentifier).joined(separator: ",") ?? ""
+    let (recognizer, drawing) = try await MainActor.run {
+      () throws -> (PKStrokeRecognizer, PKDrawing) in
+      let drawing = try Self.view(id).pencilKitDrawing()
+      if let cached = recognizers[id], cached.key == key,
+        let recognizer = cached.recognizer as? PKStrokeRecognizer
+      {
+        return (recognizer, drawing)
+      }
+      let recognizer = PKStrokeRecognizer(preferredLanguages: languages)
+      recognizers[id] = (key, recognizer)
+      return (recognizer, drawing)
+    }
+    await recognizer.updateDrawing(drawing)
+    return recognizer
+  }
+
+  /// `preferredLanguages`: BCP-47 identifiers, e.g. `["en", "fr-CA"]`.
+  @available(iOS 27.0, *)
+  private static func parseLanguages(_ raw: Any?) throws -> [Locale.Language]? {
+    guard let raw, !(raw is NSNull) else { return nil }
+    guard let identifiers = raw as? [String], identifiers.count <= 32 else {
+      throw PencilKitHybridError.invalidOptions(
+        "preferredLanguages must be an array of up to 32 language identifiers"
+      )
+    }
+    return try identifiers.map { identifier in
+      guard !identifier.isEmpty, identifier.count <= 64 else {
+        throw PencilKitHybridError.invalidOptions("preferredLanguages contains an invalid identifier")
+      }
+      return Locale.Language(identifier: identifier)
+    }
+  }
+  #endif
+
+  /// Parses an options object; an empty string means no options.
+  private static func parseOptionalObject(_ json: String, fieldName: String) throws -> [String: Any] {
+    if json.isEmpty { return [:] }
+    return try PencilKitJSONValidator.parseObject(json, fieldName: fieldName)
   }
 
   // MARK: Apple Pencil capture

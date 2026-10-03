@@ -80,6 +80,13 @@ namespace margelo::nitro::munimpencilkit {
       virtual std::shared_ptr<Promise<void>> appendPencilKitStrokes(double viewId, const std::string& strokesJson) = 0;
       virtual std::shared_ptr<Promise<double>> removePencilKitStrokes(double viewId, const std::vector<double>& indices) = 0;
       virtual std::shared_ptr<Promise<double>> transformPencilKitStrokes(double viewId, const std::vector<double>& indices, const std::string& transformJson) = 0;
+      virtual std::shared_ptr<Promise<std::string>> getPencilKitStrokesWithOptions(double viewId, const std::string& optionsJson) = 0;
+      virtual std::shared_ptr<Promise<std::string>> getPencilKitSelection(double viewId) = 0;
+      virtual std::shared_ptr<Promise<void>> setPencilKitSelection(double viewId, const std::string& selectionJson) = 0;
+      virtual std::shared_ptr<Promise<std::string>> erasePencilKitPath(double viewId, const std::string& eraseJson) = 0;
+      virtual std::shared_ptr<Promise<std::string>> recognizePencilKitText(double viewId, const std::string& optionsJson) = 0;
+      virtual std::shared_ptr<Promise<std::string>> searchPencilKitText(double viewId, const std::string& query, const std::string& optionsJson) = 0;
+      virtual std::shared_ptr<Promise<std::string>> getPencilKitRecognitionInfo() = 0;
 
     protected:
       // Hybrid Setup

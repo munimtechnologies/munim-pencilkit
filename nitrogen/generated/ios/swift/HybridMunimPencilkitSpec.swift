@@ -43,6 +43,13 @@ public protocol HybridMunimPencilkitSpec_protocol: HybridObject {
   func appendPencilKitStrokes(viewId: Double, strokesJson: String) throws -> Promise<Void>
   func removePencilKitStrokes(viewId: Double, indices: [Double]) throws -> Promise<Double>
   func transformPencilKitStrokes(viewId: Double, indices: [Double], transformJson: String) throws -> Promise<Double>
+  func getPencilKitStrokesWithOptions(viewId: Double, optionsJson: String) throws -> Promise<String>
+  func getPencilKitSelection(viewId: Double) throws -> Promise<String>
+  func setPencilKitSelection(viewId: Double, selectionJson: String) throws -> Promise<Void>
+  func erasePencilKitPath(viewId: Double, eraseJson: String) throws -> Promise<String>
+  func recognizePencilKitText(viewId: Double, optionsJson: String) throws -> Promise<String>
+  func searchPencilKitText(viewId: Double, query: String, optionsJson: String) throws -> Promise<String>
+  func getPencilKitRecognitionInfo() throws -> Promise<String>
 }
 
 public extension HybridMunimPencilkitSpec_protocol {

@@ -31,13 +31,21 @@ import type {
   PencilKitAffineTransform,
   PencilKitConfig,
   PencilKitDrawingData,
+  PencilKitErasePathOptions,
+  PencilKitErasePathResult,
   PencilKitExportOptions,
   PencilKitExportResult,
   PencilKitGetDrawingOptions,
+  PencilKitGetStrokesOptions,
   PencilKitHistoryEvent,
   PencilKitImportOptions,
+  PencilKitRecognizedText,
+  PencilKitRecognizeTextOptions,
   PencilKitRenderEvent,
+  PencilKitSearchTextOptions,
+  PencilKitSelectionChangeEvent,
   PencilKitStroke,
+  PencilKitTextSearchResult,
   PencilKitToolPickerAccessoryEvent,
   PencilKitToolPickerEvent,
   PencilKitToolPickerItemEvent,
@@ -309,6 +317,9 @@ interface NativePencilKitViewProps extends ViewProps {
   onPencilKitDidFinishRendering?: (
     event: NativeEventPayload<PencilKitRenderEvent>
   ) => void
+  onPencilKitSelectionChange?: (
+    event: NativeEventPayload<PencilKitSelectionChangeEvent>
+  ) => void
   onApplePencilCoalescedTouches?: (
     event: NativeEventPayload<ApplePencilCoalescedTouchesData>
   ) => void
@@ -362,7 +373,7 @@ export interface PencilKitViewRef {
   getTool: () => Promise<PencilKitToolState>
   setToolPickerVisible: (visible: boolean) => Promise<void>
   /** PencilKit engine only. See `PencilKitStroke` for the coordinate spaces. */
-  getStrokes: () => Promise<PencilKitStroke[]>
+  getStrokes: (options?: PencilKitGetStrokesOptions) => Promise<PencilKitStroke[]>
   /** Replaces every stroke. Undoable. PencilKit engine only. */
   setStrokes: (strokes: PencilKitStroke[]) => Promise<void>
   /** Adds strokes on top. Undoable. PencilKit engine only. */
@@ -377,6 +388,21 @@ export interface PencilKitViewRef {
     indices: number[],
     transform: PencilKitAffineTransform
   ) => Promise<number>
+  /** iOS 27+: ids of the lasso-selected strokes. */
+  getSelection: () => Promise<string[]>
+  /** iOS 27+: selects the strokes with these ids (unknown ids are ignored). */
+  setSelection: (strokeIds: string[]) => Promise<void>
+  /** iOS 27+: erases along a path, splitting or trimming strokes. Undoable. */
+  erasePath: (options: PencilKitErasePathOptions) => Promise<PencilKitErasePathResult>
+  /** iOS 27+: recognizes the handwriting in all (or some) strokes. */
+  recognizeText: (
+    options?: PencilKitRecognizeTextOptions
+  ) => Promise<PencilKitRecognizedText>
+  /** iOS 27+: finds `query` in the recognized handwriting. */
+  searchText: (
+    query: string,
+    options?: PencilKitSearchTextOptions
+  ) => Promise<PencilKitTextSearchResult[]>
 }
 
 export interface PencilKitViewProps extends ViewProps {
@@ -396,6 +422,8 @@ export interface PencilKitViewProps extends ViewProps {
   ) => void
   /** PencilKit finished rendering all visible content (`canvasViewDidFinishRendering`). */
   onDidFinishRendering?: (event: PencilKitRenderEvent) => void
+  /** iOS 27+: the lasso selection changed. */
+  onSelectionChange?: (event: PencilKitSelectionChangeEvent) => void
   onApplePencilCoalescedTouches?: (
     data: ApplePencilCoalescedTouchesData
   ) => void
@@ -458,6 +486,7 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
       onToolPickerItemChange,
       onToolPickerAccessoryPress,
       onDidFinishRendering,
+      onSelectionChange,
       onApplePencilCoalescedTouches,
       onApplePencilPredictedTouches,
       onApplePencilEstimatedProperties,
@@ -587,9 +616,16 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
           ),
         setToolPickerVisible: (visible: boolean) =>
           run((id) => MunimPencilkit.setPencilKitToolPickerVisible(id, visible)),
-        getStrokes: () =>
+        getStrokes: (options?: PencilKitGetStrokesOptions) =>
           run(async (id) =>
-            parseStrokesJson(await MunimPencilkit.getPencilKitStrokes(id))
+            parseStrokesJson(
+              options == null
+                ? await MunimPencilkit.getPencilKitStrokes(id)
+                : await MunimPencilkit.getPencilKitStrokesWithOptions(
+                    id,
+                    JSON.stringify(options)
+                  )
+            )
           ),
         setStrokes: (strokes: PencilKitStroke[]) =>
           run((id) =>
@@ -614,6 +650,55 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
               indices,
               JSON.stringify(transform)
             )
+          ),
+        getSelection: () =>
+          run(
+            async (id) =>
+              (
+                JSON.parse(await MunimPencilkit.getPencilKitSelection(id)) as {
+                  strokeIds: string[]
+                }
+              ).strokeIds
+          ),
+        setSelection: (strokeIds: string[]) =>
+          run((id) =>
+            MunimPencilkit.setPencilKitSelection(
+              id,
+              JSON.stringify({ strokeIds })
+            )
+          ),
+        erasePath: (options: PencilKitErasePathOptions) =>
+          run(
+            async (id) =>
+              JSON.parse(
+                await MunimPencilkit.erasePencilKitPath(
+                  id,
+                  JSON.stringify(options)
+                )
+              ) as PencilKitErasePathResult
+          ),
+        recognizeText: (options?: PencilKitRecognizeTextOptions) =>
+          run(
+            async (id) =>
+              JSON.parse(
+                await MunimPencilkit.recognizePencilKitText(
+                  id,
+                  JSON.stringify(options ?? {})
+                )
+              ) as PencilKitRecognizedText
+          ),
+        searchText: (query: string, options?: PencilKitSearchTextOptions) =>
+          run(
+            async (id) =>
+              (
+                JSON.parse(
+                  await MunimPencilkit.searchPencilKitText(
+                    id,
+                    query,
+                    JSON.stringify(options ?? {})
+                  )
+                ) as { results: PencilKitTextSearchResult[] }
+              ).results
           ),
       }
     }, [viewId])
@@ -679,6 +764,11 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
         ) => {
           onDidFinishRendering?.(event.nativeEvent)
         },
+        onPencilKitSelectionChange: (
+          event: NativeEventPayload<PencilKitSelectionChangeEvent>
+        ) => {
+          onSelectionChange?.(event.nativeEvent)
+        },
         onApplePencilCoalescedTouches: (
           event: NativeEventPayload<ApplePencilCoalescedTouchesData>
         ) => {
@@ -741,6 +831,7 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
         onToolPickerItemChange,
         onToolPickerAccessoryPress,
         onDidFinishRendering,
+        onSelectionChange,
         onApplePencilCoalescedTouches,
         onApplePencilPredictedTouches,
         onApplePencilEstimatedProperties,
@@ -790,6 +881,9 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
           onDidFinishRendering
             ? callbacks.onPencilKitDidFinishRendering
             : undefined
+        }
+        onPencilKitSelectionChange={
+          onSelectionChange ? callbacks.onPencilKitSelectionChange : undefined
         }
         onApplePencilCoalescedTouches={callbacks.onApplePencilCoalescedTouches}
         onApplePencilPredictedTouches={callbacks.onApplePencilPredictedTouches}

@@ -339,6 +339,8 @@ Main React Native component for PencilKit integration with full Apple Pencil Pro
   was tapped (`{ viewId, identifier }`)
 - `onDidFinishRendering` (function): PencilKit finished rendering all visible
   content (`canvasViewDidFinishRendering`). Only wired up when you pass it.
+- `onSelectionChange` (function, iOS 27+): the lasso selection changed
+  (`{ viewId, revision, strokeIds }`). Only wired up when you pass it.
 - `onApplePencilHover` events now carry `phase`
   (`'began' | 'changed' | 'ended' | 'cancelled'`); `ended`/`cancelled` fire
   once when the pencil leaves hover range.
@@ -360,8 +362,10 @@ Utility functions for advanced PencilKit operations.
 
 - `isSupported()`: `true` when PencilKit is available (iOS)
 - `getCapabilities()`: Detailed `PencilKitCapabilities` object with OS version,
-  supported document formats, ink/eraser tools, telemetry support, and native
-  import/export size limits
+  supported document formats, ink/eraser tools, telemetry support, native
+  import/export size limits, and `features` (which iOS 26/27 APIs work here)
+- `getRecognitionInfo()`: handwriting recognition support, languages and model
+  version (`supported: false` before iOS 27)
 
 #### View Management
 
@@ -447,6 +451,64 @@ points in *stroke space* (apply `transform` for canvas coordinates) with
 than the archive. `setDrawing` still prefers `dataBase64`; without it, a
 non-empty `strokes` array is drawn instead.
 
+#### iOS 27: stroke ids, selection, erasing, handwriting
+
+These need iPadOS/iOS 27 at runtime **and** an app built with the iOS 27 SDK
+(Xcode 27). Elsewhere the calls reject with an error that says so (stroke ids
+are simply absent), so check first:
+
+```ts
+const { features } = PencilKitUtils.getCapabilities()
+if (features?.handwritingRecognition) {
+  // iOS 27 APIs are available
+}
+```
+
+- **Stable stroke ids**: on iOS 27 every `PencilKitStroke` from `getStrokes()`
+  or `getDrawing({ includeStrokes: true })` has an `id` (`PKStroke.id`, a UUID
+  string that survives edits and undo), plus `pathId`, `renderGroupId`,
+  `renderState` and per-point `lateralJitter`. `setStrokes`, `appendStrokes`
+  and `setDrawing` keep the ids you pass; an id that is already on the canvas
+  (or repeated in the same call) gets a fresh one so ids stay unique.
+- **Selection**: `getSelection()` resolves the ids of the lasso-selected
+  strokes, `setSelection(ids)` selects strokes (unknown ids are ignored), and
+  `onSelectionChange` reports changes.
+- **Erase along a path**: `erasePath({ points, width?, mask?, transform? })`
+  erases like the vector-precise eraser dragged along `points` (canvas space,
+  `{ x, y }` or stroke points; `width` defaults to 20). Strokes it crosses are
+  trimmed or split. Resolves `{ changed, strokeCountBefore, strokeCountAfter }`
+  and is one undo step. It runs off the main thread.
+- **Bézier paths**: `getStrokes({ includeBezierPaths: true })` adds each
+  stroke's `bezierPath` (`PKStrokePath.bezierRepresentation`) as SVG path data
+  in stroke space.
+- **Handwriting recognition** (`PKStrokeRecognizer`):
+
+```ts
+const info = await PencilKitUtils.getRecognitionInfo()
+// { supported, supportedLanguages: ['en', ...], recognitionVersion }
+
+const { text } = await canvasRef.current.recognizeText()
+// Only some strokes, and preferred languages:
+await canvasRef.current.recognizeText({
+  strokeIds: selectedIds,
+  preferredLanguages: ['en', 'fr'],
+  includeIndexableContent: true, // all candidate text, for search indexes
+})
+
+const matches = await canvasRef.current.searchText('invoice', {
+  fullWordsOnly: true,
+})
+// [{ strokeIds: [...], bounds: { x, y, width, height } }]
+```
+
+  Each view keeps one recognizer and updates it incrementally with the
+  drawing. `text` is `null` when nothing was recognized. `PencilKitUtils` has
+  the same calls taking a `viewId` first.
+
+`config.toolPickerColorMaximumLinearExposure` (iOS 26+) sets
+`PKToolPicker.colorMaximumLinearExposure`: values above 1 let people pick HDR
+ink colors on HDR displays (`null` restores the default).
+
 #### Content version
 
 `config.maximumSupportedContentVersion` (`1`-`5` or `'latest'`, iOS 17+) caps
@@ -454,7 +516,7 @@ the PKContentVersion that new strokes may use, on both the canvas and the tool
 picker. Use it when drawings must open on older OS versions. Drawing payloads
 and archive exports report `requiredContentVersion`, and
 `getCapabilities().contentVersion.maximum` is the newest version the OS
-renders.
+renders (5 on iOS 27, which adds per-stroke render state).
 
 #### Custom tool picker (iOS 18+)
 
@@ -1119,11 +1181,27 @@ Enable debug logging by setting the following environment variable:
 export REACT_NATIVE_PENCILKIT_DEBUG=1
 ```
 
+### Known issue: Xcode 27 builds on iOS 17
+
+Any app using react-native-nitro-modules (0.36 and 0.37) that is built with
+Xcode 27 crashes at launch on iOS older than 18 (dyld cannot find
+`std::exception_ptr::__from_native_exception_pointer`; margelo/nitro#1652, fix
+in margelo/nitro#1666, not released yet). Until Nitro ships the fix, build
+with Xcode 26 if you support iOS 17, or apply the fix from that PR with
+patch-package (`ios/utils/RuntimeError.hpp`: throw and catch the error, then
+use `std::current_exception()` instead of `std::make_exception_ptr`).
+
+Apps built with Xcode 27 must also adopt the UIScene lifecycle or they crash
+at launch on iOS 27 (Apple TN3187). The example app shows a minimal
+`SceneDelegate`; Expo apps set `expo-build-properties`
+`ios.enableSceneSupport: true`.
+
 ### Requirements
 
-- iOS/iPadOS 17.5+
-- React Native 0.75+
-- Xcode 15+
+- iOS/iPadOS 17.5+ (iOS 27 for the stroke id, selection, erase-path and
+  handwriting APIs)
+- React Native 0.75+ (the example uses 0.87.1)
+- Xcode 16+ (Xcode 27 for the iOS 27 APIs)
 - Apple Pencil (for full functionality)
 - Apple Pencil Pro (for advanced features)
 - Expo SDK 50+ (for Expo projects)

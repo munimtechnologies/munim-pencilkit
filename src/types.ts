@@ -153,6 +153,8 @@ export interface PencilKitPoint {
   secondaryScale?: number
   /** iOS 26+ ink threshold (reed pen). Ignored on older iOS. */
   threshold?: number
+  /** iOS 27+ sideways jitter of the ink at this point. Ignored on older iOS. */
+  lateralJitter?: number
 }
 
 export interface PencilKitTool {
@@ -199,6 +201,107 @@ export interface PencilKitStroke {
   renderBounds?: PencilKitRect
   /** Output only: the PKContentVersion this stroke needs. */
   requiredContentVersion?: number
+  /**
+   * iOS 27+: the stroke's stable id (`PKStroke.id`, a UUID string). It
+   * survives edits and undo, and is what selection, erasing and handwriting
+   * recognition refer to. `setStrokes`/`appendStrokes` keep it, except that a
+   * duplicate of an id already on the canvas (or earlier in the same call)
+   * gets a new one. Absent before iOS 27, and ignored on input there.
+   */
+  id?: string
+  /** iOS 27+: the stroke path's own id (`PKStrokePath.id`). */
+  pathId?: string
+  /** iOS 27+: strokes with the same render group id render as one group. */
+  renderGroupId?: string
+  /** iOS 27+: per-stroke render state (needs PKContentVersion 5). */
+  renderState?: { grainOffset?: { x: number; y: number } }
+  /**
+   * iOS 27+, output only, with `getStrokes({ includeBezierPaths: true })`:
+   * the path's curve (`PKStrokePath.bezierRepresentation`) as SVG path data
+   * (absolute M/L/Q/C/Z) in stroke space.
+   */
+  bezierPath?: string
+}
+
+export interface PencilKitGetStrokesOptions {
+  /** iOS 27+: fill each stroke's `bezierPath`. Ignored on older iOS. */
+  includeBezierPaths?: boolean
+}
+
+/** A point of an eraser path: `{ x, y }` or a stroke point. Canvas space. */
+export type PencilKitErasePathPoint =
+  | { x: number; y: number; size?: { width: number; height: number } }
+  | (Partial<PencilKitPoint> & { location: { x: number; y: number } })
+
+/** iOS 27+: `PKDrawing.erasePath`. */
+export interface PencilKitErasePathOptions {
+  /** The eraser's path, in canvas space. At least one point. */
+  points: PencilKitErasePathPoint[]
+  /** Eraser diameter in points, for points without a `size`. Default 20. */
+  width?: number
+  /** Optional clip mask for the eraser, as SVG path data. */
+  mask?: string
+  /** Maps `points` into canvas space. Identity when omitted. */
+  transform?: PencilKitAffineTransform
+}
+
+export interface PencilKitErasePathResult {
+  /** False when the path touched no ink (nothing was added to undo). */
+  changed: boolean
+  strokeCountBefore: number
+  /** Can be higher than before: erasing through a stroke splits it. */
+  strokeCountAfter: number
+}
+
+/** iOS 27+: `PKStrokeRecognizer`. */
+export interface PencilKitRecognizeTextOptions {
+  /** Recognize only these strokes (ids from `getStrokes`). Default: all. */
+  strokeIds?: string[]
+  /**
+   * BCP-47 language identifiers, most preferred first (e.g. `['en', 'fr']`).
+   * Default: the user's languages. See `getRecognitionInfo()`.
+   */
+  preferredLanguages?: string[]
+  /** Also return `indexableContent` (all candidate text, for search indexes). */
+  includeIndexableContent?: boolean
+}
+
+export interface PencilKitRecognizedText {
+  /** The recognized text, or null when nothing was recognized. */
+  text: string | null
+  /** The languages the recognizer used. */
+  languages: string[]
+  recognitionVersion: number
+  indexableContent?: string | null
+}
+
+export interface PencilKitSearchTextOptions {
+  fullWordsOnly?: boolean
+  caseMatchingOnly?: boolean
+  preferredLanguages?: string[]
+}
+
+export interface PencilKitTextSearchResult {
+  /** The strokes that make up the match. */
+  strokeIds: string[]
+  /** The match's bounds in canvas space. */
+  bounds: PencilKitRect
+}
+
+export interface PencilKitRecognitionInfo {
+  /** True on iOS 27+ (app built with the iOS 27 SDK). */
+  supported: boolean
+  /** BCP-47 identifiers PencilKit can recognize. Empty when unsupported. */
+  supportedLanguages: string[]
+  /** Changes when Apple updates the recognition model. Null when unsupported. */
+  recognitionVersion: number | null
+}
+
+/** iOS 27+: the lasso selection changed (by the user or `setSelection`). */
+export interface PencilKitSelectionChangeEvent {
+  viewId: number
+  revision: number
+  strokeIds: string[]
 }
 
 /** PKContentVersion: 1 (iOS 14 inks), 2 (iOS 17 inks), 3 (iOS 17.5 fountain pen), 4 (iOS 26 reed), 5 (iOS 27 render state). */
@@ -359,6 +462,13 @@ export interface PencilKitConfig {
   toolItems?: PencilKitToolItem[] | null
   /** iOS 18+: a button at the end of the tool picker. `null` removes it. */
   toolPickerAccessoryItem?: PencilKitToolPickerAccessoryItem | null
+  /**
+   * iOS 26+: the tool picker color picker's maximum linear exposure
+   * (`PKToolPicker.colorMaximumLinearExposure`). Values above 1 let people
+   * pick HDR ink colors on HDR displays. Clamped to 1...64; `null` restores
+   * the system default. Ignored on older iOS.
+   */
+  toolPickerColorMaximumLinearExposure?: number | null
   /**
    * Whether showing the tool picker may make the canvas first responder
    * (required for the picker to appear). Defaults to true, but focus is only
@@ -521,6 +631,26 @@ export interface PencilKitCapabilities {
   }
   /** Stroke read/write APIs are available. */
   strokes?: boolean
+  /**
+   * Newer PencilKit features. The iOS 27 ones need iOS 27 at runtime and an
+   * app built with the iOS 27 SDK; the matching calls reject otherwise.
+   */
+  features?: {
+    /** iOS 27: `PencilKitStroke.id` / `pathId` / `renderGroupId` / `renderState`. */
+    strokeIds: boolean
+    /** iOS 27: `getSelection` / `setSelection`. */
+    selection: boolean
+    /** iOS 27: `onSelectionChange`. */
+    selectionChangeEvents: boolean
+    /** iOS 27: `erasePath`. */
+    erasePath: boolean
+    /** iOS 27: `getStrokes({ includeBezierPaths: true })`. */
+    bezierPaths: boolean
+    /** iOS 27: `recognizeText` / `searchText`. */
+    handwritingRecognition: boolean
+    /** iOS 26: `config.toolPickerColorMaximumLinearExposure`. */
+    toolPickerHDRColors: boolean
+  }
   /** Highest PKContentVersion the OS can render. */
   contentVersion?: { maximum: number }
   /** Native import/export size limits, in bytes/pixels (iOS only). */
