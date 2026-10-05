@@ -143,30 +143,35 @@ yarn add munim-pencilkit react-native-nitro-modules
 npx expo install munim-pencilkit react-native-nitro-modules
 ```
 
-> **Note**: This library requires Expo SDK 50+ and works with both managed and bare workflows.
+> **Note**: This library requires Expo SDK 52+ (React Native 0.75+) and a
+> development build (`npx expo run:ios` or EAS Build); it is not available in
+> Expo Go.
 
 ### iOS Setup
 
-For iOS, add PencilKit framework to your project:
+The pod's minimum deployment target is **iOS 17.5**. React Native and Expo
+projects default to a lower target, so raise it or `pod install` fails with
+"required a higher minimum deployment target".
 
-1. Open your project in Xcode
-2. Select your target
-3. Go to "Build Phases" → "Link Binary With Libraries"
-4. Add `PencilKit.framework`
+React Native CLI (`ios/Podfile`):
 
-**For Expo projects**, PencilKit framework is automatically included. However, you need to add the following permissions to your `app.json`:
+```ruby
+platform :ios, '17.5'
+```
+
+Expo (`app.json`, with `npx expo install expo-build-properties`):
 
 ```json
 {
   "expo": {
-    "ios": {
-      "infoPlist": {
-        "NSApplePencilUsageDescription": "This app uses Apple Pencil for drawing and note-taking"
-      }
-    }
+    "plugins": [
+      ["expo-build-properties", { "ios": { "deploymentTarget": "17.5" } }]
+    ]
   }
 }
 ```
+
+PencilKit.framework is linked automatically and no Info.plist keys are needed.
 
 ## ⚡ Quick Start
 
@@ -1164,22 +1169,14 @@ Enable haptic feedback for interactions:
 ### Expo-Specific Issues
 
 1. **Development Build Required**: This library requires a development build in Expo. Use `npx expo run:ios`
-2. **Framework Not Found**: Ensure you're using Expo SDK 50+ and have the latest Expo CLI
-3. **Build Errors**: Make sure PencilKit.framework is available in your iOS project
+2. **Framework Not Found**: Ensure you're using Expo SDK 52+ and have the latest Expo CLI
+3. **"required a higher minimum deployment target"**: Set the iOS deployment target to 17.5 (see [iOS Setup](#ios-setup))
 
 ### Apple Pencil Pro Issues
 
 1. **Squeeze Not Working**: Ensure `enableSqueezeInteraction` is true and using Apple Pencil Pro
 2. **Hover Not Detected**: Ensure `onApplePencilHover` is registered and test on supported iPad hardware/iPadOS versions
 3. **Haptic Feedback Missing**: Verify `enableHapticFeedback` is true and device supports haptics
-
-### Debug Mode
-
-Enable debug logging by setting the following environment variable:
-
-```bash
-export REACT_NATIVE_PENCILKIT_DEBUG=1
-```
 
 ### Known issue: Xcode 27 builds on iOS 17
 
@@ -1204,7 +1201,7 @@ at launch on iOS 27 (Apple TN3187). The example app shows a minimal
 - Xcode 16+ (Xcode 27 for the iOS 27 APIs)
 - Apple Pencil (for full functionality)
 - Apple Pencil Pro (for advanced features)
-- Expo SDK 50+ (for Expo projects)
+- Expo SDK 52+ (for Expo projects; development build, not Expo Go)
 
 ## 👏 Contributing
 
