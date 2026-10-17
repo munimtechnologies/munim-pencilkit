@@ -1,3 +1,9 @@
+## [1.17.1](https://github.com/munimtechnologies/munim-pencilkit/compare/v1.17.0...v1.17.1) (2026-10-17)
+
+### 🐛 Bug Fixes
+
+* accept react-native-nitro-modules 0.36.5 again ([d106e28](https://github.com/munimtechnologies/munim-pencilkit/commit/d106e28c63e80714b9aa63930e7eeddcda46e457)), closes [margelo/nitro#1573](https://github.com/margelo/nitro/issues/1573)
+
 ## [1.17.0](https://github.com/munimtechnologies/munim-pencilkit/compare/v1.16.0...v1.17.0) (2026-10-17)
 
 ### ✨ Features
