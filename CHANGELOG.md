@@ -1,3 +1,13 @@
+## [1.17.0](https://github.com/munimtechnologies/munim-pencilkit/compare/v1.16.0...v1.17.0) (2026-10-17)
+
+### ✨ Features
+
+* React Native 0.88 and Nitro Modules 0.37.1 ([#18](https://github.com/munimtechnologies/munim-pencilkit/issues/18)) ([5aa7a0e](https://github.com/munimtechnologies/munim-pencilkit/commit/5aa7a0e3f00cfc69dfaa26700120c8cde0f959d2))
+
+### 📚 Documentation
+
+* fix the README install steps (iOS 17.5 target, Expo SDK, phantom settings) ([#17](https://github.com/munimtechnologies/munim-pencilkit/issues/17)) ([1039959](https://github.com/munimtechnologies/munim-pencilkit/commit/1039959fa701e3315564d711852df9f3c0e61fe4))
+
 ## [1.16.0](https://github.com/munimtechnologies/munim-pencilkit/compare/v1.15.0...v1.16.0) (2026-10-03)
 
 ### ✨ Features
