@@ -14,7 +14,10 @@
   },
   "autolinking": {
     "MunimPencilkit": {
-      "swift": "HybridMunimPencilkit"
+      "ios": {
+        "language": "swift",
+        "implementationClassName": "HybridMunimPencilkit"
+      }
     }
   },
   "ignorePaths": [
