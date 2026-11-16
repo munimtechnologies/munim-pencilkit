@@ -1,6 +1,6 @@
 {
   "name": "munim-pencilkit",
-  "version": "1.17.1",
+  "version": "1.18.0",
   "description": "React Native PencilKit and Apple Pencil (Pro) for iOS/iPadOS, built with Nitro Modules",
   "main": "./lib/commonjs/index.js",
   "module": "./lib/module/index.js",

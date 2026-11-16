@@ -1,3 +1,22 @@
+## [1.18.0](https://github.com/munimtechnologies/munim-pencilkit/compare/v1.17.1...v1.18.0) (2026-11-16)
+
+### ✨ Features
+
+* binary drawing archives, Apple Pencil sample stream, Pencil Pro feedback and preferences, zoom ([51ca3c7](https://github.com/munimtechnologies/munim-pencilkit/commit/51ca3c7d0ad2162aa46d5b41e56ce93d0c99d3f5))
+* **example:** binary archive, sample stream, Pencil Pro feedback and zoom demos; CI package checks ([012fb30](https://github.com/munimtechnologies/munim-pencilkit/commit/012fb30c1f477dceb3e7a3b154a512dd1c98b2c5))
+
+### 🐛 Bug Fixes
+
+* **example:** archive round-trip self-test compares strokes, not re-encoded byte counts ([2d5e8c9](https://github.com/munimtechnologies/munim-pencilkit/commit/2d5e8c9a1e9ed4833f189a358eabe22ec71a249d))
+* **example:** typed performance.now lookup ([58adf5c](https://github.com/munimtechnologies/munim-pencilkit/commit/58adf5c99fe41e953e46dffe3c1f8a3147911de0))
+
+### 🛠️ Other changes
+
+* bump to React Native 0.88.1, Nitro 0.37.2, semantic-release 26, ESLint 10, Jest 30 ([82fcd2e](https://github.com/munimtechnologies/munim-pencilkit/commit/82fcd2e85311770d9daa45e205bd16f6261abeba))
+* **example:** Podfile.lock for React Native 0.88.1 / Nitro 0.37.2 ([d63c38a](https://github.com/munimtechnologies/munim-pencilkit/commit/d63c38aa18544d099f47c57d211052d809e930c5))
+* regenerate nitrogen 0.37.2 output and lockfile ([e1e36a8](https://github.com/munimtechnologies/munim-pencilkit/commit/e1e36a8b08e95435ee99c18e9258fed8299cc15e))
+* TypeScript 6 config (explicit jest types, no baseUrl) ([ffbde83](https://github.com/munimtechnologies/munim-pencilkit/commit/ffbde83b82ff29f5f01c296fd198e9a0717ce641))
+
 ## [1.17.1](https://github.com/munimtechnologies/munim-pencilkit/compare/v1.17.0...v1.17.1) (2026-10-17)
 
 ### 🐛 Bug Fixes
