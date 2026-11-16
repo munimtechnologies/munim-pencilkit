@@ -119,6 +119,88 @@ const handwrittenHI = (x: number, y: number): PencilKitStroke[] => [
   ]),
 ];
 
+/** Decodes base64 with the runtime's atob; null when atob is unavailable. */
+const base64ToBytes = (base64: string): Uint8Array | null => {
+  const atob = (globalThis as { atob?: (data: string) => string }).atob;
+  if (atob == null) return null;
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+};
+
+const sameBytes = (a: Uint8Array, b: Uint8Array): boolean =>
+  a.length === b.length && a.every((value, index) => value === b[index]);
+
+/**
+ * Every way two stroke lists differ (ids, ink, color, transform, point
+ * count, point data), as readable lines. Empty when they match.
+ */
+const diffStrokes = (
+  expected: PencilKitStroke[],
+  actual: PencilKitStroke[],
+): string[] => {
+  const out: string[] = [];
+  if (expected.length !== actual.length) {
+    out.push(`stroke count ${expected.length} -> ${actual.length}`);
+  }
+  const close = (x: number | undefined, y: number | undefined) =>
+    x === y || (x != null && y != null && Math.abs(x - y) <= 1e-3);
+  expected.forEach((want, i) => {
+    const got = actual[i];
+    if (got == null) return;
+    const tag = `stroke ${i}`;
+    if (want.id !== got.id) out.push(`${tag} id ${want.id} -> ${got.id}`);
+    if (want.ink?.inkType !== got.ink?.inkType) {
+      out.push(`${tag} ink ${want.ink?.inkType} -> ${got.ink?.inkType}`);
+    }
+    if (want.color !== got.color) {
+      out.push(`${tag} color ${want.color} -> ${got.color}`);
+    }
+    const wt = want.transform;
+    const gt = got.transform;
+    if (
+      wt != null &&
+      gt != null &&
+      !(['a', 'b', 'c', 'd', 'tx', 'ty'] as const).every(k =>
+        close(wt[k], gt[k]),
+      )
+    ) {
+      out.push(`${tag} transform ${JSON.stringify(wt)} -> ${JSON.stringify(gt)}`);
+    }
+    if (want.points.length !== got.points.length) {
+      out.push(`${tag} points ${want.points.length} -> ${got.points.length}`);
+      return;
+    }
+    let worst = 0;
+    let worstAt = -1;
+    let field = '';
+    want.points.forEach((p, j) => {
+      const q = got.points[j]!;
+      const deltas: Array<[string, number]> = [
+        ['x', Math.abs(p.location.x - q.location.x)],
+        ['y', Math.abs(p.location.y - q.location.y)],
+        ['force', Math.abs((p.force ?? 0) - (q.force ?? 0))],
+        ['width', Math.abs((p.size?.width ?? 0) - (q.size?.width ?? 0))],
+        ['timeOffset', Math.abs((p.timeOffset ?? 0) - (q.timeOffset ?? 0))],
+        ['azimuth', Math.abs(p.azimuth - q.azimuth)],
+        ['altitude', Math.abs(p.altitude - q.altitude)],
+      ];
+      for (const [name, delta] of deltas) {
+        if (delta > worst) {
+          worst = delta;
+          worstAt = j;
+          field = name;
+        }
+      }
+    });
+    if (worst > 1e-3) {
+      out.push(`${tag} point ${worstAt} ${field} off by ${worst.toFixed(4)}`);
+    }
+  });
+  return out;
+};
+
 const sameIds = (a: string[], b: string[]): boolean =>
   a.length === b.length && [...a].sort().join() === [...b].sort().join();
 
@@ -475,21 +557,43 @@ export async function runSelfTest(
 
   await check('binary archive round-trip keeps strokes', async () => {
     await canvas.setStrokes(baseStrokes);
+    // Compare against what the canvas holds, not the JS input: PencilKit
+    // normalizes strokes (sizes, time offsets) when it builds them.
+    const before = await canvas.getStrokes();
     const archive = await canvas.getDrawingArchive();
     await canvas.clearDrawing();
+    const cleared = (await canvas.getStrokes()).length;
     await canvas.setDrawingArchive(archive);
-    const strokes = await canvas.getStrokes();
+    const after = await canvas.getStrokes();
+    // Same drawing, two encoders: getDrawingArchive after the import and the
+    // archive export must be byte-identical. (The bytes are NOT compared with
+    // the pre-import archive: PKDrawing's encoding is not canonical, so a
+    // decoded drawing can re-encode to a slightly different size with the
+    // same strokes.)
+    const reArchived = await canvas.getDrawingArchive();
     const exported = await canvas.exportDocument({
       version: 1,
       format: 'archive',
       output: 'base64',
     });
+    const exportedBytes = base64ToBytes(exported.dataBase64 ?? '');
+    const differences = diffStrokes(before, after);
+    if (cleared !== 0) differences.push(`clearDrawing left ${cleared} strokes`);
+    const bytesMatch =
+      exportedBytes == null
+        ? exported.byteLength === reArchived.byteLength
+        : sameBytes(exportedBytes, new Uint8Array(reArchived));
+    if (!bytesMatch) {
+      differences.push(
+        `re-archived ${reArchived.byteLength} B != exported ${exported.byteLength} B`,
+      );
+    }
     return expect(
-      archive.byteLength > 0 &&
-        strokes.length === baseStrokes.length &&
-        exported.byteLength === archive.byteLength,
-      `${archive.byteLength} B (base64 export ${exported.byteLength} B), ` +
-        `${strokes.length} strokes back`,
+      archive.byteLength > 0 && differences.length === 0,
+      `archive ${archive.byteLength} B -> ${after.length}/${before.length} strokes; ` +
+        `re-encoded ${reArchived.byteLength} B (export ${exported.byteLength} B` +
+        `${bytesMatch ? ', identical' : ''})` +
+        (differences.length ? `; DIFF: ${differences.join('; ')}` : '; strokes identical'),
     );
   });
 
