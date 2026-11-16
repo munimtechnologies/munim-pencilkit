@@ -1,6 +1,8 @@
 import UIKit
 
 @objc protocol StylusDrawingViewDelegate: AnyObject {
+  /// Every touch event the view receives, before it draws (all phases).
+  func stylusView(_ view: StylusDrawingView, didReceiveTouches touches: Set<UITouch>, event: UIEvent?)
   func stylusViewDidToggleEraser(_ view: StylusDrawingView, isOn: Bool)
   func stylusViewDidStartDrawing(_ view: StylusDrawingView)
   func stylusViewDidEndDrawing(_ view: StylusDrawingView)
@@ -239,6 +241,7 @@ import UIKit
   }
 
   override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+    delegate?.stylusView(self, didReceiveTouches: touches, event: event)
     for touch in touches where shouldAccept(touch: touch) {
       if lastPointByTouch.isEmpty {
         recordHistorySnapshot()
@@ -257,6 +260,7 @@ import UIKit
   }
 
   override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
+    delegate?.stylusView(self, didReceiveTouches: touches, event: event)
     guard let image = renderImageView.image else { return }
     for touch in touches where shouldAccept(touch: touch) {
       let samples = event?.coalescedTouches(for: touch) ?? [touch]
@@ -280,10 +284,12 @@ import UIKit
   }
 
   override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+    delegate?.stylusView(self, didReceiveTouches: touches, event: event)
     endTouches(touches)
   }
 
   override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+    delegate?.stylusView(self, didReceiveTouches: touches, event: event)
     endTouches(touches)
   }
 

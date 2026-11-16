@@ -73,14 +73,65 @@ export interface ApplePencilHoverData {
   timestamp: number
 }
 
-export type ApplePencilPreferredAction =
-  | 'ignore'
-  | 'switchEraser'
-  | 'switchPrevious'
-  | 'showColorPalette'
-  | 'showInkAttributes'
-  | 'showContextualPalette'
-  | 'runSystemShortcut'
+import type { ApplePencilPreferredAction } from './specs/munim-pencilkit.nitro'
+
+export type {
+  ApplePencilPreferences,
+  ApplePencilPreferredAction,
+  PencilKitFeedbackKind,
+} from './specs/munim-pencilkit.nitro'
+
+/** `kind` of a decoded Apple Pencil sample. */
+export type ApplePencilSampleKind =
+  /** A real sample (every coalesced sample, in order). */
+  | 'sample'
+  /** UIKit's prediction past the latest real sample; replace on the next batch. */
+  | 'predicted'
+  /** A later, more precise value for an earlier sample (same `estimationUpdateIndex`). */
+  | 'estimatedUpdate'
+
+/** One Apple Pencil sample from `addPencilSampleListener` / `onPencilSamples`. */
+export interface ApplePencilSample {
+  kind: ApplePencilSampleKind
+  phase: 'began' | 'moved' | 'ended' | 'cancelled'
+  /** Seconds, `systemUptime` clock (same as UITouch). */
+  timestamp: number
+  /** View coordinates. */
+  x: number
+  y: number
+  preciseX: number
+  preciseY: number
+  force: number
+  maximumPossibleForce: number
+  /** `force / maximumPossibleForce`, 0 when unknown. */
+  pressure: number
+  /** Radians, 0 = flat, pi/2 = perpendicular. */
+  altitude: number
+  /** Radians, in view coordinates. */
+  azimuth: number
+  azimuthUnitVector: { x: number; y: number }
+  /** Radians (barrel roll, Apple Pencil Pro; 0 otherwise). */
+  rollAngle: number
+  /** Properties that are estimates (`force`, `azimuth`, `altitude`, `location`). */
+  estimatedProperties: string[]
+  /** Estimated properties that will get an `estimatedUpdate` later. */
+  estimatedPropertiesExpectingUpdates: string[]
+  /** Matches an `estimatedUpdate` to its sample; -1 when not tracked. */
+  estimationUpdateIndex: number
+}
+
+/**
+ * A batch of samples, zero-copy over the native buffer. `samples` holds
+ * `count` records of `stride` Float64 values; use the `PENCIL_SAMPLE_FIELD`
+ * offsets to read them without allocating, or `toArray()` for objects.
+ */
+export interface ApplePencilSampleBatch {
+  viewId: number
+  count: number
+  stride: number
+  samples: Float64Array
+  toArray: () => ApplePencilSample[]
+}
 
 export interface ApplePencilSqueezeData {
   viewId: number
@@ -436,6 +487,21 @@ export interface PencilKitConfig {
    */
   snapshotDebounceMs?: number
   /**
+   * Minimum time between `onDrawingChange` / `onHistoryChange` events, in ms.
+   * The first change is sent at once and the last one in a burst is never
+   * dropped (leading + trailing), so `revision` can skip values. Bursts come
+   * from erasing, lasso moves, undo/redo and stroke edits. Default 32; 0 sends
+   * every change.
+   */
+  drawingChangeThrottleMs?: number
+  /**
+   * PencilKit engine: pinch-to-zoom range (`UIScrollView` zoom scales).
+   * Both default to 1 (no zoom). Panning a zoomed canvas also needs
+   * `scrollEnabled: true`. Strokes and exports stay in canvas coordinates.
+   */
+  minimumZoomScale?: number
+  maximumZoomScale?: number
+  /**
    * Lets the PencilKit canvas scroll and bounce on its own. `PKCanvasView` is
    * a `UIScrollView`, so when this is on, one-finger pans are consumed by the
    * canvas and never reach a parent React Native `ScrollView`, even with
@@ -650,6 +716,14 @@ export interface PencilKitCapabilities {
     handwritingRecognition: boolean
     /** iOS 26: `config.toolPickerColorMaximumLinearExposure`. */
     toolPickerHDRColors: boolean
+    /** `getDrawingArchive` / `setDrawingArchive` (ArrayBuffer). */
+    binaryArchive?: boolean
+    /** `addPencilSampleListener` / `onPencilSamples`. */
+    pencilSampleStream?: boolean
+    /** `playFeedback` (Apple Pencil Pro haptics). */
+    pencilFeedback?: boolean
+    /** `config.minimumZoomScale` / `maximumZoomScale`. */
+    zoom?: boolean
   }
   /** Highest PKContentVersion the OS can render. */
   contentVersion?: { maximum: number }
@@ -662,5 +736,7 @@ export interface PencilKitCapabilities {
     maxImagePixelCount: number
     maxStrokes?: number
     maxStrokePoints?: number
+    /** `setDrawingArchive` input size. */
+    maxArchiveBytes?: number
   }
 }

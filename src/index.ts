@@ -1,6 +1,10 @@
 import { pencilKitEventBus, PencilKitView } from './PencilKitView'
-import { MunimPencilkit } from './native'
+import { MunimPencilkit, PencilKitUnsupportedError } from './native'
+import { decodePencilSamples } from './samples'
 import type {
+  ApplePencilPreferences,
+  ApplePencilSampleBatch,
+  PencilKitFeedbackKind,
   ApplePencilCoalescedTouchesData,
   ApplePencilData,
   ApplePencilDoubleTapData,
@@ -38,7 +42,21 @@ export type {
   PencilKitViewRef,
 } from './PencilKitView'
 
+export {
+  decodePencilSamples,
+  readPencilSample,
+  PENCIL_SAMPLE_FIELD,
+  PENCIL_SAMPLE_FORMAT_VERSION,
+  PENCIL_SAMPLE_HEADER_LENGTH,
+  PENCIL_SAMPLE_STRIDE,
+} from './samples'
+
 export type {
+  ApplePencilPreferences,
+  ApplePencilSample,
+  ApplePencilSampleBatch,
+  ApplePencilSampleKind,
+  PencilKitFeedbackKind,
   PencilKitAffineTransform,
   PencilKitContentVersion,
   PencilKitEraserType,
@@ -94,7 +112,7 @@ export type {
   PencilKitToolState,
 } from './types'
 
-export { MunimPencilkit, PencilKitView }
+export { MunimPencilkit, PencilKitUnsupportedError, PencilKitView }
 
 const parseDrawingJson = (raw: string): PencilKitDrawingData => {
   return JSON.parse(raw) as PencilKitDrawingData
@@ -265,6 +283,48 @@ export const PencilKitUtils = {
     JSON.parse(
       await MunimPencilkit.getPencilKitRecognitionInfo()
     ) as PencilKitRecognitionInfo,
+  /**
+   * The drawing as raw `PKDrawing` archive bytes: no base64, no JSON.
+   * PencilKit engine only.
+   */
+  getDrawingArchive: (viewId: number): Promise<ArrayBuffer> =>
+    MunimPencilkit.getPencilKitDrawingArchive(viewId),
+  /** Replaces the drawing with `PKDrawing` archive bytes. Not undoable. */
+  setDrawingArchive: (viewId: number, archive: ArrayBuffer): Promise<void> =>
+    MunimPencilkit.setPencilKitDrawingArchive(viewId, archive),
+  /**
+   * Streams Apple Pencil samples as zero-copy batches (about one per frame).
+   * Far cheaper than `onApplePencilData` + coalesced/predicted events, which
+   * send one JSON-like object per sample. Returns an unsubscribe function.
+   */
+  addPencilSampleListener: (
+    viewId: number,
+    callback: (batch: ApplePencilSampleBatch) => void
+  ): (() => void) => {
+    const subscription = MunimPencilkit.addPencilSampleListener(
+      viewId,
+      (buffer) => callback(decodePencilSamples(buffer))
+    )
+    let removed = false
+    return () => {
+      if (removed) return
+      removed = true
+      MunimPencilkit.removePencilSampleListener(subscription)
+    }
+  },
+  /**
+   * Plays feedback at `point` (view coordinates). Apple Pencil Pro plays it in
+   * the pencil; see `PencilKitFeedbackKind`.
+   */
+  playFeedback: (
+    viewId: number,
+    kind: PencilKitFeedbackKind,
+    point: { x: number; y: number }
+  ): Promise<void> =>
+    MunimPencilkit.playPencilKitFeedback(viewId, kind, point.x, point.y),
+  /** The user's Apple Pencil settings (pencil-only drawing, hover preview, actions). */
+  getApplePencilPreferences: (): ApplePencilPreferences =>
+    MunimPencilkit.getApplePencilPreferences(),
   setTool: (viewId: number, tool: PencilKitToolStateInput): void =>
     MunimPencilkit.setPencilKitTool(viewId, JSON.stringify(tool)),
   getTool: (viewId: number): PencilKitToolState =>

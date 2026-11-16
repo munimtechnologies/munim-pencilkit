@@ -176,6 +176,15 @@ final class TouchForwardingCanvasView: PKCanvasView {
   private var isDrawing = false
   private var snapshotDebounceMilliseconds = 0
   private var snapshotWorkItem: DispatchWorkItem?
+  /// Leading + trailing throttle for drawing/history change events.
+  private var drawingChangeThrottleMilliseconds = 32
+  private var lastDrawingChangeEmitTime: CFTimeInterval = 0
+  private var isDrawingChangeEmitPending = false
+  /// Serializes `onDrawingSnapshot` payloads off the main thread.
+  private static let snapshotQueue = DispatchQueue(
+    label: "com.munim.pencilkit.snapshot",
+    qos: .utility
+  )
 
   override init(frame: CGRect) {
     super.init(frame: frame)
@@ -701,6 +710,17 @@ final class TouchForwardingCanvasView: PKCanvasView {
         snapshotWorkItem = nil
       }
     }
+    if let throttle = config["drawingChangeThrottleMs"] as? NSNumber,
+      !throttle.pencilKitIsBoolean, throttle.doubleValue.isFinite
+    {
+      drawingChangeThrottleMilliseconds = Int(min(max(throttle.doubleValue, 0), 10_000))
+    }
+    if config.keys.contains("minimumZoomScale") || config.keys.contains("maximumZoomScale") {
+      applyZoomScales(
+        minimum: config["minimumZoomScale"] as? NSNumber,
+        maximum: config["maximumZoomScale"] as? NSNumber
+      )
+    }
     if let includeStrokes = config["includeStrokesInDrawing"] as? Bool {
       includeStrokesInDrawing = includeStrokes
     }
@@ -731,6 +751,24 @@ final class TouchForwardingCanvasView: PKCanvasView {
     }
     if config.keys.contains("toolItems") || config.keys.contains("toolPickerAccessoryItem") {
       applyToolItemsConfig(config)
+    }
+  }
+
+  /// PKCanvasView zooms its own content once the scales differ from 1.
+  private func applyZoomScales(minimum: NSNumber?, maximum: NSNumber?) {
+    func clamp(_ number: NSNumber?, fallback: CGFloat) -> CGFloat {
+      guard let number, !number.pencilKitIsBoolean, number.doubleValue.isFinite else {
+        return fallback
+      }
+      return CGFloat(min(max(number.doubleValue, 0.1), 20))
+    }
+    let minimumScale = clamp(minimum, fallback: canvasView.minimumZoomScale)
+    let maximumScale = max(clamp(maximum, fallback: canvasView.maximumZoomScale), minimumScale)
+    canvasView.minimumZoomScale = minimumScale
+    canvasView.maximumZoomScale = maximumScale
+    let zoom = min(max(canvasView.zoomScale, minimumScale), maximumScale)
+    if zoom != canvasView.zoomScale {
+      canvasView.setZoomScale(zoom, animated: false)
     }
   }
 
@@ -954,6 +992,7 @@ final class TouchForwardingCanvasView: PKCanvasView {
   func tearDown() {
     snapshotWorkItem?.cancel()
     snapshotWorkItem = nil
+    isDrawingChangeEmitPending = false
     isApplePencilCaptureActive = false
     stopMotionTracking()
     canvasView.undoManager?.removeAllActions(withTarget: self)
@@ -1238,9 +1277,38 @@ final class TouchForwardingCanvasView: PKCanvasView {
   private func markDrawingChanged() {
     revision += 1
     isDirty = true
-    emitDrawingChange()
-    emitHistoryChange()
+    emitDrawingChangeThrottled()
     scheduleSnapshotEmit()
+  }
+
+  /// Leading + trailing throttle: the first change goes out at once, later
+  /// ones in the window collapse into one trailing event with the latest
+  /// state. Erasing, lasso drags and undo bursts otherwise send an event (and
+  /// a bounds pass over every stroke) per change.
+  private func emitDrawingChangeThrottled() {
+    let interval = Double(drawingChangeThrottleMilliseconds) / 1000
+    guard interval > 0 else {
+      emitDrawingChange()
+      emitHistoryChange()
+      return
+    }
+    if isDrawingChangeEmitPending { return }
+    let now = CACurrentMediaTime()
+    let elapsed = now - lastDrawingChangeEmitTime
+    if elapsed >= interval {
+      lastDrawingChangeEmitTime = now
+      emitDrawingChange()
+      emitHistoryChange()
+      return
+    }
+    isDrawingChangeEmitPending = true
+    DispatchQueue.main.asyncAfter(deadline: .now() + (interval - elapsed)) { [weak self] in
+      guard let self, self.isDrawingChangeEmitPending else { return }
+      self.isDrawingChangeEmitPending = false
+      self.lastDrawingChangeEmitTime = CACurrentMediaTime()
+      self.emitDrawingChange()
+      self.emitHistoryChange()
+    }
   }
 
   private func currentDrawingBounds() -> CGRect {
@@ -1315,13 +1383,27 @@ final class TouchForwardingCanvasView: PKCanvasView {
     )
   }
 
+  /// Captures on main (PKDrawing is copy-on-write, so this is cheap), then
+  /// builds the archive/base64/strokes payload off main. A payload that is
+  /// stale by the time it is ready is dropped: a newer snapshot is scheduled.
   private func emitDrawingSnapshot() {
-    guard viewId.intValue > 0 else { return }
-    onPencilKitDrawingSnapshot?([
-      "viewId": viewId.intValue,
-      "revision": revision,
-      "drawing": getDrawingData(),
-    ])
+    let id = viewId.intValue
+    guard id > 0, onPencilKitDrawingSnapshot != nil else { return }
+    let capture = captureDrawing()
+    let expectedRevision = revision
+    Self.snapshotQueue.async { [weak self] in
+      let payload = Self.drawingPayload(from: capture)
+      DispatchQueue.main.async {
+        guard let self, self.revision == expectedRevision, self.viewId.intValue == id else {
+          return
+        }
+        self.onPencilKitDrawingSnapshot?([
+          "viewId": id,
+          "revision": expectedRevision,
+          "drawing": payload,
+        ])
+      }
+    }
   }
 
   func canvasViewDrawingDidChange(_ canvasView: PKCanvasView) {
@@ -1390,6 +1472,7 @@ final class TouchForwardingCanvasView: PKCanvasView {
   }
 
   func handleTouches(_ touches: Set<UITouch>, phase: UITouch.Phase, event: UIEvent?) {
+    emitPencilSamples(touches, event: event)
     guard enableApplePencilData, isApplePencilCaptureActive else { return }
 
     for touch in touches where touch.type == .pencil {
@@ -1426,7 +1509,48 @@ final class TouchForwardingCanvasView: PKCanvasView {
     }
   }
 
+  /// Binary sample stream (`addPencilSampleListener`): one buffer per touch
+  /// event holding every coalesced sample plus UIKit's predictions. Costs
+  /// nothing when no listener is registered.
+  func emitPencilSamples(_ touches: Set<UITouch>, event: UIEvent?) {
+    let id = viewId.intValue
+    guard id > 0, PencilKitRegistry.shared.hasSampleListeners(viewId: id) else { return }
+    var encoder = PencilSampleEncoder()
+    for touch in touches where touch.type == .pencil {
+      let coalesced = event?.coalescedTouches(for: touch) ?? []
+      if coalesced.isEmpty {
+        encoder.append(touch, kind: .sample, in: self)
+      } else {
+        for sample in coalesced {
+          encoder.append(sample, kind: .sample, in: self)
+        }
+      }
+      for predicted in event?.predictedTouches(for: touch) ?? [] {
+        encoder.append(predicted, kind: .predicted, in: self)
+      }
+    }
+    dispatchPencilSamples(encoder, viewId: id)
+  }
+
+  private func dispatchPencilSamples(_ encoder: PencilSampleEncoder, viewId id: Int) {
+    guard !encoder.isEmpty else { return }
+    let listeners = PencilKitRegistry.shared.sampleListeners(viewId: id)
+    guard !listeners.isEmpty else { return }
+    let buffer = encoder.makeBuffer(viewId: id)
+    for listener in listeners {
+      listener(buffer)
+    }
+  }
+
   func handleEstimatedPropertiesUpdated(_ touches: Set<UITouch>) {
+    let id = viewId.intValue
+    if id > 0, PencilKitRegistry.shared.hasSampleListeners(viewId: id) {
+      var encoder = PencilSampleEncoder(expectedSamples: touches.count)
+      for touch in touches where touch.type == .pencil {
+        encoder.append(touch, kind: .estimatedUpdate, in: self)
+      }
+      dispatchPencilSamples(encoder, viewId: id)
+    }
     guard enableApplePencilData, isApplePencilCaptureActive else { return }
     for touch in touches where touch.type == .pencil {
       // Estimated-property updates revise an earlier sample; they must not
@@ -1575,14 +1699,68 @@ final class TouchForwardingCanvasView: PKCanvasView {
     }
   }
 
-  private func triggerHapticFeedback(_ style: UIImpactFeedbackGenerator.FeedbackStyle) {
+  /// Plays an impact for a pencil interaction. On iOS 17.5+ the generator is
+  /// tied to this view and a location, which is what routes it to Apple
+  /// Pencil Pro's haptic engine (iPads have no Taptic Engine, so the old
+  /// view-less generator never played anything there).
+  private func triggerHapticFeedback(
+    _ style: UIImpactFeedbackGenerator.FeedbackStyle,
+    at location: CGPoint? = nil
+  ) {
     guard enableHapticFeedback else { return }
-    let generator = UIImpactFeedbackGenerator(style: style)
-    generator.prepare()
-    generator.impactOccurred()
+    playImpact(style, at: location ?? CGPoint(x: bounds.midX, y: bounds.midY))
+  }
+
+  private func playImpact(_ style: UIImpactFeedbackGenerator.FeedbackStyle, at location: CGPoint) {
+    if #available(iOS 17.5, *) {
+      let generator = UIImpactFeedbackGenerator(style: style, view: self)
+      generator.impactOccurred(at: location)
+    } else {
+      let generator = UIImpactFeedbackGenerator(style: style)
+      generator.impactOccurred()
+    }
+  }
+
+  /// `playFeedback` from JS. Main thread only. `kind` is a
+  /// `PencilKitFeedbackKind` string.
+  func playFeedback(_ kind: String, at location: CGPoint) throws {
+    guard bounds.insetBy(dx: -1, dy: -1).contains(location) else {
+      throw PencilKitHybridError.invalidOptions(
+        "feedback location (\(location.x), \(location.y)) is outside the view"
+      )
+    }
+    switch kind {
+    case "alignment", "pathCompleted":
+      if #available(iOS 17.5, *) {
+        let generator = UICanvasFeedbackGenerator(view: self)
+        if kind == "alignment" {
+          generator.alignmentOccurred(at: location)
+        } else {
+          generator.pathCompleted(at: location)
+        }
+      }
+    case "impactLight":
+      playImpact(.light, at: location)
+    case "impactMedium":
+      playImpact(.medium, at: location)
+    case "impactHeavy":
+      playImpact(.heavy, at: location)
+    case "selection":
+      if #available(iOS 17.5, *) {
+        UISelectionFeedbackGenerator(view: self).selectionChanged(at: location)
+      } else {
+        UISelectionFeedbackGenerator().selectionChanged()
+      }
+    default:
+      throw PencilKitHybridError.invalidOptions("unknown feedback kind \(kind)")
+    }
   }
 
   private func mapPreferredAction(_ action: UIPencilPreferredAction) -> String {
+    return Self.preferredActionName(action)
+  }
+
+  static func preferredActionName(_ action: UIPencilPreferredAction) -> String {
     switch action {
     case .ignore:
       return "ignore"
@@ -1666,7 +1844,7 @@ final class TouchForwardingCanvasView: PKCanvasView {
       payload["hoverPose"] = hoverPose
     }
     onApplePencilDoubleTap?(payload)
-    triggerHapticFeedback(.light)
+    triggerHapticFeedback(.light, at: tap.hoverPose?.location)
   }
 
   @available(iOS 17.5, *)
@@ -1707,8 +1885,12 @@ final class TouchForwardingCanvasView: PKCanvasView {
     }
     onApplePencilSqueeze?(payload)
     if squeeze.phase == .ended {
-      triggerHapticFeedback(.medium)
+      triggerHapticFeedback(.medium, at: squeeze.hoverPose?.location)
     }
+  }
+
+  func stylusView(_ view: StylusDrawingView, didReceiveTouches touches: Set<UITouch>, event: UIEvent?) {
+    emitPencilSamples(touches, event: event)
   }
 
   func stylusViewDidToggleEraser(_ view: StylusDrawingView, isOn: Bool) {

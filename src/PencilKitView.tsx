@@ -15,7 +15,10 @@ import {
   type ViewProps,
 } from 'react-native'
 import { MunimPencilkit } from './native'
+import { decodePencilSamples } from './samples'
 import type {
+  ApplePencilSampleBatch,
+  PencilKitFeedbackKind,
   ApplePencilCoalescedTouchesData,
   ApplePencilData,
   ApplePencilDoubleTapData,
@@ -403,6 +406,18 @@ export interface PencilKitViewRef {
     query: string,
     options?: PencilKitSearchTextOptions
   ) => Promise<PencilKitTextSearchResult[]>
+  /** Raw `PKDrawing` archive bytes (no base64/JSON). PencilKit engine only. */
+  getDrawingArchive: () => Promise<ArrayBuffer>
+  /** Replaces the drawing with `PKDrawing` archive bytes. Not undoable. */
+  setDrawingArchive: (archive: ArrayBuffer) => Promise<void>
+  /**
+   * Plays feedback at `point` (view coordinates); Apple Pencil Pro plays it
+   * in the pencil.
+   */
+  playFeedback: (
+    kind: PencilKitFeedbackKind,
+    point: { x: number; y: number }
+  ) => Promise<void>
 }
 
 export interface PencilKitViewProps extends ViewProps {
@@ -444,6 +459,12 @@ export interface PencilKitViewProps extends ViewProps {
   onStylusViewStartDrawing?: () => void
   onStylusViewEndDrawing?: () => void
   onViewReady?: (viewId: number) => void
+  /**
+   * Every Apple Pencil sample (coalesced, predicted, estimated updates) as a
+   * zero-copy Float64 batch, about once per frame. Independent of
+   * `enableApplePencilData` and capture state: providing it subscribes.
+   */
+  onPencilSamples?: (batch: ApplePencilSampleBatch) => void
   enableApplePencilData?: boolean
   enableToolPicker?: boolean
   enableHapticFeedback?: boolean
@@ -499,6 +520,7 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
       onStylusViewStartDrawing,
       onStylusViewEndDrawing,
       onViewReady,
+      onPencilSamples,
       enableApplePencilData = false,
       enableToolPicker = true,
       enableHapticFeedback = false,
@@ -545,6 +567,28 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
       if (viewId == null || config == null) return
       MunimPencilkit.setPencilKitConfig(viewId, JSON.stringify(config))
     }, [viewId, config])
+
+    // Subscribe once per view; the latest callback is read through a ref so
+    // re-renders with a new inline function do not resubscribe natively.
+    const onPencilSamplesRef = useRef(onPencilSamples)
+    useEffect(() => {
+      onPencilSamplesRef.current = onPencilSamples
+    }, [onPencilSamples])
+    const wantsPencilSamples = onPencilSamples != null
+    useEffect(() => {
+      if (viewId == null || !wantsPencilSamples) return
+      const subscription = MunimPencilkit.addPencilSampleListener(
+        viewId,
+        (buffer) => onPencilSamplesRef.current?.(decodePencilSamples(buffer))
+      )
+      return () => {
+        try {
+          MunimPencilkit.removePencilSampleListener(subscription)
+        } catch (error) {
+          if (!isViewNotFoundError(error)) throw error
+        }
+      }
+    }, [viewId, wantsPencilSamples])
 
     // Ref calls form one ordered queue: the async natives would otherwise let
     // a later synchronous call (e.g. undo) overtake an earlier setDrawing.
@@ -699,6 +743,17 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
                   )
                 ) as { results: PencilKitTextSearchResult[] }
               ).results
+          ),
+        getDrawingArchive: () =>
+          run((id) => MunimPencilkit.getPencilKitDrawingArchive(id)),
+        setDrawingArchive: (archive: ArrayBuffer) =>
+          run((id) => MunimPencilkit.setPencilKitDrawingArchive(id, archive)),
+        playFeedback: (
+          kind: PencilKitFeedbackKind,
+          point: { x: number; y: number }
+        ) =>
+          run((id) =>
+            MunimPencilkit.playPencilKitFeedback(id, kind, point.x, point.y)
           ),
       }
     }, [viewId])
