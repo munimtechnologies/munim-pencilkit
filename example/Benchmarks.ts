@@ -1,6 +1,8 @@
 import type { PencilKitStroke, PencilKitViewRef } from 'munim-pencilkit';
 
-const now = (): number => globalThis.performance?.now?.() ?? Date.now();
+const now = (): number =>
+  (globalThis as { performance?: { now(): number } }).performance?.now() ??
+  Date.now();
 
 /** A dense synthetic stroke (like real pencil input), `index` shifts it. */
 const makeBenchStroke = (index: number): PencilKitStroke => {
