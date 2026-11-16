@@ -5,6 +5,7 @@ import {
   type PencilKitStroke,
   type PencilKitViewRef,
 } from 'munim-pencilkit';
+import { benchmarkArchive, describeArchiveBenchmark } from './Benchmarks';
 
 /**
  * Device self-test for the stroke, selection, erase and recognition APIs.
@@ -45,13 +46,13 @@ const hex = (length: number): string =>
   Array.from({ length }, () =>
     Math.floor(Math.random() * 16)
       .toString(16)
-      .toUpperCase()
+      .toUpperCase(),
   ).join('');
 
 /** An uppercase v4 UUID, the format `PKStroke.id` reports. */
 export const makeUUID = (): string =>
   `${hex(8)}-${hex(4)}-4${hex(3)}-${'89AB'[Math.floor(Math.random() * 4)]}${hex(
-    3
+    3,
   )}-${hex(12)}`;
 
 type Point = { x: number; y: number };
@@ -59,7 +60,7 @@ type Point = { x: number; y: number };
 /** A pen stroke through `path`, densely resampled like real pencil input. */
 export const makeStroke = (
   path: Point[],
-  options: { id?: string; color?: string; width?: number } = {}
+  options: { id?: string; color?: string; width?: number } = {},
 ): PencilKitStroke => {
   const color = options.color ?? '#111827';
   const width = options.width ?? 5;
@@ -118,30 +119,113 @@ const handwrittenHI = (x: number, y: number): PencilKitStroke[] => [
   ]),
 ];
 
+/** Decodes base64 with the runtime's atob; null when atob is unavailable. */
+const base64ToBytes = (base64: string): Uint8Array | null => {
+  const atob = (globalThis as { atob?: (data: string) => string }).atob;
+  if (atob == null) return null;
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+};
+
+const sameBytes = (a: Uint8Array, b: Uint8Array): boolean =>
+  a.length === b.length && a.every((value, index) => value === b[index]);
+
+/**
+ * Every way two stroke lists differ (ids, ink, color, transform, point
+ * count, point data), as readable lines. Empty when they match.
+ */
+const diffStrokes = (
+  expected: PencilKitStroke[],
+  actual: PencilKitStroke[],
+): string[] => {
+  const out: string[] = [];
+  if (expected.length !== actual.length) {
+    out.push(`stroke count ${expected.length} -> ${actual.length}`);
+  }
+  const close = (x: number | undefined, y: number | undefined) =>
+    x === y || (x != null && y != null && Math.abs(x - y) <= 1e-3);
+  expected.forEach((want, i) => {
+    const got = actual[i];
+    if (got == null) return;
+    const tag = `stroke ${i}`;
+    if (want.id !== got.id) out.push(`${tag} id ${want.id} -> ${got.id}`);
+    if (want.ink?.inkType !== got.ink?.inkType) {
+      out.push(`${tag} ink ${want.ink?.inkType} -> ${got.ink?.inkType}`);
+    }
+    if (want.color !== got.color) {
+      out.push(`${tag} color ${want.color} -> ${got.color}`);
+    }
+    const wt = want.transform;
+    const gt = got.transform;
+    if (
+      wt != null &&
+      gt != null &&
+      !(['a', 'b', 'c', 'd', 'tx', 'ty'] as const).every(k =>
+        close(wt[k], gt[k]),
+      )
+    ) {
+      out.push(
+        `${tag} transform ${JSON.stringify(wt)} -> ${JSON.stringify(gt)}`,
+      );
+    }
+    if (want.points.length !== got.points.length) {
+      out.push(`${tag} points ${want.points.length} -> ${got.points.length}`);
+      return;
+    }
+    let worst = 0;
+    let worstAt = -1;
+    let field = '';
+    want.points.forEach((p, j) => {
+      const q = got.points[j]!;
+      const deltas: Array<[string, number]> = [
+        ['x', Math.abs(p.location.x - q.location.x)],
+        ['y', Math.abs(p.location.y - q.location.y)],
+        ['force', Math.abs((p.force ?? 0) - (q.force ?? 0))],
+        ['width', Math.abs((p.size?.width ?? 0) - (q.size?.width ?? 0))],
+        ['timeOffset', Math.abs((p.timeOffset ?? 0) - (q.timeOffset ?? 0))],
+        ['azimuth', Math.abs(p.azimuth - q.azimuth)],
+        ['altitude', Math.abs(p.altitude - q.altitude)],
+      ];
+      for (const [name, delta] of deltas) {
+        if (delta > worst) {
+          worst = delta;
+          worstAt = j;
+          field = name;
+        }
+      }
+    });
+    if (worst > 1e-3) {
+      out.push(`${tag} point ${worstAt} ${field} off by ${worst.toFixed(4)}`);
+    }
+  });
+  return out;
+};
+
 const sameIds = (a: string[], b: string[]): boolean =>
-  a.length === b.length &&
-  [...a].sort().join() === [...b].sort().join();
+  a.length === b.length && [...a].sort().join() === [...b].sort().join();
 
 const delay = (ms: number) =>
-  new Promise<void>((resolve) => setTimeout(() => resolve(), ms));
+  new Promise<void>(resolve => setTimeout(() => resolve(), ms));
 
 export async function runSelfTest(
   canvas: PencilKitViewRef,
   viewId: number,
-  selectionEvents: PencilKitSelectionChangeEvent[]
+  selectionEvents: PencilKitSelectionChangeEvent[],
 ): Promise<SelfTestResult> {
   const startedAt = new Date().toISOString();
   const checks: SelfTestCheck[] = [];
   const check = async (
     name: string,
-    body: () => Promise<string | { pass: boolean; detail: string }>
+    body: () => Promise<string | { pass: boolean; detail: string }>,
   ) => {
     try {
       const outcome = await body();
       checks.push(
         typeof outcome === 'string'
           ? { name, pass: true, detail: outcome }
-          : { name, ...outcome }
+          : { name, ...outcome },
       );
     } catch (error) {
       checks.push({
@@ -166,8 +250,8 @@ export async function runSelfTest(
         features.handwritingRecognition &&
         features.toolPickerHDRColors &&
         capabilities.contentVersion?.maximum === 5,
-      JSON.stringify({ features, contentVersion: capabilities.contentVersion })
-    )
+      JSON.stringify({ features, contentVersion: capabilities.contentVersion }),
+    ),
   );
 
   // Stroke ids: setStrokes keeps caller ids, getStrokes returns them.
@@ -178,14 +262,14 @@ export async function runSelfTest(
         { x: 40, y: 60 },
         { x: 300, y: 60 },
       ],
-      { id: ids[0] }
+      { id: ids[0] },
     ),
     makeStroke(
       [
         { x: 40, y: 120 },
         { x: 300, y: 140 },
       ],
-      { id: ids[1], color: '#DC2626' }
+      { id: ids[1], color: '#DC2626' },
     ),
     makeStroke(
       [
@@ -193,17 +277,17 @@ export async function runSelfTest(
         { x: 120, y: 260 },
         { x: 200, y: 200 },
       ],
-      { id: ids[2], color: '#2563EB' }
+      { id: ids[2], color: '#2563EB' },
     ),
   ];
 
   await check('setStrokes/getStrokes keep stroke ids', async () => {
     await canvas.setStrokes(baseStrokes);
     const strokes = await canvas.getStrokes();
-    const got = strokes.map((stroke) => stroke.id ?? '');
+    const got = strokes.map(stroke => stroke.id ?? '');
     return expect(
       strokes.length === 3 && got.join() === ids.join(),
-      `sent ${ids.join()} got ${got.join()}`
+      `sent ${ids.join()} got ${got.join()}`,
     );
   });
 
@@ -211,9 +295,9 @@ export async function runSelfTest(
     const strokes = await canvas.getStrokes();
     const first = strokes[0];
     return expect(
-      strokes.every((stroke) => typeof stroke.pathId === 'string') &&
+      strokes.every(stroke => typeof stroke.pathId === 'string') &&
         typeof first?.points[0]?.lateralJitter === 'number',
-      `pathId ${first?.pathId}, lateralJitter ${first?.points[0]?.lateralJitter}`
+      `pathId ${first?.pathId}, lateralJitter ${first?.points[0]?.lateralJitter}`,
     );
   });
 
@@ -225,21 +309,21 @@ export async function runSelfTest(
           { x: 320, y: 60 },
           { x: 360, y: 90 },
         ],
-        { id: freshId }
+        { id: freshId },
       ),
       makeStroke(
         [
           { x: 320, y: 120 },
           { x: 360, y: 150 },
         ],
-        { id: ids[0] }
+        { id: ids[0] },
       ),
     ]);
-    const got = (await canvas.getStrokes()).map((stroke) => stroke.id ?? '');
+    const got = (await canvas.getStrokes()).map(stroke => stroke.id ?? '');
     const duplicateId = got[4];
     const unique = new Set(got).size === got.length;
     await canvas.undo();
-    const afterUndo = (await canvas.getStrokes()).map((s) => s.id ?? '');
+    const afterUndo = (await canvas.getStrokes()).map(s => s.id ?? '');
     return expect(
       got.length === 5 &&
         got.slice(0, 3).join() === ids.join() &&
@@ -247,36 +331,40 @@ export async function runSelfTest(
         duplicateId !== ids[0] &&
         unique &&
         afterUndo.join() === ids.join(),
-      `after append ${got.join()}; after undo ${afterUndo.join()}`
+      `after append ${got.join()}; after undo ${afterUndo.join()}`,
     );
   });
 
-  await check('getDrawing/setDrawing round-trip keeps ids (archive)', async () => {
-    const drawing = await canvas.getDrawing({ includeStrokes: true });
-    const payloadIds = drawing.strokes.map((stroke) => stroke.id ?? '');
-    await canvas.clearDrawing();
-    await canvas.setDrawing(drawing);
-    const got = (await canvas.getStrokes()).map((stroke) => stroke.id ?? '');
-    return expect(
-      payloadIds.join() === ids.join() && got.join() === ids.join(),
-      `payload ${payloadIds.join()}, restored ${got.join()}`
-    );
-  });
+  await check(
+    'getDrawing/setDrawing round-trip keeps ids (archive)',
+    async () => {
+      const drawing = await canvas.getDrawing({ includeStrokes: true });
+      const payloadIds = drawing.strokes.map(stroke => stroke.id ?? '');
+      await canvas.clearDrawing();
+      await canvas.setDrawing(drawing);
+      const got = (await canvas.getStrokes()).map(stroke => stroke.id ?? '');
+      return expect(
+        payloadIds.join() === ids.join() && got.join() === ids.join(),
+        `payload ${payloadIds.join()}, restored ${got.join()}`,
+      );
+    },
+  );
 
   await check('setDrawing from strokes only keeps ids', async () => {
     const drawing = await canvas.getDrawing({ includeStrokes: true });
     await canvas.clearDrawing();
     await canvas.setDrawing({ ...drawing, dataBase64: undefined });
-    const got = (await canvas.getStrokes()).map((stroke) => stroke.id ?? '');
+    const got = (await canvas.getStrokes()).map(stroke => stroke.id ?? '');
     return expect(got.join() === ids.join(), `restored ${got.join()}`);
   });
 
   await check('Bezier paths for every stroke', async () => {
     const strokes = await canvas.getStrokes({ includeBezierPaths: true });
-    const paths = strokes.map((stroke) => stroke.bezierPath ?? '');
+    const paths = strokes.map(stroke => stroke.bezierPath ?? '');
     return expect(
-      paths.length === 3 && paths.every((path) => /^M [-\d.e]+ [-\d.e]+/.test(path)),
-      paths.map((path) => path.slice(0, 40)).join(' | ')
+      paths.length === 3 &&
+        paths.every(path => /^M [-\d.e]+ [-\d.e]+/.test(path)),
+      paths.map(path => path.slice(0, 40)).join(' | '),
     );
   });
 
@@ -289,7 +377,7 @@ export async function runSelfTest(
     const cleared = await canvas.getSelection();
     return expect(
       sameIds(selected, [ids[0]!, ids[2]!]) && cleared.length === 0,
-      `selected ${selected.join()}, after clear ${cleared.length}`
+      `selected ${selected.join()}, after clear ${cleared.length}`,
     );
   });
 
@@ -300,7 +388,7 @@ export async function runSelfTest(
     await canvas.setSelection([]);
     return expect(
       sameIds(selected, [ids[1]!]) || selected.includes(ids[1]!),
-      `selected ${selected.join()}`
+      `selected ${selected.join()}`,
     );
   });
 
@@ -308,7 +396,7 @@ export async function runSelfTest(
   await check('selection change events (informational)', async () => {
     await delay(200);
     return `${selectionEvents.length} event(s): ${selectionEvents
-      .map((event) => event.strokeIds.length)
+      .map(event => event.strokeIds.length)
       .join(',')}`;
   });
 
@@ -317,7 +405,10 @@ export async function runSelfTest(
       await canvas.setSelection(['not-a-uuid']);
       return expect(false, 'resolved');
     } catch (error) {
-      return expect(true, error instanceof Error ? error.message : String(error));
+      return expect(
+        true,
+        error instanceof Error ? error.message : String(error),
+      );
     }
   });
 
@@ -342,7 +433,7 @@ export async function runSelfTest(
         after.length > before.length &&
         undone &&
         restored.length === before.length,
-      `${JSON.stringify(result)}; after ${after.length}, undo -> ${restored.length}`
+      `${JSON.stringify(result)}; after ${after.length}, undo -> ${restored.length}`,
     );
   });
 
@@ -353,7 +444,10 @@ export async function runSelfTest(
         { x: 620, y: 620 },
       ],
     });
-    return expect(!result.changed && result.strokeCountAfter === 3, JSON.stringify(result));
+    return expect(
+      !result.changed && result.strokeCountAfter === 3,
+      JSON.stringify(result),
+    );
   });
 
   await check('erasePath rejects an empty path', async () => {
@@ -361,7 +455,10 @@ export async function runSelfTest(
       await canvas.erasePath({ points: [] });
       return expect(false, 'resolved');
     } catch (error) {
-      return expect(true, error instanceof Error ? error.message : String(error));
+      return expect(
+        true,
+        error instanceof Error ? error.message : String(error),
+      );
     }
   });
 
@@ -373,32 +470,34 @@ export async function runSelfTest(
         typeof info.recognitionVersion === 'number',
       `${info.supportedLanguages.length} languages (${info.supportedLanguages
         .slice(0, 8)
-        .join(',')}), version ${info.recognitionVersion}`
+        .join(',')}), version ${info.recognitionVersion}`,
     );
   });
 
   const handwriting = handwrittenHI(60, 320);
   await check('recognizeText on handwriting-like strokes', async () => {
     await canvas.setStrokes(handwriting);
-    const result = await canvas.recognizeText({ includeIndexableContent: true });
+    const result = await canvas.recognizeText({
+      includeIndexableContent: true,
+    });
     return expect(
       (result.text === null || typeof result.text === 'string') &&
         Array.isArray(result.languages) &&
         typeof result.recognitionVersion === 'number',
-      JSON.stringify(result)
+      JSON.stringify(result),
     );
   });
 
   await check('recognizeText for selected stroke ids + languages', async () => {
     const strokes = await canvas.getStrokes();
-    const subset = strokes.slice(0, 3).map((stroke) => stroke.id!);
+    const subset = strokes.slice(0, 3).map(stroke => stroke.id!);
     const result = await canvas.recognizeText({
       strokeIds: subset,
       preferredLanguages: ['en'],
     });
     return expect(
       result.text === null || typeof result.text === 'string',
-      JSON.stringify(result)
+      JSON.stringify(result),
     );
   });
 
@@ -407,10 +506,11 @@ export async function runSelfTest(
     return expect(
       Array.isArray(results) &&
         results.every(
-          (match) =>
-            Array.isArray(match.strokeIds) && typeof match.bounds.width === 'number'
+          match =>
+            Array.isArray(match.strokeIds) &&
+            typeof match.bounds.width === 'number',
         ),
-      JSON.stringify(results)
+      JSON.stringify(results),
     );
   });
 
@@ -434,8 +534,8 @@ export async function runSelfTest(
         strokes[0]?.id === ids[0] &&
         png.byteLength > 0,
       `removed ${removed}, transformed ${changed}, ids ${strokes
-        .map((s) => s.id)
-        .join()}, png ${png.byteLength} B`
+        .map(s => s.id)
+        .join()}, png ${png.byteLength} B`,
     );
   });
 
@@ -457,7 +557,107 @@ export async function runSelfTest(
     return 'set 4, then reset';
   });
 
-  const passed = checks.filter((entry) => entry.pass).length;
+  await check('binary archive round-trip keeps strokes', async () => {
+    await canvas.setStrokes(baseStrokes);
+    // Compare against what the canvas holds, not the JS input: PencilKit
+    // normalizes strokes (sizes, time offsets) when it builds them.
+    const before = await canvas.getStrokes();
+    const archive = await canvas.getDrawingArchive();
+    await canvas.clearDrawing();
+    const cleared = (await canvas.getStrokes()).length;
+    await canvas.setDrawingArchive(archive);
+    const after = await canvas.getStrokes();
+    // Same drawing, two encoders: getDrawingArchive after the import and the
+    // archive export must be byte-identical. (The bytes are NOT compared with
+    // the pre-import archive: PKDrawing's encoding is not canonical, so a
+    // decoded drawing can re-encode to a slightly different size with the
+    // same strokes.)
+    const reArchived = await canvas.getDrawingArchive();
+    const exported = await canvas.exportDocument({
+      version: 1,
+      format: 'archive',
+      output: 'base64',
+    });
+    const exportedBytes = base64ToBytes(exported.dataBase64 ?? '');
+    const differences = diffStrokes(before, after);
+    if (cleared !== 0) differences.push(`clearDrawing left ${cleared} strokes`);
+    const bytesMatch =
+      exportedBytes == null
+        ? exported.byteLength === reArchived.byteLength
+        : sameBytes(exportedBytes, new Uint8Array(reArchived));
+    if (!bytesMatch) {
+      differences.push(
+        `re-archived ${reArchived.byteLength} B != exported ${exported.byteLength} B`,
+      );
+    }
+    return expect(
+      archive.byteLength > 0 && differences.length === 0,
+      `archive ${archive.byteLength} B -> ${after.length}/${before.length} strokes; ` +
+        `re-encoded ${reArchived.byteLength} B (export ${exported.byteLength} B` +
+        `${bytesMatch ? ', identical' : ''})` +
+        (differences.length
+          ? `; DIFF: ${differences.join('; ')}`
+          : '; strokes identical'),
+    );
+  });
+
+  await check('setDrawingArchive rejects non-archive bytes', async () => {
+    try {
+      await canvas.setDrawingArchive(new Uint8Array([1, 2, 3, 4]).buffer);
+      return expect(false, 'resolved');
+    } catch (error) {
+      return expect(
+        error instanceof Error && error.message.includes('PKDrawing'),
+        String(error),
+      );
+    }
+  });
+
+  await check('archive benchmark (informational)', async () =>
+    describeArchiveBenchmark(await benchmarkArchive(canvas, 300, 5)),
+  );
+
+  await check(
+    'pencil sample listener subscribes and unsubscribes',
+    async () => {
+      let batches = 0;
+      const unsubscribe = PencilKitUtils.addPencilSampleListener(viewId, () => {
+        batches += 1;
+      });
+      unsubscribe();
+      unsubscribe();
+      return `ok (no touches during the self-test, ${batches} batches)`;
+    },
+  );
+
+  await check('Apple Pencil preferences are readable', async () => {
+    const prefs = PencilKitUtils.getApplePencilPreferences();
+    return expect(
+      typeof prefs.prefersPencilOnlyDrawing === 'boolean' &&
+        typeof prefs.prefersHoverToolPreview === 'boolean' &&
+        typeof prefs.preferredSqueezeAction === 'string',
+      JSON.stringify(prefs),
+    );
+  });
+
+  await check(
+    'playFeedback plays inside the view, rejects outside',
+    async () => {
+      await canvas.playFeedback('alignment', { x: 10, y: 10 });
+      await canvas.playFeedback('pathCompleted', { x: 10, y: 10 });
+      try {
+        await canvas.playFeedback('impactLight', { x: -500, y: -500 });
+        return expect(false, 'outside location resolved');
+      } catch (error) {
+        return expect(
+          error instanceof Error && error.message.includes('outside'),
+          String(error),
+        );
+      }
+    },
+  );
+
+  const passed = checks.filter(entry => entry.pass).length;
   const result: SelfTestResult = {
     package: 'munim-pencilkit',
     osVersion: capabilities.osVersion,
@@ -468,7 +668,9 @@ export async function runSelfTest(
     checks,
   };
   if (writer) {
-    result.outputPath = await writer.writeResult(JSON.stringify(result, null, 2));
+    result.outputPath = await writer.writeResult(
+      JSON.stringify(result, null, 2),
+    );
   }
   return result;
 }

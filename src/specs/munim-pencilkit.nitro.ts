@@ -1,5 +1,45 @@
 import { type HybridObject } from 'react-native-nitro-modules'
 
+/** What a double tap / squeeze should do, per the user's Apple Pencil settings. */
+export type ApplePencilPreferredAction =
+  | 'ignore'
+  | 'switchEraser'
+  | 'switchPrevious'
+  | 'showColorPalette'
+  | 'showInkAttributes'
+  | 'showContextualPalette'
+  | 'runSystemShortcut'
+
+/** The user's system-wide Apple Pencil settings (`UIPencilInteraction`). */
+export interface ApplePencilPreferences {
+  /** Settings > Apple Pencil > "Only Draw with Apple Pencil". */
+  prefersPencilOnlyDrawing: boolean
+  /** Settings > Apple Pencil > "Show Hover Preview" (hover-capable iPads). */
+  prefersHoverToolPreview: boolean
+  /** The double-tap action the user picked. */
+  preferredTapAction: ApplePencilPreferredAction
+  /** The squeeze action the user picked (Apple Pencil Pro). */
+  preferredSqueezeAction: ApplePencilPreferredAction
+}
+
+/**
+ * Feedback to play at a point of the canvas. On Apple Pencil Pro the
+ * pencil itself plays it (iPads have no Taptic Engine); elsewhere it is a
+ * no-op chosen by the system.
+ *
+ * - `alignment` / `pathCompleted`: `UICanvasFeedbackGenerator` (snapping to a
+ *   guide, closing a shape).
+ * - `impactLight` / `impactMedium` / `impactHeavy`: `UIImpactFeedbackGenerator`.
+ * - `selection`: `UISelectionFeedbackGenerator`.
+ */
+export type PencilKitFeedbackKind =
+  | 'alignment'
+  | 'pathCompleted'
+  | 'impactLight'
+  | 'impactMedium'
+  | 'impactHeavy'
+  | 'selection'
+
 export interface MunimPencilkit extends HybridObject<{ ios: 'swift' }> {
   /**
    * @deprecated Leftover from the Nitro module template. Kept for backwards
@@ -114,4 +154,44 @@ export interface MunimPencilkit extends HybridObject<{ ios: 'swift' }> {
    * `supported: false` before iOS 27.
    */
   getPencilKitRecognitionInfo(): Promise<string>
+
+  // Binary transfer (no JSON, no base64).
+
+  /**
+   * The drawing as raw `PKDrawing.dataRepresentation()` bytes. PencilKit
+   * engine only (rejects in custom-stylus mode).
+   */
+  getPencilKitDrawingArchive(viewId: number): Promise<ArrayBuffer>
+  /**
+   * Replaces the drawing with a `PKDrawing` archive (the bytes from
+   * `getPencilKitDrawingArchive` or `exportDocument({ format: 'archive' })`).
+   * Not undoable, like `setPencilKitDrawing`. PencilKit engine only.
+   */
+  setPencilKitDrawingArchive(
+    viewId: number,
+    archive: ArrayBuffer
+  ): Promise<void>
+  /**
+   * Streams every Apple Pencil sample of the view (coalesced, predicted and
+   * estimated-property updates) as packed Float64 records, one buffer per
+   * touch event (about once per frame). See `decodePencilSamples`. Returns a
+   * subscription id for `removePencilSampleListener`.
+   */
+  addPencilSampleListener(
+    viewId: number,
+    listener: (samples: ArrayBuffer) => void
+  ): number
+  removePencilSampleListener(subscriptionId: number): void
+
+  // Apple Pencil (Pro) system integration.
+
+  /** Plays `kind` at (`x`, `y`) in view coordinates. See `PencilKitFeedbackKind`. */
+  playPencilKitFeedback(
+    viewId: number,
+    kind: PencilKitFeedbackKind,
+    x: number,
+    y: number
+  ): Promise<void>
+  /** The user's Apple Pencil settings, read when called. */
+  getApplePencilPreferences(): ApplePencilPreferences
 }

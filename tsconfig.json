@@ -21,7 +21,8 @@
     "skipLibCheck": true,
     "strict": true,
     "target": "esnext",
-    "verbatimModuleSyntax": true
+    "verbatimModuleSyntax": true,
+    "types": ["jest"]
   },
   "exclude": [
     "**/node_modules",
@@ -33,5 +34,5 @@
     "**/metro.config.js",
     "**/tsconfig.json"
   ],
-  "include": ["src/**/*", "nitrogen/**/*.json"]
+  "include": ["src/**/*", "__tests__/**/*", "nitrogen/**/*.json"]
 }

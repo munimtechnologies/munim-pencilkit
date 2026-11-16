@@ -11,6 +11,8 @@ enum PencilKitImportLimits {
   static let maxJSONCollectionEntries = 10_000
   static let maxImageDimension = 8_192
   static let maxImagePixelCount = 16_777_216
+  /// Raw `PKDrawing` archives passed as an ArrayBuffer (no base64 overhead).
+  static let maxArchiveBytes = 64 * 1024 * 1024
 }
 
 enum PencilKitHybridError: LocalizedError {
@@ -251,6 +253,10 @@ final class HybridMunimPencilkit: HybridMunimPencilkitSpec {
         "bezierPaths": Self.isIOS27FeatureSetAvailable,
         "handwritingRecognition": Self.isIOS27FeatureSetAvailable,
         "toolPickerHDRColors": PencilKitNativeView.isHDRToolPickerColorAvailable,
+        "binaryArchive": true,
+        "pencilSampleStream": true,
+        "pencilFeedback": true,
+        "zoom": true,
       ],
       "contentVersion": [
         "maximum": PKContentVersion.pencilKitMaximumAvailable.rawValue
@@ -261,6 +267,7 @@ final class HybridMunimPencilkit: HybridMunimPencilkitSpec {
         "maxBase64DecodedBytes": PencilKitImportLimits.maxBase64DecodedBytes,
         "maxImageDimension": PencilKitImportLimits.maxImageDimension,
         "maxImagePixelCount": PencilKitImportLimits.maxImagePixelCount,
+        "maxArchiveBytes": PencilKitImportLimits.maxArchiveBytes,
         "maxStrokes": PencilKitStrokeLimits.maxStrokes,
         "maxStrokePoints": PencilKitStrokeLimits.maxTotalPoints,
       ],
@@ -867,6 +874,101 @@ final class HybridMunimPencilkit: HybridMunimPencilkitSpec {
   private static func parseOptionalObject(_ json: String, fieldName: String) throws -> [String: Any] {
     if json.isEmpty { return [:] }
     return try PencilKitJSONValidator.parseObject(json, fieldName: fieldName)
+  }
+
+  // MARK: Binary transfer
+
+  func getPencilKitDrawingArchive(viewId: Double) throws -> Promise<ArrayBuffer> {
+    let id = Int(viewId)
+    return Promise.parallel(Self.asyncQueue) {
+      let drawing = try Self.onMain { try Self.view(id).pencilKitDrawing() }
+      // Encoded here, off main; handed to JS without another copy.
+      return try ArrayBuffer.copy(data: drawing.dataRepresentation())
+    }
+  }
+
+  func setPencilKitDrawingArchive(viewId: Double, archive: ArrayBuffer) throws -> Promise<Void> {
+    let id = Int(viewId)
+    guard archive.size <= PencilKitImportLimits.maxArchiveBytes else {
+      return Promise.rejected(
+        withError: PencilKitHybridError.inputTooLarge("archive", PencilKitImportLimits.maxArchiveBytes)
+      )
+    }
+    // A JS-owned buffer is only valid on this (JS) thread; copy it before
+    // decoding on the async queue.
+    let data = archive.toData(copyIfNeeded: true)
+    return Promise.parallel(Self.asyncQueue) {
+      let drawing: PKDrawing
+      do {
+        drawing = try PKDrawing(data: data)
+      } catch {
+        throw PencilKitHybridError.invalidDrawing("archive is not a PKDrawing archive")
+      }
+      try Self.onMain {
+        let view = try Self.view(id)
+        guard view.drawingImportMode == .pencilKit else {
+          throw PencilKitHybridError.invalidOptions(
+            "drawing archives require the PencilKit engine; disable useCustomStylusView"
+          )
+        }
+        try view.setDrawingData(.pencilKit(drawing))
+      }
+    }
+  }
+
+  func addPencilSampleListener(
+    viewId: Double,
+    listener: @escaping (_ samples: ArrayBuffer) -> Void
+  ) throws -> Double {
+    let id = Int(viewId)
+    guard id > 0 else { throw PencilKitHybridError.viewNotFound(id) }
+    return Double(PencilKitRegistry.shared.addSampleListener(viewId: id, listener: listener))
+  }
+
+  func removePencilSampleListener(subscriptionId: Double) throws {
+    PencilKitRegistry.shared.removeSampleListener(subscriptionId: Int(subscriptionId))
+  }
+
+  // MARK: Apple Pencil (Pro) system integration
+
+  func playPencilKitFeedback(
+    viewId: Double,
+    kind: PencilKitFeedbackKind,
+    x: Double,
+    y: Double
+  ) throws -> Promise<Void> {
+    let id = Int(viewId)
+    guard x.isFinite, y.isFinite else {
+      return Promise.rejected(
+        withError: PencilKitHybridError.invalidOptions("feedback location must be finite")
+      )
+    }
+    let name = kind.stringValue
+    return Promise.parallel(Self.asyncQueue) {
+      try Self.onMain {
+        try Self.view(id).playFeedback(name, at: CGPoint(x: x, y: y))
+      }
+    }
+  }
+
+  func getApplePencilPreferences() throws -> ApplePencilPreferences {
+    return try Self.onMain {
+      var prefersHoverToolPreview = false
+      var squeezeAction = "ignore"
+      if #available(iOS 17.5, *) {
+        prefersHoverToolPreview = UIPencilInteraction.prefersHoverToolPreview
+        squeezeAction = PencilKitNativeView.preferredActionName(
+          UIPencilInteraction.preferredSqueezeAction
+        )
+      }
+      let tapAction = PencilKitNativeView.preferredActionName(UIPencilInteraction.preferredTapAction)
+      return ApplePencilPreferences(
+        prefersPencilOnlyDrawing: UIPencilInteraction.prefersPencilOnlyDrawing,
+        prefersHoverToolPreview: prefersHoverToolPreview,
+        preferredTapAction: ApplePencilPreferredAction(fromString: tapAction) ?? .ignore,
+        preferredSqueezeAction: ApplePencilPreferredAction(fromString: squeezeAction) ?? .ignore
+      )
+    }
   }
 
   // MARK: Apple Pencil capture

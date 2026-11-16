@@ -81,7 +81,7 @@
 - 🎨 **Full PencilKit Framework** - Complete Apple PencilKit framework support
 - ✍️ **Dual Drawing Engines** - Use Apple PencilKit (`PKCanvasView`) or a custom stylus engine (`UITouch` renderer)
 - ✏️ **Professional Drawing Tools** - Pen, pencil, marker, eraser, and lasso tools
-- 📱 **Native Performance** - Built with Turbo modules for optimal performance
+- 📱 **Native Performance** - Built with Nitro Modules (JSI); binary `ArrayBuffer` transfer for archives and pencil samples
 - 🎯 **TypeScript Support** - Full TypeScript definitions included
 - 🔄 **Undo/Redo Support** - Built-in drawing history management
 - 🎛️ **Configurable** - Customizable drawing policies and tool settings
@@ -122,10 +122,35 @@
 - 📊 **Estimated Properties** - Track and handle property refinements
 - 🎨 **Custom Brush Logic** - Advanced brush behavior based on sensor data
 - 🔧 **Dynamic Updates** - Update drawing configuration while active
-- 📱 **Cross-Platform** - Works on all iOS devices with Apple Pencil support
+- 📱 **iPad and iPhone** - Every iOS/iPadOS 17.5+ device; Apple Pencil features need a paired pencil (see [Platform support](#platform-support))
 - 📐 **Stroke Analysis** - Real-time stroke smoothness, consistency, and quality metrics
 - ⚡ **Performance Optimized** - Apple's recommended coalesced touches handling
 - 🎯 **Pressure Curves** - Natural pressure response using Apple's recommended algorithms
+
+### Platform support
+
+PencilKit and Apple Pencil exist only on Apple platforms. On Android (and
+web) the package installs and builds, but links no native code:
+`PencilKitUtils.isSupported()` is `false`, `getCapabilities()` reports
+`supported: false`, `PencilKitView` renders nothing, and every other call
+throws (or, for Promise-returning calls, rejects with) a
+`PencilKitUnsupportedError` whose `code` is
+`'ERR_PENCILKIT_UNSUPPORTED_PLATFORM'`.
+
+| Feature | iOS / iPadOS | Android |
+| --- | --- | --- |
+| `PencilKitView` (PKCanvasView), tools, undo/redo, tool picker | 17.5+ | Not supported (renders nothing) |
+| Custom tool picker items (`toolItems`, accessory item) | 18+ | Not supported |
+| HDR ink colors in the picker | 26+ | Not supported |
+| Reed ink | 26+ | Not supported |
+| Stroke ids, selection, `erasePath`, Bezier paths, handwriting recognition | 27+ (Xcode 27 build) | Not supported |
+| Drawing archives as `ArrayBuffer` (`getDrawingArchive` / `setDrawingArchive`) | 17.5+ | Not supported |
+| Binary pencil sample stream (`onPencilSamples`) | 17.5+, any Apple Pencil | Not supported |
+| Squeeze, barrel roll, hover pose | 17.5+, Apple Pencil Pro | Not supported |
+| Hover (`onApplePencilHover`, z-offset, altitude, azimuth) | 17.5+, hover-capable iPad (M2 and later) | Not supported |
+| Pencil haptics (`playFeedback`, squeeze/tap haptics) | 17.5+, Apple Pencil Pro (silent elsewhere: iPads have no Taptic Engine) | Not supported |
+| Apple Pencil settings (`getApplePencilPreferences`) | 17.5+ | Not supported |
+| Pinch-to-zoom (`minimumZoomScale` / `maximumZoomScale`) | 17.5+ | Not supported |
 
 ## 📦 Installation
 
@@ -327,8 +352,11 @@ Main React Native component for PencilKit integration with full Apple Pencil Pro
 
 - `enableToolPicker` (boolean): Show tool picker
 - `onDrawingChange` (function): Lightweight drawing change callback
-  (`{ viewId, revision, canUndo, canRedo, dirty, bounds }`); fired on every
-  change without serializing the drawing
+  (`{ viewId, revision, canUndo, canRedo, dirty, bounds }`), without
+  serializing the drawing; throttled by `config.drawingChangeThrottleMs`
+  (default 32 ms, leading + trailing)
+- `onPencilSamples` (function): Every Apple Pencil sample as a zero-copy
+  `ApplePencilSampleBatch` (see [Apple Pencil sample stream](#apple-pencil-sample-stream))
 - `onDrawingSnapshot` (function): Full serialized drawing, emitted after the
   drawing settles; enable it with `config.snapshotDebounceMs > 0`
 - `onDrawingBegin` / `onDrawingEnd` (function): Stroke phase callbacks
@@ -513,6 +541,99 @@ const matches = await canvasRef.current.searchText('invoice', {
 `config.toolPickerColorMaximumLinearExposure` (iOS 26+) sets
 `PKToolPicker.colorMaximumLinearExposure`: values above 1 let people pick HDR
 ink colors on HDR displays (`null` restores the default).
+
+#### Binary transfer (ArrayBuffer)
+
+`getDrawingArchive()` resolves the drawing's `PKDrawing.dataRepresentation()`
+bytes as an `ArrayBuffer`, and `setDrawingArchive(buffer)` loads one (not
+undoable, like `setDrawing`). Nothing is base64-encoded or wrapped in JSON, so
+payloads are 25% smaller than `dataBase64` and skip an encode/parse step on
+both sides. The bytes are the same archive `exportDocument({ format:
+'archive' })` produces, so you can store them in a file or database blob and
+load them back with either API. Input is limited to
+`getCapabilities().limits.maxArchiveBytes` (64 MB). PencilKit engine only.
+
+```ts
+const bytes = await canvasRef.current?.getDrawingArchive()
+// ...later
+await canvasRef.current?.setDrawingArchive(bytes)
+```
+
+The example app's "Benchmark base64 vs binary" button times both paths for a
+300-stroke drawing on your device.
+
+#### Apple Pencil sample stream
+
+`onPencilSamples` (or `PencilKitUtils.addPencilSampleListener(viewId, cb)`)
+delivers every Apple Pencil sample in one `ArrayBuffer` per touch event (about
+once per frame): each coalesced sample, UIKit's predicted samples, and later
+estimated-property updates. It works in both engines, regardless of
+`enableApplePencilData` and capture state, and costs nothing while nobody
+listens. Compared with `onApplePencilData` + `onApplePencilCoalescedTouches` +
+`onApplePencilPredictedTouches`, which send one JSON-like object (about 25
+fields) per sample in three events per frame, it sends one buffer of 16
+numbers per sample.
+
+```ts
+import { PENCIL_SAMPLE_FIELD as F } from 'munim-pencilkit'
+
+<PencilKitView
+  onPencilSamples={(batch) => {
+    // Zero-copy: read the Float64Array directly in hot paths...
+    for (let i = 0; i < batch.count; i++) {
+      const o = i * batch.stride
+      if (batch.samples[o + F.kind] !== 0) continue // skip predicted/updates
+      const pressure =
+        batch.samples[o + F.force] / batch.samples[o + F.maximumPossibleForce]
+    }
+    // ...or get objects when convenience matters more.
+    const samples = batch.toArray()
+  }}
+/>
+```
+
+Each record holds `kind` (`sample`, `predicted`, `estimatedUpdate`), `phase`,
+`timestamp` (systemUptime seconds), `x`/`y`, `preciseX`/`preciseY`, `force`,
+`maximumPossibleForce`, `altitude`, `azimuth`, the azimuth unit vector,
+`rollAngle` (barrel roll, Apple Pencil Pro), the estimated-property masks and
+`estimationUpdateIndex` (matches an update to its sample). Predicted samples
+are only valid until the next batch.
+
+#### Apple Pencil Pro feedback and settings
+
+```ts
+// Plays in the pencil on Apple Pencil Pro (iPads have no Taptic Engine).
+await canvasRef.current?.playFeedback('alignment', { x: 120, y: 80 })
+await canvasRef.current?.playFeedback('pathCompleted', { x: 120, y: 80 })
+
+const prefs = PencilKitUtils.getApplePencilPreferences()
+// { prefersPencilOnlyDrawing, prefersHoverToolPreview,
+//   preferredTapAction, preferredSqueezeAction }
+```
+
+`kind` is `'alignment'` or `'pathCompleted'` (`UICanvasFeedbackGenerator`:
+snapping to a guide, closing a shape), `'impactLight' | 'impactMedium' |
+'impactHeavy'` or `'selection'`. The point is in view coordinates and must lie
+inside the view. Squeeze and double-tap haptics (`enableHapticFeedback`) are
+played at the pencil's hover position the same way.
+
+`getApplePencilPreferences()` reads the user's Settings > Apple Pencil choices.
+Honor `prefersPencilOnlyDrawing` with `drawingPolicy: 'default'` (PencilKit
+does this for you) and use `preferredSqueezeAction` /
+`preferredTapAction` to decide what your own squeeze / double-tap handlers do.
+
+#### Zoom and change events
+
+- `config.minimumZoomScale` / `config.maximumZoomScale` turn on PencilKit's
+  pinch-to-zoom (both default to 1). Set `scrollEnabled: true` too so a zoomed
+  canvas can be panned. Strokes, selection and exports stay in canvas
+  coordinates.
+- `config.drawingChangeThrottleMs` (default 32) throttles `onDrawingChange` /
+  `onHistoryChange`: the first change of a burst is sent at once and the last
+  is never dropped, so `revision` can skip values. Set 0 to get every change.
+- `onDrawingSnapshot` payloads (archive, base64, strokes) are now built off the
+  main thread, so a large drawing no longer stalls drawing when a snapshot is
+  due.
 
 #### Content version
 
@@ -789,6 +910,9 @@ interface PencilKitConfig {
   strokeColor?: string;
   baseLineWidth?: number;
   snapshotDebounceMs?: number; // > 0 emits onDrawingSnapshot after drawing settles
+  drawingChangeThrottleMs?: number; // default 32; 0 = every change
+  minimumZoomScale?: number; // default 1
+  maximumZoomScale?: number; // default 1 (> 1 enables pinch-to-zoom)
   scrollEnabled?: boolean; // default: false — let a parent ScrollView own finger pans; true restores PKCanvasView's own panning
   includeStrokesInDrawing?: boolean; // default: false — fill `strokes` in getDrawing()/onDrawingSnapshot
   maximumSupportedContentVersion?: 1 | 2 | 3 | 4 | 5 | 'latest' | null; // iOS 17+
@@ -1145,7 +1269,10 @@ Use predicted touches for latency compensation:
 
 ### Haptic Feedback
 
-Enable haptic feedback for interactions:
+iPads have no Taptic Engine: haptics play in Apple Pencil Pro. With
+`enableHapticFeedback`, squeeze and double tap play an impact at the pencil's
+position, and `playFeedback(kind, point)` plays canvas feedback (see
+[Apple Pencil Pro feedback and settings](#apple-pencil-pro-feedback-and-settings)).
 
 ```tsx
 <PencilKitView
@@ -1176,17 +1303,16 @@ Enable haptic feedback for interactions:
 
 1. **Squeeze Not Working**: Ensure `enableSqueezeInteraction` is true and using Apple Pencil Pro
 2. **Hover Not Detected**: Ensure `onApplePencilHover` is registered and test on supported iPad hardware/iPadOS versions
-3. **Haptic Feedback Missing**: Verify `enableHapticFeedback` is true and device supports haptics
+3. **Haptic Feedback Missing**: Verify `enableHapticFeedback` is true. On iPad only Apple Pencil Pro plays haptics (in the pencil), and only while it is the input in use
 
 ### Known issue: Xcode 27 builds on iOS 17
 
-Any app using react-native-nitro-modules (0.36 and 0.37) that is built with
-Xcode 27 crashes at launch on iOS older than 18 (dyld cannot find
-`std::exception_ptr::__from_native_exception_pointer`; margelo/nitro#1652, fix
-in margelo/nitro#1666, not released yet). Until Nitro ships the fix, build
-with Xcode 26 if you support iOS 17, or apply the fix from that PR with
-patch-package (`ios/utils/RuntimeError.hpp`: throw and catch the error, then
-use `std::current_exception()` instead of `std::make_exception_ptr`).
+Apps built with Xcode 27 against react-native-nitro-modules 0.36.x-0.37.1
+crash at launch on iOS older than 18 (dyld cannot find
+`std::exception_ptr::__from_native_exception_pointer`; margelo/nitro#1652).
+react-native-nitro-modules **0.37.2** fixes it (its `RuntimeError.hpp` uses
+`std::current_exception()`); use 0.37.2 or later if you build with Xcode 27
+and support iOS 17.
 
 Apps built with Xcode 27 must also adopt the UIScene lifecycle or they crash
 at launch on iOS 27 (Apple TN3187). The example app shows a minimal
@@ -1197,7 +1323,8 @@ at launch on iOS 27 (Apple TN3187). The example app shows a minimal
 
 - iOS/iPadOS 17.5+ (iOS 27 for the stroke id, selection, erase-path and
   handwriting APIs)
-- React Native 0.75+ (the example uses 0.87.1)
+- React Native 0.75+ (the example uses 0.88.1)
+- react-native-nitro-modules 0.36.5+ (0.37.2+ recommended, see above)
 - Xcode 16+ (Xcode 27 for the iOS 27 APIs)
 - Apple Pencil (for full functionality)
 - Apple Pencil Pro (for advanced features)

@@ -1,14 +1,16 @@
 {
   "name": "munim-pencilkit",
   "version": "1.17.1",
-  "description": "munim-pencilkit is a react native package built with Nitro",
+  "description": "React Native PencilKit and Apple Pencil (Pro) for iOS/iPadOS, built with Nitro Modules",
   "main": "./lib/commonjs/index.js",
   "module": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
   "react-native": "src/index",
   "source": "src/index",
   "scripts": {
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p example",
+    "lint": "eslint .",
+    "test": "jest",
     "clean": "git clean -dfX",
     "release": "semantic-release",
     "build": "npm run typecheck && bob build",
@@ -18,26 +20,22 @@
   },
   "keywords": [
     "react-native",
-    "munim-pencilkit"
+    "munim-pencilkit",
+    "pencilkit",
+    "apple-pencil",
+    "apple-pencil-pro",
+    "drawing",
+    "nitro"
   ],
   "files": [
     "src",
-    "react-native.config.js",
     "lib",
     "nitrogen",
-    "cpp",
     "nitro.json",
-    "android/build.gradle",
-    "android/fix-prefab.gradle",
-    "android/gradle.properties",
-    "android/CMakeLists.txt",
-    "android/src",
     "ios/**/*.h",
     "ios/**/*.m",
     "ios/**/*.mm",
-    "ios/**/*.cpp",
     "ios/**/*.swift",
-    "app.plugin.js",
     "*.podspec",
     "README.md"
   ],
@@ -57,18 +55,28 @@
     "registry": "https://registry.npmjs.org/"
   },
   "devDependencies": {
-    "@semantic-release/changelog": "^6.0.3",
-    "@semantic-release/git": "^10.0.1",
-    "@types/jest": "^29.5.12",
+    "@babel/core": "^7.29.13",
+    "@eslint/js": "^10.0.0",
+    "@semantic-release/changelog": "^7.0.0",
+    "@semantic-release/git": "^11.0.1",
+    "@types/jest": "^30.0.0",
     "@types/react": "^19.3.0",
-    "nitrogen": "0.37.1",
-    "react": "19.3.0",
-    "react-native": "0.88.0",
-    "react-native-builder-bob": "^0.43.1",
-    "react-native-nitro-modules": "0.37.1",
-    "conventional-changelog-conventionalcommits": "^9.1.0",
-    "semantic-release": "^25.0.9",
-    "typescript": "^5.8.3"
+    "babel-jest": "^30.5.2",
+    "conventional-changelog-conventionalcommits": "^10.4.1",
+    "eslint": "^10.15.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.7",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "jest": "^30.5.2",
+    "nitrogen": "0.37.2",
+    "prettier": "^3.10.1",
+    "react": "19.3.1",
+    "react-native": "0.88.1",
+    "react-native-builder-bob": "^0.44.1",
+    "react-native-nitro-modules": "0.37.2",
+    "semantic-release": "^26.0.1",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.72.2"
   },
   "peerDependencies": {
     "react": "*",
@@ -88,32 +96,6 @@
       "npm": "npm:@semantic-release/error@4.0.0"
     }
   },
-  "eslintConfig": {
-    "root": true,
-    "extends": [
-      "@react-native",
-      "prettier"
-    ],
-    "plugins": [
-      "prettier"
-    ],
-    "rules": {
-      "prettier/prettier": [
-        "warn",
-        {
-          "quoteProps": "consistent",
-          "singleQuote": true,
-          "tabWidth": 2,
-          "trailingComma": "es5",
-          "useTabs": false
-        }
-      ]
-    }
-  },
-  "eslintIgnore": [
-    "node_modules/",
-    "lib/"
-  ],
   "prettier": {
     "quoteProps": "consistent",
     "singleQuote": true,
@@ -131,9 +113,33 @@
       [
         "typescript",
         {
-          "project": "tsconfig.json"
+          "project": "tsconfig.build.json"
         }
       ]
+    ]
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "roots": [
+      "<rootDir>/__tests__"
+    ],
+    "moduleNameMapper": {
+      "^react-native$": "<rootDir>/__tests__/__mocks__/react-native.ts",
+      "^react-native-nitro-modules$": "<rootDir>/__tests__/__mocks__/react-native-nitro-modules.ts"
+    },
+    "transform": {
+      "^.+\\.[jt]sx?$": [
+        "babel-jest",
+        {
+          "presets": [
+            "module:@react-native/babel-preset"
+          ]
+        }
+      ]
+    },
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/__mocks__/"
     ]
   }
 }

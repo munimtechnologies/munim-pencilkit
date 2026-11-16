@@ -23,7 +23,9 @@ function resolveNpmToken() {
   if (process.env.NPM_TOKEN) return process.env.NPM_TOKEN
 
   if (process.platform !== 'darwin') {
-    console.error('Set NPM_TOKEN before running a local release on this platform.')
+    console.error(
+      'Set NPM_TOKEN before running a local release on this platform.'
+    )
     process.exit(1)
   }
 

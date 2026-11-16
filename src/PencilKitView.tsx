@@ -15,7 +15,10 @@ import {
   type ViewProps,
 } from 'react-native'
 import { MunimPencilkit } from './native'
+import { decodePencilSamples } from './samples'
 import type {
+  ApplePencilSampleBatch,
+  PencilKitFeedbackKind,
   ApplePencilCoalescedTouchesData,
   ApplePencilData,
   ApplePencilDoubleTapData,
@@ -65,13 +68,13 @@ class ListenerRegistry<T extends { viewId?: number }> {
   private entries = new Set<ListenerEntry<T>>()
 
   emit(data: T): void {
-    this.entries.forEach(entry => entry.wrapped(data))
+    this.entries.forEach((entry) => entry.wrapped(data))
   }
 
   add(cb: Listener<T>, viewId?: number): () => void {
     const entry: ListenerEntry<T> = {
       original: cb,
-      wrapped: data => {
+      wrapped: (data) => {
         if (viewId == null || data.viewId === viewId) cb(data)
       },
     }
@@ -142,7 +145,9 @@ class PencilKitEventBus {
   emitDoubleTap(data: ApplePencilDoubleTapData): void {
     this.doubleTapListeners.emit(data)
   }
-  emitPreferredSqueezeAction(data: ApplePencilPreferredSqueezeActionData): void {
+  emitPreferredSqueezeAction(
+    data: ApplePencilPreferredSqueezeActionData
+  ): void {
     this.preferredSqueezeActionListeners.emit(data)
   }
 
@@ -188,7 +193,10 @@ class PencilKitEventBus {
   addHover(cb: Listener<ApplePencilHoverData>, viewId?: number): () => void {
     return this.hoverListeners.add(cb, viewId)
   }
-  addSqueeze(cb: Listener<ApplePencilSqueezeData>, viewId?: number): () => void {
+  addSqueeze(
+    cb: Listener<ApplePencilSqueezeData>,
+    viewId?: number
+  ): () => void {
     return this.squeezeListeners.add(cb, viewId)
   }
   addDoubleTap(
@@ -367,13 +375,17 @@ export interface PencilKitViewRef {
   startApplePencilCapture: () => Promise<void>
   stopApplePencilCapture: () => Promise<void>
   isApplePencilCaptureActive: () => Promise<boolean>
-  exportDocument: (options: PencilKitExportOptions) => Promise<PencilKitExportResult>
+  exportDocument: (
+    options: PencilKitExportOptions
+  ) => Promise<PencilKitExportResult>
   importDocument: (options: PencilKitImportOptions) => Promise<void>
   setTool: (tool: PencilKitToolStateInput) => Promise<void>
   getTool: () => Promise<PencilKitToolState>
   setToolPickerVisible: (visible: boolean) => Promise<void>
   /** PencilKit engine only. See `PencilKitStroke` for the coordinate spaces. */
-  getStrokes: (options?: PencilKitGetStrokesOptions) => Promise<PencilKitStroke[]>
+  getStrokes: (
+    options?: PencilKitGetStrokesOptions
+  ) => Promise<PencilKitStroke[]>
   /** Replaces every stroke. Undoable. PencilKit engine only. */
   setStrokes: (strokes: PencilKitStroke[]) => Promise<void>
   /** Adds strokes on top. Undoable. PencilKit engine only. */
@@ -393,7 +405,9 @@ export interface PencilKitViewRef {
   /** iOS 27+: selects the strokes with these ids (unknown ids are ignored). */
   setSelection: (strokeIds: string[]) => Promise<void>
   /** iOS 27+: erases along a path, splitting or trimming strokes. Undoable. */
-  erasePath: (options: PencilKitErasePathOptions) => Promise<PencilKitErasePathResult>
+  erasePath: (
+    options: PencilKitErasePathOptions
+  ) => Promise<PencilKitErasePathResult>
   /** iOS 27+: recognizes the handwriting in all (or some) strokes. */
   recognizeText: (
     options?: PencilKitRecognizeTextOptions
@@ -403,6 +417,18 @@ export interface PencilKitViewRef {
     query: string,
     options?: PencilKitSearchTextOptions
   ) => Promise<PencilKitTextSearchResult[]>
+  /** Raw `PKDrawing` archive bytes (no base64/JSON). PencilKit engine only. */
+  getDrawingArchive: () => Promise<ArrayBuffer>
+  /** Replaces the drawing with `PKDrawing` archive bytes. Not undoable. */
+  setDrawingArchive: (archive: ArrayBuffer) => Promise<void>
+  /**
+   * Plays feedback at `point` (view coordinates); Apple Pencil Pro plays it
+   * in the pencil.
+   */
+  playFeedback: (
+    kind: PencilKitFeedbackKind,
+    point: { x: number; y: number }
+  ) => Promise<void>
 }
 
 export interface PencilKitViewProps extends ViewProps {
@@ -444,6 +470,12 @@ export interface PencilKitViewProps extends ViewProps {
   onStylusViewStartDrawing?: () => void
   onStylusViewEndDrawing?: () => void
   onViewReady?: (viewId: number) => void
+  /**
+   * Every Apple Pencil sample (coalesced, predicted, estimated updates) as a
+   * zero-copy Float64 batch, about once per frame. Independent of
+   * `enableApplePencilData` and capture state: providing it subscribes.
+   */
+  onPencilSamples?: (batch: ApplePencilSampleBatch) => void
   enableApplePencilData?: boolean
   enableToolPicker?: boolean
   enableHapticFeedback?: boolean
@@ -499,6 +531,7 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
       onStylusViewStartDrawing,
       onStylusViewEndDrawing,
       onViewReady,
+      onPencilSamples,
       enableApplePencilData = false,
       enableToolPicker = true,
       enableHapticFeedback = false,
@@ -545,6 +578,28 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
       if (viewId == null || config == null) return
       MunimPencilkit.setPencilKitConfig(viewId, JSON.stringify(config))
     }, [viewId, config])
+
+    // Subscribe once per view; the latest callback is read through a ref so
+    // re-renders with a new inline function do not resubscribe natively.
+    const onPencilSamplesRef = useRef(onPencilSamples)
+    useEffect(() => {
+      onPencilSamplesRef.current = onPencilSamples
+    }, [onPencilSamples])
+    const wantsPencilSamples = onPencilSamples != null
+    useEffect(() => {
+      if (viewId == null || !wantsPencilSamples) return
+      const subscription = MunimPencilkit.addPencilSampleListener(
+        viewId,
+        (buffer) => onPencilSamplesRef.current?.(decodePencilSamples(buffer))
+      )
+      return () => {
+        try {
+          MunimPencilkit.removePencilSampleListener(subscription)
+        } catch (error) {
+          if (!isViewNotFoundError(error)) throw error
+        }
+      }
+    }, [viewId, wantsPencilSamples])
 
     // Ref calls form one ordered queue: the async natives would otherwise let
     // a later synchronous call (e.g. undo) overtake an earlier setDrawing.
@@ -606,7 +661,9 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
             )
           ),
         setTool: (tool: PencilKitToolStateInput) =>
-          run((id) => MunimPencilkit.setPencilKitTool(id, JSON.stringify(tool))),
+          run((id) =>
+            MunimPencilkit.setPencilKitTool(id, JSON.stringify(tool))
+          ),
         getTool: () =>
           run(
             (id) =>
@@ -615,7 +672,9 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
               ) as PencilKitToolState
           ),
         setToolPickerVisible: (visible: boolean) =>
-          run((id) => MunimPencilkit.setPencilKitToolPickerVisible(id, visible)),
+          run((id) =>
+            MunimPencilkit.setPencilKitToolPickerVisible(id, visible)
+          ),
         getStrokes: (options?: PencilKitGetStrokesOptions) =>
           run(async (id) =>
             parseStrokesJson(
@@ -699,6 +758,17 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
                   )
                 ) as { results: PencilKitTextSearchResult[] }
               ).results
+          ),
+        getDrawingArchive: () =>
+          run((id) => MunimPencilkit.getPencilKitDrawingArchive(id)),
+        setDrawingArchive: (archive: ArrayBuffer) =>
+          run((id) => MunimPencilkit.setPencilKitDrawingArchive(id, archive)),
+        playFeedback: (
+          kind: PencilKitFeedbackKind,
+          point: { x: number; y: number }
+        ) =>
+          run((id) =>
+            MunimPencilkit.playPencilKitFeedback(id, kind, point.x, point.y)
           ),
       }
     }, [viewId])
@@ -790,17 +860,23 @@ export const PencilKitView = forwardRef<PencilKitViewRef, PencilKitViewProps>(
           onApplePencilEstimatedProperties?.(data)
           pencilKitEventBus.emitEstimated(data)
         },
-        onApplePencilMotion: (event: NativeEventPayload<ApplePencilMotionData>) => {
+        onApplePencilMotion: (
+          event: NativeEventPayload<ApplePencilMotionData>
+        ) => {
           const data = event.nativeEvent
           onApplePencilMotion?.(data)
           pencilKitEventBus.emitMotion(data)
         },
-        onApplePencilHover: (event: NativeEventPayload<ApplePencilHoverData>) => {
+        onApplePencilHover: (
+          event: NativeEventPayload<ApplePencilHoverData>
+        ) => {
           const data = event.nativeEvent
           onApplePencilHover?.(data)
           pencilKitEventBus.emitHover(data)
         },
-        onApplePencilSqueeze: (event: NativeEventPayload<ApplePencilSqueezeData>) => {
+        onApplePencilSqueeze: (
+          event: NativeEventPayload<ApplePencilSqueezeData>
+        ) => {
           const data = event.nativeEvent
           onApplePencilSqueeze?.(data)
           pencilKitEventBus.emitSqueeze(data)
