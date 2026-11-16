@@ -75,13 +75,21 @@ jobs:
           path: |
             ~/.cocoapods/repos
             example/ios/Pods
-          key: ${{ runner.os }}-xcode${{ matrix.xcode }}-pods-${{ hashFiles('example/ios/Podfile.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-xcode${{ matrix.xcode }}-pods-
+          # Local pods (React Native, this package) come from node_modules, so a
+          # cached Pods/ is only valid for the same lockfiles; never restore a
+          # Pods/ dir from another React Native version.
+          key: ${{ runner.os }}-xcode${{ matrix.xcode }}-pods-${{ hashFiles('example/ios/Podfile.lock', 'package-lock.json', '*.podspec', 'nitrogen/generated/ios/*.rb') }}
 
       - name: Install Pods
         working-directory: example/ios
         run: pod install
+
+      - name: Upload Podfile.lock
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: Podfile.lock-xcode${{ matrix.xcode }}
+          path: example/ios/Podfile.lock
 
       - name: Build App
         working-directory: example/ios
