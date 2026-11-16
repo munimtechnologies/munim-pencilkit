@@ -509,15 +509,18 @@ export async function runSelfTest(
     describeArchiveBenchmark(await benchmarkArchive(canvas, 300, 5)),
   );
 
-  await check('pencil sample listener subscribes and unsubscribes', async () => {
-    let batches = 0;
-    const unsubscribe = PencilKitUtils.addPencilSampleListener(viewId, () => {
-      batches += 1;
-    });
-    unsubscribe();
-    unsubscribe();
-    return `ok (no touches during the self-test, ${batches} batches)`;
-  });
+  await check(
+    'pencil sample listener subscribes and unsubscribes',
+    async () => {
+      let batches = 0;
+      const unsubscribe = PencilKitUtils.addPencilSampleListener(viewId, () => {
+        batches += 1;
+      });
+      unsubscribe();
+      unsubscribe();
+      return `ok (no touches during the self-test, ${batches} batches)`;
+    },
+  );
 
   await check('Apple Pencil preferences are readable', async () => {
     const prefs = PencilKitUtils.getApplePencilPreferences();
@@ -529,19 +532,22 @@ export async function runSelfTest(
     );
   });
 
-  await check('playFeedback plays inside the view, rejects outside', async () => {
-    await canvas.playFeedback('alignment', { x: 10, y: 10 });
-    await canvas.playFeedback('pathCompleted', { x: 10, y: 10 });
-    try {
-      await canvas.playFeedback('impactLight', { x: -500, y: -500 });
-      return expect(false, 'outside location resolved');
-    } catch (error) {
-      return expect(
-        error instanceof Error && error.message.includes('outside'),
-        String(error),
-      );
-    }
-  });
+  await check(
+    'playFeedback plays inside the view, rejects outside',
+    async () => {
+      await canvas.playFeedback('alignment', { x: 10, y: 10 });
+      await canvas.playFeedback('pathCompleted', { x: 10, y: 10 });
+      try {
+        await canvas.playFeedback('impactLight', { x: -500, y: -500 });
+        return expect(false, 'outside location resolved');
+      } catch (error) {
+        return expect(
+          error instanceof Error && error.message.includes('outside'),
+          String(error),
+        );
+      }
+    },
+  );
 
   const passed = checks.filter(entry => entry.pass).length;
   const result: SelfTestResult = {
