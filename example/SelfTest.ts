@@ -166,7 +166,9 @@ const diffStrokes = (
         close(wt[k], gt[k]),
       )
     ) {
-      out.push(`${tag} transform ${JSON.stringify(wt)} -> ${JSON.stringify(gt)}`);
+      out.push(
+        `${tag} transform ${JSON.stringify(wt)} -> ${JSON.stringify(gt)}`,
+      );
     }
     if (want.points.length !== got.points.length) {
       out.push(`${tag} points ${want.points.length} -> ${got.points.length}`);
@@ -593,7 +595,9 @@ export async function runSelfTest(
       `archive ${archive.byteLength} B -> ${after.length}/${before.length} strokes; ` +
         `re-encoded ${reArchived.byteLength} B (export ${exported.byteLength} B` +
         `${bytesMatch ? ', identical' : ''})` +
-        (differences.length ? `; DIFF: ${differences.join('; ')}` : '; strokes identical'),
+        (differences.length
+          ? `; DIFF: ${differences.join('; ')}`
+          : '; strokes identical'),
     );
   });
 
