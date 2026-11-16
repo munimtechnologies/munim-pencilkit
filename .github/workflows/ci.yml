@@ -1,0 +1,50 @@
+name: CI
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    name: Package checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 26
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Nitrogen output is committed
+        run: |
+          npx nitrogen
+          git diff --exit-code -- nitrogen
+          test -z "$(git status --porcelain -- nitrogen)" || { git status --porcelain -- nitrogen; exit 1; }
+
+      - name: Typecheck (library + example)
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build (bob)
+        run: npx bob build
+
+      - name: Pack (dry run)
+        run: npm pack --dry-run

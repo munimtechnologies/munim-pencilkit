@@ -5,6 +5,7 @@ import {
   type PencilKitStroke,
   type PencilKitViewRef,
 } from 'munim-pencilkit';
+import { benchmarkArchive, describeArchiveBenchmark } from './Benchmarks';
 
 /**
  * Device self-test for the stroke, selection, erase and recognition APIs.
@@ -470,6 +471,76 @@ export async function runSelfTest(
       toolPickerColorMaximumLinearExposure: null,
     });
     return 'set 4, then reset';
+  });
+
+  await check('binary archive round-trip keeps strokes', async () => {
+    await canvas.setStrokes(baseStrokes);
+    const archive = await canvas.getDrawingArchive();
+    await canvas.clearDrawing();
+    await canvas.setDrawingArchive(archive);
+    const strokes = await canvas.getStrokes();
+    const exported = await canvas.exportDocument({
+      version: 1,
+      format: 'archive',
+      output: 'base64',
+    });
+    return expect(
+      archive.byteLength > 0 &&
+        strokes.length === baseStrokes.length &&
+        exported.byteLength === archive.byteLength,
+      `${archive.byteLength} B (base64 export ${exported.byteLength} B), ` +
+        `${strokes.length} strokes back`,
+    );
+  });
+
+  await check('setDrawingArchive rejects non-archive bytes', async () => {
+    try {
+      await canvas.setDrawingArchive(new Uint8Array([1, 2, 3, 4]).buffer);
+      return expect(false, 'resolved');
+    } catch (error) {
+      return expect(
+        error instanceof Error && error.message.includes('PKDrawing'),
+        String(error),
+      );
+    }
+  });
+
+  await check('archive benchmark (informational)', async () =>
+    describeArchiveBenchmark(await benchmarkArchive(canvas, 300, 5)),
+  );
+
+  await check('pencil sample listener subscribes and unsubscribes', async () => {
+    let batches = 0;
+    const unsubscribe = PencilKitUtils.addPencilSampleListener(viewId, () => {
+      batches += 1;
+    });
+    unsubscribe();
+    unsubscribe();
+    return `ok (no touches during the self-test, ${batches} batches)`;
+  });
+
+  await check('Apple Pencil preferences are readable', async () => {
+    const prefs = PencilKitUtils.getApplePencilPreferences();
+    return expect(
+      typeof prefs.prefersPencilOnlyDrawing === 'boolean' &&
+        typeof prefs.prefersHoverToolPreview === 'boolean' &&
+        typeof prefs.preferredSqueezeAction === 'string',
+      JSON.stringify(prefs),
+    );
+  });
+
+  await check('playFeedback plays inside the view, rejects outside', async () => {
+    await canvas.playFeedback('alignment', { x: 10, y: 10 });
+    await canvas.playFeedback('pathCompleted', { x: 10, y: 10 });
+    try {
+      await canvas.playFeedback('impactLight', { x: -500, y: -500 });
+      return expect(false, 'outside location resolved');
+    } catch (error) {
+      return expect(
+        error instanceof Error && error.message.includes('outside'),
+        String(error),
+      );
+    }
   });
 
   const passed = checks.filter(entry => entry.pass).length;

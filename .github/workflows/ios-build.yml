@@ -22,20 +22,6 @@ on:
       - '**/react-native.config.js'
       - '**/nitro.json'
   pull_request:
-    paths:
-      - '.github/workflows/ios-build.yml'
-      - 'example/ios/**'
-      - 'example/Gemfile'
-      - 'example/Gemfile.lock'
-      - '**/nitrogen/generated/shared/**'
-      - '**/nitrogen/generated/ios/**'
-      - 'cpp/**'
-      - 'ios/**'
-      - '**/Podfile.lock'
-      - 'package-lock.json'
-      - '**/*.podspec'
-      - '**/react-native.config.js'
-      - '**/nitro.json'
   workflow_dispatch:
 
 env:
@@ -60,13 +46,13 @@ jobs:
           - runner: xcode-27
             xcode: '27.0'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 26
           cache: npm
       - name: Setup Xcode
-        uses: maxim-lobanov/setup-xcode@v1
+        uses: maxim-lobanov/setup-xcode@v1.7.0
         with:
           xcode-version: ${{ matrix.xcode }}
 
@@ -84,7 +70,7 @@ jobs:
         run: gem install xcpretty
 
       - name: Cache CocoaPods
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cocoapods/repos

@@ -1712,6 +1712,9 @@ final class TouchForwardingCanvasView: PKCanvasView {
   }
 
   private func playImpact(_ style: UIImpactFeedbackGenerator.FeedbackStyle, at location: CGPoint) {
+    #if os(visionOS)
+      return
+    #else
     if #available(iOS 17.5, *) {
       let generator = UIImpactFeedbackGenerator(style: style, view: self)
       generator.impactOccurred(at: location)
@@ -1719,6 +1722,7 @@ final class TouchForwardingCanvasView: PKCanvasView {
       let generator = UIImpactFeedbackGenerator(style: style)
       generator.impactOccurred()
     }
+    #endif
   }
 
   /// `playFeedback` from JS. Main thread only. `kind` is a
@@ -1729,6 +1733,9 @@ final class TouchForwardingCanvasView: PKCanvasView {
         "feedback location (\(location.x), \(location.y)) is outside the view"
       )
     }
+    #if os(visionOS)
+      throw PencilKitHybridError.invalidOptions("feedback is not available on visionOS")
+    #else
     switch kind {
     case "alignment", "pathCompleted":
       if #available(iOS 17.5, *) {
@@ -1754,6 +1761,7 @@ final class TouchForwardingCanvasView: PKCanvasView {
     default:
       throw PencilKitHybridError.invalidOptions("unknown feedback kind \(kind)")
     }
+    #endif
   }
 
   private func mapPreferredAction(_ action: UIPencilPreferredAction) -> String {

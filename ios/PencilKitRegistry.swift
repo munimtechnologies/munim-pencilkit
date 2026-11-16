@@ -82,7 +82,7 @@ final class PencilKitRegistry {
   func sampleListeners(viewId: Int) -> [PencilSampleListener] {
     lock.lock()
     defer { lock.unlock() }
-    return sampleListeners.values.filter { $0.viewId == viewId }.map(\.listener)
+    return sampleListeners.values.filter { $0.viewId == viewId }.map { $0.listener }
   }
 
   /// Unregisters `id` only if the currently registered view is `view` (or has

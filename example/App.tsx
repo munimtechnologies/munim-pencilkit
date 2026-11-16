@@ -14,7 +14,10 @@ import {
   View,
 } from 'react-native';
 import {
+  PencilKitUtils,
   PencilKitView,
+  type ApplePencilSampleBatch,
+  type PencilKitFeedbackKind,
   type PencilKitConfig,
   type PencilKitContentVersion,
   type PencilKitStroke,
@@ -27,6 +30,31 @@ import {
   type PencilKitViewRef,
 } from 'munim-pencilkit';
 import { runSelfTest, selfTestAutoRun } from './SelfTest';
+import { benchmarkArchive, describeArchiveBenchmark } from './Benchmarks';
+
+interface SampleStats {
+  batches: number;
+  samples: number;
+  predicted: number;
+  estimatedUpdates: number;
+  firstTimestamp: number;
+  lastTimestamp: number;
+  pressure: number;
+  altitude: number;
+  rollAngle: number;
+}
+
+const emptySampleStats = (): SampleStats => ({
+  batches: 0,
+  samples: 0,
+  predicted: 0,
+  estimatedUpdates: 0,
+  firstTimestamp: 0,
+  lastTimestamp: 0,
+  pressure: 0,
+  altitude: 0,
+  rollAngle: 0,
+});
 
 function Button({
   label,
@@ -44,6 +72,8 @@ function Button({
     </Pressable>
   );
 }
+
+const pencilKitSupported = PencilKitUtils.isSupported();
 
 function App(): React.JSX.Element {
   const canvasRef = useRef<PencilKitViewRef>(null);
@@ -64,6 +94,72 @@ function App(): React.JSX.Element {
   const viewIdRef = useRef<number | null>(null);
   const selectionEvents = useRef<PencilKitSelectionChangeEvent[]>([]);
   const [viewReady, setViewReady] = useState(false);
+  const binaryArchiveRef = useRef<ArrayBuffer | null>(null);
+  const [sampleStream, setSampleStream] = useState(false);
+  const sampleStats = useRef<SampleStats>(emptySampleStats());
+  const [sampleSummary, setSampleSummary] = useState('Sample stream off');
+  const [zoom, setZoom] = useState(false);
+  const [haptics, setHaptics] = useState(true);
+  const [pencilLog, setPencilLog] = useState('No squeeze / double tap yet');
+  const canvasSize = useRef({ width: 0, height: 0 });
+
+  // Samples arrive about once per frame; render the summary 4x a second.
+  const onPencilSamples = useCallback((batch: ApplePencilSampleBatch) => {
+    const stats = sampleStats.current;
+    stats.batches += 1;
+    // Read straight from the Float64Array: no per-sample objects.
+    const { samples, stride, count } = batch;
+    for (let i = 0; i < count; i += 1) {
+      const o = i * stride;
+      const kind = samples[o]!;
+      if (kind === 1) {
+        stats.predicted += 1;
+        continue;
+      }
+      if (kind === 2) {
+        stats.estimatedUpdates += 1;
+        continue;
+      }
+      stats.samples += 1;
+      const timestamp = samples[o + 2]!;
+      if (stats.firstTimestamp === 0) stats.firstTimestamp = timestamp;
+      stats.lastTimestamp = timestamp;
+      const maxForce = samples[o + 8]!;
+      stats.pressure = maxForce > 0 ? samples[o + 7]! / maxForce : 0;
+      stats.altitude = samples[o + 9]!;
+      stats.rollAngle = samples[o + 13]!;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!sampleStream) {
+      setSampleSummary('Sample stream off');
+      return;
+    }
+    sampleStats.current = emptySampleStats();
+    const timer = setInterval(() => {
+      const stats = sampleStats.current;
+      const seconds = stats.lastTimestamp - stats.firstTimestamp;
+      const rate = seconds > 0 ? Math.round(stats.samples / seconds) : 0;
+      setSampleSummary(
+        `${stats.samples} samples in ${stats.batches} batches (~${rate}/s), ` +
+          `${stats.predicted} predicted, ${stats.estimatedUpdates} updates | ` +
+          `pressure ${stats.pressure.toFixed(2)} altitude ` +
+          `${stats.altitude.toFixed(2)} roll ${stats.rollAngle.toFixed(2)}`,
+      );
+    }, 250);
+    return () => clearInterval(timer);
+  }, [sampleStream]);
+
+  const playFeedback = (kind: PencilKitFeedbackKind) =>
+    run(async () => {
+      const { width, height } = canvasSize.current;
+      await canvasRef.current?.playFeedback(kind, {
+        x: width / 2,
+        y: height / 2,
+      });
+      return `Played ${kind} (Apple Pencil Pro: felt in the pencil)`;
+    });
 
   const startSelfTest = useCallback(async () => {
     const canvas = canvasRef.current;
@@ -155,8 +251,11 @@ function App(): React.JSX.Element {
       toolPickerAccessoryItem: customPicker
         ? { systemImage: 'ellipsis.circle', title: 'More', identifier: 'more' }
         : null,
+      minimumZoomScale: 1,
+      maximumZoomScale: zoom ? 4 : 1,
+      scrollEnabled: zoom,
     }),
-    [contentVersion, customPicker, includeStrokes, toolItems],
+    [contentVersion, customPicker, includeStrokes, toolItems, zoom],
   );
 
   const run = useCallback(async (action: () => Promise<string>) => {
@@ -229,6 +328,13 @@ function App(): React.JSX.Element {
         contentContainerStyle={styles.controlsContent}
       >
         <Text style={styles.title}>munim-pencilkit demo</Text>
+        {!pencilKitSupported && (
+          <Text style={styles.status}>
+            PencilKit is only available on iOS/iPadOS. On this platform
+            isSupported() is false, the canvas renders nothing and every call
+            throws PencilKitUnsupportedError.
+          </Text>
+        )}
         <Text style={styles.status}>{status}</Text>
         <Text style={styles.meta}>
           {lastChange
@@ -370,6 +476,87 @@ function App(): React.JSX.Element {
           />
         </View>
 
+        <Text style={styles.section}>Binary transfer & Apple Pencil Pro</Text>
+        <View style={styles.row}>
+          <Button
+            label="Archive (binary) out"
+            onPress={() =>
+              run(async () => {
+                const start = Date.now();
+                const archive = await canvasRef.current?.getDrawingArchive();
+                binaryArchiveRef.current = archive ?? null;
+                return `Binary archive: ${archive?.byteLength ?? 0} bytes in ${
+                  Date.now() - start
+                }ms (kept)`;
+              })
+            }
+          />
+          <Button
+            label="Archive (binary) in"
+            onPress={() =>
+              run(async () => {
+                const archive = binaryArchiveRef.current;
+                if (archive == null) return 'Take a binary archive first';
+                await canvasRef.current?.setDrawingArchive(archive);
+                return `Restored ${archive.byteLength}-byte binary archive`;
+              })
+            }
+          />
+          <Button
+            label="Benchmark base64 vs binary"
+            onPress={() =>
+              run(async () => {
+                const canvas = canvasRef.current;
+                if (!canvas) return 'Canvas not ready';
+                setStatus('Benchmarking (300 strokes x 10 runs)...');
+                return describeArchiveBenchmark(await benchmarkArchive(canvas));
+              })
+            }
+          />
+          <Button
+            label={`Sample stream: ${sampleStream ? 'on' : 'off'}`}
+            onPress={() => setSampleStream(value => !value)}
+          />
+        </View>
+        <Text style={styles.meta}>{sampleSummary}</Text>
+        <View style={styles.row}>
+          <Button
+            label="Feel: alignment"
+            onPress={() => playFeedback('alignment')}
+          />
+          <Button
+            label="Feel: path completed"
+            onPress={() => playFeedback('pathCompleted')}
+          />
+          <Button
+            label="Feel: impact"
+            onPress={() => playFeedback('impactMedium')}
+          />
+          <Button
+            label={`Squeeze haptics: ${haptics ? 'on' : 'off'}`}
+            onPress={() => setHaptics(value => !value)}
+          />
+          <Button
+            label="Pencil settings"
+            onPress={() =>
+              run(async () => {
+                const prefs = PencilKitUtils.getApplePencilPreferences();
+                return (
+                  `pencil-only ${prefs.prefersPencilOnlyDrawing}, hover ` +
+                  `preview ${prefs.prefersHoverToolPreview}, tap ` +
+                  `${prefs.preferredTapAction}, squeeze ` +
+                  `${prefs.preferredSqueezeAction}`
+                );
+              })
+            }
+          />
+          <Button
+            label={`Zoom: ${zoom ? '1-4x' : 'off'}`}
+            onPress={() => setZoom(value => !value)}
+          />
+        </View>
+        <Text style={styles.meta}>{pencilLog}</Text>
+
         <Text style={styles.section}>Strokes & picker</Text>
         <View style={styles.row}>
           <Button
@@ -510,6 +697,23 @@ function App(): React.JSX.Element {
         style={styles.canvas}
         config={config}
         enableApplePencilData
+        enableHapticFeedback={haptics}
+        onPencilSamples={sampleStream ? onPencilSamples : undefined}
+        onLayout={event => {
+          canvasSize.current = event.nativeEvent.layout;
+        }}
+        onApplePencilSqueeze={event => {
+          setPencilLog(
+            `squeeze ${event.phase} -> ${event.preferredAction}` +
+              (event.hoverPose
+                ? ` (hover z ${event.hoverPose.zOffset.toFixed(2)}, roll ` +
+                  `${event.hoverPose.rollAngle.toFixed(2)})`
+                : ''),
+          );
+        }}
+        onApplePencilDoubleTap={event => {
+          setPencilLog(`double tap -> ${event.preferredAction}`);
+        }}
         onDrawingChange={(event: PencilKitDrawingChangeEvent) => {
           setLastChange(event);
         }}

@@ -890,7 +890,9 @@ final class HybridMunimPencilkit: HybridMunimPencilkitSpec {
   func setPencilKitDrawingArchive(viewId: Double, archive: ArrayBuffer) throws -> Promise<Void> {
     let id = Int(viewId)
     guard archive.size <= PencilKitImportLimits.maxArchiveBytes else {
-      throw PencilKitHybridError.inputTooLarge("archive", PencilKitImportLimits.maxArchiveBytes)
+      return Promise.rejected(
+        withError: PencilKitHybridError.inputTooLarge("archive", PencilKitImportLimits.maxArchiveBytes)
+      )
     }
     // A JS-owned buffer is only valid on this (JS) thread; copy it before
     // decoding on the async queue.
@@ -937,7 +939,9 @@ final class HybridMunimPencilkit: HybridMunimPencilkitSpec {
   ) throws -> Promise<Void> {
     let id = Int(viewId)
     guard x.isFinite, y.isFinite else {
-      throw PencilKitHybridError.invalidOptions("feedback location must be finite")
+      return Promise.rejected(
+        withError: PencilKitHybridError.invalidOptions("feedback location must be finite")
+      )
     }
     let name = kind.stringValue
     return Promise.parallel(Self.asyncQueue) {
