@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.json",
+  "include": ["src/**/*", "nitrogen/**/*.json"],
+  "exclude": ["**/node_modules", "**/lib", "__tests__"]
+}
