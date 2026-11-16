@@ -82,7 +82,8 @@ jobs:
 
       - name: Install Pods
         working-directory: example/ios
-        run: pod install
+        # TEMP: Podfile.lock still pins RN 0.88.0; regenerate it here and commit the artifact.
+        run: pod install || pod update --no-repo-update
 
       - name: Upload Podfile.lock
         if: always()
