@@ -77,12 +77,12 @@ function App(): React.JSX.Element {
     try {
       const result = await runSelfTest(canvas, viewId, selectionEvents.current);
       const failures = result.checks
-        .filter((entry) => !entry.pass)
-        .map((entry) => entry.name);
+        .filter(entry => !entry.pass)
+        .map(entry => entry.name);
       setStatus(
         `Self-test: ${result.passed}/${result.checks.length} passed` +
           (failures.length ? ` (failed: ${failures.join('; ')})` : '') +
-          (result.outputPath ? ` -> ${result.outputPath}` : '')
+          (result.outputPath ? ` -> ${result.outputPath}` : ''),
       );
     } catch (error) {
       setStatus(`Self-test crashed: ${String(error)}`);
@@ -93,7 +93,7 @@ function App(): React.JSX.Element {
   useEffect(() => {
     if (!viewReady) return;
     let cancelled = false;
-    selfTestAutoRun().then((autoRun) => {
+    selfTestAutoRun().then(autoRun => {
       if (!autoRun || cancelled) return;
       setTimeout(() => {
         if (!cancelled) startSelfTest();
@@ -108,8 +108,20 @@ function App(): React.JSX.Element {
     () =>
       customPicker
         ? [
-            { type: 'ink', inkType: 'pen', color: '#111827', width: 3, identifier: 'pen' },
-            { type: 'ink', inkType: 'marker', color: '#FACC15', width: 20, identifier: 'highlighter' },
+            {
+              type: 'ink',
+              inkType: 'pen',
+              color: '#111827',
+              width: 3,
+              identifier: 'pen',
+            },
+            {
+              type: 'ink',
+              inkType: 'marker',
+              color: '#FACC15',
+              width: 20,
+              identifier: 'highlighter',
+            },
             { type: 'eraser', eraserType: 'vector' },
             { type: 'lasso' },
             { type: 'ruler' },
@@ -123,7 +135,7 @@ function App(): React.JSX.Element {
             },
           ]
         : null,
-    [customPicker]
+    [customPicker],
   );
 
   const config: PencilKitConfig = useMemo(
@@ -144,7 +156,7 @@ function App(): React.JSX.Element {
         ? { systemImage: 'ellipsis.circle', title: 'More', identifier: 'more' }
         : null,
     }),
-    [contentVersion, customPicker, includeStrokes, toolItems]
+    [contentVersion, customPicker, includeStrokes, toolItems],
   );
 
   const run = useCallback(async (action: () => Promise<string>) => {
@@ -427,7 +439,7 @@ function App(): React.JSX.Element {
         <View style={styles.row}>
           <Button
             label={`Strokes in drawing: ${includeStrokes ? 'on' : 'off'}`}
-            onPress={() => setIncludeStrokes((value) => !value)}
+            onPress={() => setIncludeStrokes(value => !value)}
           />
           <Button
             label="getDrawing"
@@ -446,13 +458,13 @@ function App(): React.JSX.Element {
             label={`Max content: ${contentVersion}`}
             onPress={() =>
               setContentVersion(
-                (value) => nextContentVersion[String(value)] ?? 'latest'
+                value => nextContentVersion[String(value)] ?? 'latest',
               )
             }
           />
           <Button
             label={customPicker ? 'System picker' : 'Custom picker (iOS 18)'}
-            onPress={() => setCustomPicker((value) => !value)}
+            onPress={() => setCustomPicker(value => !value)}
           />
           <Button
             label="Select highlighter"
@@ -507,39 +519,39 @@ function App(): React.JSX.Element {
             'Drawing snapshot',
             event.revision,
             event.drawing.dataBase64?.length ?? 0,
-            'bytes of base64'
+            'bytes of base64',
           );
         }}
-        onToolPickerChange={(event) => {
+        onToolPickerChange={event => {
           console.log('Tool picker change', event.visible, event.selectedTool);
         }}
-        onToolPickerItemChange={(event) => {
+        onToolPickerItemChange={event => {
           setEventLog(
             `item: ${event.itemType} "${event.identifier}"` +
               (event.reselected ? ' (tapped again)' : '') +
-              (event.color ? ` ${event.color} w${event.width}` : '')
+              (event.color ? ` ${event.color} w${event.width}` : ''),
           );
         }}
-        onToolPickerAccessoryPress={(event) => {
+        onToolPickerAccessoryPress={event => {
           setEventLog(`accessory pressed: ${event.identifier}`);
         }}
         onDidFinishRendering={() => {
           renderCount.current += 1;
           console.log('Finished rendering', renderCount.current);
         }}
-        onApplePencilHover={(event) => {
+        onApplePencilHover={event => {
           if (event.phase !== 'changed') {
             setEventLog(`hover ${event.phase}`);
           }
         }}
-        onHistoryChange={(event) => {
+        onHistoryChange={event => {
           console.log('History change', event.revision, event.canUndo);
         }}
-        onSelectionChange={(event) => {
+        onSelectionChange={event => {
           selectionEvents.current.push(event);
           setEventLog(`selection: ${event.strokeIds.length} stroke(s)`);
         }}
-        onViewReady={(id) => {
+        onViewReady={id => {
           viewIdRef.current = id;
           setViewReady(true);
         }}

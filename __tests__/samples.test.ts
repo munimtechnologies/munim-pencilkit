@@ -19,8 +19,9 @@ const encode = (
   records.forEach((record, index) => {
     const offset = PENCIL_SAMPLE_HEADER_LENGTH + index * PENCIL_SAMPLE_STRIDE
     for (const [key, value] of Object.entries(record)) {
-      values[offset + PENCIL_SAMPLE_FIELD[key as keyof typeof PENCIL_SAMPLE_FIELD]] =
-        value as number
+      values[
+        offset + PENCIL_SAMPLE_FIELD[key as keyof typeof PENCIL_SAMPLE_FIELD]
+      ] = value as number
     }
   })
   return values.buffer

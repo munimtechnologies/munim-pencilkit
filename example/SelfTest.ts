@@ -45,13 +45,13 @@ const hex = (length: number): string =>
   Array.from({ length }, () =>
     Math.floor(Math.random() * 16)
       .toString(16)
-      .toUpperCase()
+      .toUpperCase(),
   ).join('');
 
 /** An uppercase v4 UUID, the format `PKStroke.id` reports. */
 export const makeUUID = (): string =>
   `${hex(8)}-${hex(4)}-4${hex(3)}-${'89AB'[Math.floor(Math.random() * 4)]}${hex(
-    3
+    3,
   )}-${hex(12)}`;
 
 type Point = { x: number; y: number };
@@ -59,7 +59,7 @@ type Point = { x: number; y: number };
 /** A pen stroke through `path`, densely resampled like real pencil input. */
 export const makeStroke = (
   path: Point[],
-  options: { id?: string; color?: string; width?: number } = {}
+  options: { id?: string; color?: string; width?: number } = {},
 ): PencilKitStroke => {
   const color = options.color ?? '#111827';
   const width = options.width ?? 5;
@@ -119,29 +119,28 @@ const handwrittenHI = (x: number, y: number): PencilKitStroke[] => [
 ];
 
 const sameIds = (a: string[], b: string[]): boolean =>
-  a.length === b.length &&
-  [...a].sort().join() === [...b].sort().join();
+  a.length === b.length && [...a].sort().join() === [...b].sort().join();
 
 const delay = (ms: number) =>
-  new Promise<void>((resolve) => setTimeout(() => resolve(), ms));
+  new Promise<void>(resolve => setTimeout(() => resolve(), ms));
 
 export async function runSelfTest(
   canvas: PencilKitViewRef,
   viewId: number,
-  selectionEvents: PencilKitSelectionChangeEvent[]
+  selectionEvents: PencilKitSelectionChangeEvent[],
 ): Promise<SelfTestResult> {
   const startedAt = new Date().toISOString();
   const checks: SelfTestCheck[] = [];
   const check = async (
     name: string,
-    body: () => Promise<string | { pass: boolean; detail: string }>
+    body: () => Promise<string | { pass: boolean; detail: string }>,
   ) => {
     try {
       const outcome = await body();
       checks.push(
         typeof outcome === 'string'
           ? { name, pass: true, detail: outcome }
-          : { name, ...outcome }
+          : { name, ...outcome },
       );
     } catch (error) {
       checks.push({
@@ -166,8 +165,8 @@ export async function runSelfTest(
         features.handwritingRecognition &&
         features.toolPickerHDRColors &&
         capabilities.contentVersion?.maximum === 5,
-      JSON.stringify({ features, contentVersion: capabilities.contentVersion })
-    )
+      JSON.stringify({ features, contentVersion: capabilities.contentVersion }),
+    ),
   );
 
   // Stroke ids: setStrokes keeps caller ids, getStrokes returns them.
@@ -178,14 +177,14 @@ export async function runSelfTest(
         { x: 40, y: 60 },
         { x: 300, y: 60 },
       ],
-      { id: ids[0] }
+      { id: ids[0] },
     ),
     makeStroke(
       [
         { x: 40, y: 120 },
         { x: 300, y: 140 },
       ],
-      { id: ids[1], color: '#DC2626' }
+      { id: ids[1], color: '#DC2626' },
     ),
     makeStroke(
       [
@@ -193,17 +192,17 @@ export async function runSelfTest(
         { x: 120, y: 260 },
         { x: 200, y: 200 },
       ],
-      { id: ids[2], color: '#2563EB' }
+      { id: ids[2], color: '#2563EB' },
     ),
   ];
 
   await check('setStrokes/getStrokes keep stroke ids', async () => {
     await canvas.setStrokes(baseStrokes);
     const strokes = await canvas.getStrokes();
-    const got = strokes.map((stroke) => stroke.id ?? '');
+    const got = strokes.map(stroke => stroke.id ?? '');
     return expect(
       strokes.length === 3 && got.join() === ids.join(),
-      `sent ${ids.join()} got ${got.join()}`
+      `sent ${ids.join()} got ${got.join()}`,
     );
   });
 
@@ -211,9 +210,9 @@ export async function runSelfTest(
     const strokes = await canvas.getStrokes();
     const first = strokes[0];
     return expect(
-      strokes.every((stroke) => typeof stroke.pathId === 'string') &&
+      strokes.every(stroke => typeof stroke.pathId === 'string') &&
         typeof first?.points[0]?.lateralJitter === 'number',
-      `pathId ${first?.pathId}, lateralJitter ${first?.points[0]?.lateralJitter}`
+      `pathId ${first?.pathId}, lateralJitter ${first?.points[0]?.lateralJitter}`,
     );
   });
 
@@ -225,21 +224,21 @@ export async function runSelfTest(
           { x: 320, y: 60 },
           { x: 360, y: 90 },
         ],
-        { id: freshId }
+        { id: freshId },
       ),
       makeStroke(
         [
           { x: 320, y: 120 },
           { x: 360, y: 150 },
         ],
-        { id: ids[0] }
+        { id: ids[0] },
       ),
     ]);
-    const got = (await canvas.getStrokes()).map((stroke) => stroke.id ?? '');
+    const got = (await canvas.getStrokes()).map(stroke => stroke.id ?? '');
     const duplicateId = got[4];
     const unique = new Set(got).size === got.length;
     await canvas.undo();
-    const afterUndo = (await canvas.getStrokes()).map((s) => s.id ?? '');
+    const afterUndo = (await canvas.getStrokes()).map(s => s.id ?? '');
     return expect(
       got.length === 5 &&
         got.slice(0, 3).join() === ids.join() &&
@@ -247,36 +246,40 @@ export async function runSelfTest(
         duplicateId !== ids[0] &&
         unique &&
         afterUndo.join() === ids.join(),
-      `after append ${got.join()}; after undo ${afterUndo.join()}`
+      `after append ${got.join()}; after undo ${afterUndo.join()}`,
     );
   });
 
-  await check('getDrawing/setDrawing round-trip keeps ids (archive)', async () => {
-    const drawing = await canvas.getDrawing({ includeStrokes: true });
-    const payloadIds = drawing.strokes.map((stroke) => stroke.id ?? '');
-    await canvas.clearDrawing();
-    await canvas.setDrawing(drawing);
-    const got = (await canvas.getStrokes()).map((stroke) => stroke.id ?? '');
-    return expect(
-      payloadIds.join() === ids.join() && got.join() === ids.join(),
-      `payload ${payloadIds.join()}, restored ${got.join()}`
-    );
-  });
+  await check(
+    'getDrawing/setDrawing round-trip keeps ids (archive)',
+    async () => {
+      const drawing = await canvas.getDrawing({ includeStrokes: true });
+      const payloadIds = drawing.strokes.map(stroke => stroke.id ?? '');
+      await canvas.clearDrawing();
+      await canvas.setDrawing(drawing);
+      const got = (await canvas.getStrokes()).map(stroke => stroke.id ?? '');
+      return expect(
+        payloadIds.join() === ids.join() && got.join() === ids.join(),
+        `payload ${payloadIds.join()}, restored ${got.join()}`,
+      );
+    },
+  );
 
   await check('setDrawing from strokes only keeps ids', async () => {
     const drawing = await canvas.getDrawing({ includeStrokes: true });
     await canvas.clearDrawing();
     await canvas.setDrawing({ ...drawing, dataBase64: undefined });
-    const got = (await canvas.getStrokes()).map((stroke) => stroke.id ?? '');
+    const got = (await canvas.getStrokes()).map(stroke => stroke.id ?? '');
     return expect(got.join() === ids.join(), `restored ${got.join()}`);
   });
 
   await check('Bezier paths for every stroke', async () => {
     const strokes = await canvas.getStrokes({ includeBezierPaths: true });
-    const paths = strokes.map((stroke) => stroke.bezierPath ?? '');
+    const paths = strokes.map(stroke => stroke.bezierPath ?? '');
     return expect(
-      paths.length === 3 && paths.every((path) => /^M [-\d.e]+ [-\d.e]+/.test(path)),
-      paths.map((path) => path.slice(0, 40)).join(' | ')
+      paths.length === 3 &&
+        paths.every(path => /^M [-\d.e]+ [-\d.e]+/.test(path)),
+      paths.map(path => path.slice(0, 40)).join(' | '),
     );
   });
 
@@ -289,7 +292,7 @@ export async function runSelfTest(
     const cleared = await canvas.getSelection();
     return expect(
       sameIds(selected, [ids[0]!, ids[2]!]) && cleared.length === 0,
-      `selected ${selected.join()}, after clear ${cleared.length}`
+      `selected ${selected.join()}, after clear ${cleared.length}`,
     );
   });
 
@@ -300,7 +303,7 @@ export async function runSelfTest(
     await canvas.setSelection([]);
     return expect(
       sameIds(selected, [ids[1]!]) || selected.includes(ids[1]!),
-      `selected ${selected.join()}`
+      `selected ${selected.join()}`,
     );
   });
 
@@ -308,7 +311,7 @@ export async function runSelfTest(
   await check('selection change events (informational)', async () => {
     await delay(200);
     return `${selectionEvents.length} event(s): ${selectionEvents
-      .map((event) => event.strokeIds.length)
+      .map(event => event.strokeIds.length)
       .join(',')}`;
   });
 
@@ -317,7 +320,10 @@ export async function runSelfTest(
       await canvas.setSelection(['not-a-uuid']);
       return expect(false, 'resolved');
     } catch (error) {
-      return expect(true, error instanceof Error ? error.message : String(error));
+      return expect(
+        true,
+        error instanceof Error ? error.message : String(error),
+      );
     }
   });
 
@@ -342,7 +348,7 @@ export async function runSelfTest(
         after.length > before.length &&
         undone &&
         restored.length === before.length,
-      `${JSON.stringify(result)}; after ${after.length}, undo -> ${restored.length}`
+      `${JSON.stringify(result)}; after ${after.length}, undo -> ${restored.length}`,
     );
   });
 
@@ -353,7 +359,10 @@ export async function runSelfTest(
         { x: 620, y: 620 },
       ],
     });
-    return expect(!result.changed && result.strokeCountAfter === 3, JSON.stringify(result));
+    return expect(
+      !result.changed && result.strokeCountAfter === 3,
+      JSON.stringify(result),
+    );
   });
 
   await check('erasePath rejects an empty path', async () => {
@@ -361,7 +370,10 @@ export async function runSelfTest(
       await canvas.erasePath({ points: [] });
       return expect(false, 'resolved');
     } catch (error) {
-      return expect(true, error instanceof Error ? error.message : String(error));
+      return expect(
+        true,
+        error instanceof Error ? error.message : String(error),
+      );
     }
   });
 
@@ -373,32 +385,34 @@ export async function runSelfTest(
         typeof info.recognitionVersion === 'number',
       `${info.supportedLanguages.length} languages (${info.supportedLanguages
         .slice(0, 8)
-        .join(',')}), version ${info.recognitionVersion}`
+        .join(',')}), version ${info.recognitionVersion}`,
     );
   });
 
   const handwriting = handwrittenHI(60, 320);
   await check('recognizeText on handwriting-like strokes', async () => {
     await canvas.setStrokes(handwriting);
-    const result = await canvas.recognizeText({ includeIndexableContent: true });
+    const result = await canvas.recognizeText({
+      includeIndexableContent: true,
+    });
     return expect(
       (result.text === null || typeof result.text === 'string') &&
         Array.isArray(result.languages) &&
         typeof result.recognitionVersion === 'number',
-      JSON.stringify(result)
+      JSON.stringify(result),
     );
   });
 
   await check('recognizeText for selected stroke ids + languages', async () => {
     const strokes = await canvas.getStrokes();
-    const subset = strokes.slice(0, 3).map((stroke) => stroke.id!);
+    const subset = strokes.slice(0, 3).map(stroke => stroke.id!);
     const result = await canvas.recognizeText({
       strokeIds: subset,
       preferredLanguages: ['en'],
     });
     return expect(
       result.text === null || typeof result.text === 'string',
-      JSON.stringify(result)
+      JSON.stringify(result),
     );
   });
 
@@ -407,10 +421,11 @@ export async function runSelfTest(
     return expect(
       Array.isArray(results) &&
         results.every(
-          (match) =>
-            Array.isArray(match.strokeIds) && typeof match.bounds.width === 'number'
+          match =>
+            Array.isArray(match.strokeIds) &&
+            typeof match.bounds.width === 'number',
         ),
-      JSON.stringify(results)
+      JSON.stringify(results),
     );
   });
 
@@ -434,8 +449,8 @@ export async function runSelfTest(
         strokes[0]?.id === ids[0] &&
         png.byteLength > 0,
       `removed ${removed}, transformed ${changed}, ids ${strokes
-        .map((s) => s.id)
-        .join()}, png ${png.byteLength} B`
+        .map(s => s.id)
+        .join()}, png ${png.byteLength} B`,
     );
   });
 
@@ -457,7 +472,7 @@ export async function runSelfTest(
     return 'set 4, then reset';
   });
 
-  const passed = checks.filter((entry) => entry.pass).length;
+  const passed = checks.filter(entry => entry.pass).length;
   const result: SelfTestResult = {
     package: 'munim-pencilkit',
     osVersion: capabilities.osVersion,
@@ -468,7 +483,9 @@ export async function runSelfTest(
     checks,
   };
   if (writer) {
-    result.outputPath = await writer.writeResult(JSON.stringify(result, null, 2));
+    result.outputPath = await writer.writeResult(
+      JSON.stringify(result, null, 2),
+    );
   }
   return result;
 }

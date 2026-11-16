@@ -169,10 +169,7 @@ export interface ApplePencilPreferredSqueezeActionData {
 }
 
 export type SqueezeEraserBehavior =
-  | 'alwaysOn'
-  | 'switchEraserOnly'
-  | 'toggle'
-  | 'none'
+  'alwaysOn' | 'switchEraserOnly' | 'toggle' | 'none'
 
 export type CustomStylusRenderMode = 'incremental' | 'replay'
 
@@ -429,13 +426,7 @@ export interface PencilKitToolPickerItemEvent {
   viewId: number
   identifier: string
   itemType:
-    | 'ink'
-    | 'eraser'
-    | 'lasso'
-    | 'ruler'
-    | 'scribble'
-    | 'custom'
-    | 'unknown'
+    'ink' | 'eraser' | 'lasso' | 'ruler' | 'scribble' | 'custom' | 'unknown'
   /**
    * True when the event is for the item that was already selected (for
    * example its color or width changed) rather than a switch to another item.

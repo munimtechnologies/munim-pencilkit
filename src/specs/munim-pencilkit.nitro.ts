@@ -167,7 +167,10 @@ export interface MunimPencilkit extends HybridObject<{ ios: 'swift' }> {
    * `getPencilKitDrawingArchive` or `exportDocument({ format: 'archive' })`).
    * Not undoable, like `setPencilKitDrawing`. PencilKit engine only.
    */
-  setPencilKitDrawingArchive(viewId: number, archive: ArrayBuffer): Promise<void>
+  setPencilKitDrawingArchive(
+    viewId: number,
+    archive: ArrayBuffer
+  ): Promise<void>
   /**
    * Streams every Apple Pencil sample of the view (coalesced, predicted and
    * estimated-property updates) as packed Float64 records, one buffer per

@@ -38,9 +38,7 @@ import type {
   PencilKitToolStateInput,
 } from './types'
 
-export type {
-  PencilKitViewRef,
-} from './PencilKitView'
+export type { PencilKitViewRef } from './PencilKitView'
 
 export {
   decodePencilSamples,
@@ -131,7 +129,8 @@ export const PencilKitUtils = {
       MunimPencilkit.getPencilKitCapabilities()
     ) as PencilKitCapabilities,
   createView: (): number => MunimPencilkit.createPencilKitView(),
-  destroyView: (viewId: number): void => MunimPencilkit.destroyPencilKitView(viewId),
+  destroyView: (viewId: number): void =>
+    MunimPencilkit.destroyPencilKitView(viewId),
   setConfig: (viewId: number, config: PencilKitConfig): void =>
     MunimPencilkit.setPencilKitConfig(viewId, JSON.stringify(config)),
   /**
@@ -163,8 +162,10 @@ export const PencilKitUtils = {
     MunimPencilkit.setPencilKitDrawingAsync(viewId, JSON.stringify(drawing)),
   clearDrawing: (viewId: number): void =>
     MunimPencilkit.clearPencilKitDrawing(viewId),
-  undo: (viewId: number): boolean => MunimPencilkit.undoPencilKitDrawing(viewId),
-  redo: (viewId: number): boolean => MunimPencilkit.redoPencilKitDrawing(viewId),
+  undo: (viewId: number): boolean =>
+    MunimPencilkit.undoPencilKitDrawing(viewId),
+  redo: (viewId: number): boolean =>
+    MunimPencilkit.redoPencilKitDrawing(viewId),
   canUndo: (viewId: number): boolean =>
     MunimPencilkit.canUndoPencilKitDrawing(viewId),
   canRedo: (viewId: number): boolean =>

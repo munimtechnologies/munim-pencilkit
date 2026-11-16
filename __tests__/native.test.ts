@@ -50,13 +50,17 @@ describe('unsupported platforms', () => {
 
   it('is not mistaken for a thenable', async () => {
     const { MunimPencilkit } = loadModule()
-    expect((MunimPencilkit as unknown as { then?: unknown }).then).toBeUndefined()
+    expect(
+      (MunimPencilkit as unknown as { then?: unknown }).then
+    ).toBeUndefined()
     await expect(Promise.resolve(MunimPencilkit)).resolves.toBe(MunimPencilkit)
   })
 
   it('still answers recognition info', async () => {
     const { MunimPencilkit } = loadModule()
-    expect(JSON.parse(await MunimPencilkit.getPencilKitRecognitionInfo())).toEqual({
+    expect(
+      JSON.parse(await MunimPencilkit.getPencilKitRecognitionInfo())
+    ).toEqual({
       supported: false,
       supportedLanguages: [],
       recognitionVersion: null,
