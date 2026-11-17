@@ -1,3 +1,9 @@
+## [1.18.1](https://github.com/munimtechnologies/munim-pencilkit/compare/v1.18.0...v1.18.1) (2026-11-17)
+
+### 🛠️ Other changes
+
+* **deps:** patch vulnerable dev dependencies (undici, addressable) ([#20](https://github.com/munimtechnologies/munim-pencilkit/issues/20)) ([93410db](https://github.com/munimtechnologies/munim-pencilkit/commit/93410db106e91a2612ab73624d04f827bcc6651c))
+
 ## [1.18.0](https://github.com/munimtechnologies/munim-pencilkit/compare/v1.17.1...v1.18.0) (2026-11-16)
 
 ### ✨ Features
